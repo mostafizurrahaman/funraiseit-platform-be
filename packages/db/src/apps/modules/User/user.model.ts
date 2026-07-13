@@ -13,27 +13,33 @@ const userSchema = new Schema<IUser, IUserModel>(
       required: true,
       unique: true,
     },
+    phoneNumber: {
+      type: String,
+    },
     password: {
       type: String,
       required: true,
       select: false,
     },
-    status: {
+    //  profile image:
+    profileImage: {
       type: String,
-      enum: AuthStatus,
-      default: AuthStatus.PENDING,
     },
-
+    isOnboardingCompleted: {
+      type: Boolean,
+      default: false,
+    },
     // roles:
     role: {
       type: String,
       enum: AuthRoles,
-      default: AuthRoles.USER,
+      default: AuthRoles.ORGANIZER,
     },
 
-    //  profile image:
-    profileImage: {
+    status: {
       type: String,
+      enum: AuthStatus,
+      default: AuthStatus.PENDING,
     },
 
     twoFactorSecret: {
@@ -64,6 +70,12 @@ const userSchema = new Schema<IUser, IUserModel>(
     },
 
     // blocked at:
+    lastLogin: {
+      type: Date,
+    },
+    lastActivity: {
+      type: Date,
+    },
     blockedAt: {
       type: Date,
     },

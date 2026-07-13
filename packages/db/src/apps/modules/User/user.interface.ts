@@ -12,6 +12,7 @@ export interface IUser extends Document {
 
   // profile common properties:
   profileImage?: string
+  phoneNumber?: string
 
   // 2FA:
   twoFactorSecret?: string
@@ -19,11 +20,16 @@ export interface IUser extends Document {
   twoFactorBackupCodes?: string[]
   isOtpVerified: boolean
 
+  // Stripe related:
+  isOnboardingCompleted: boolean
+
   // reason:
   blockedReason?: string
   deletionReason?: string
 
   // common timestamps:
+  lastLogin?: Date
+  lastActivity?: Date
   blockedAt?: Date
   deletedAt?: Date
   passwordChangedAt?: Date
