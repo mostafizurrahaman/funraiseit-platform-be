@@ -13,7 +13,7 @@ import { logger } from '@app/libs/logger'
 const app: express.Application = express()
 
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 munite
+  windowMs: 15 * 60 * 1000, // 15 minute
   max: 500, // limit each IP to 100 requests per windowMs
   message: 'Too many accounts created from this IP, please try again after a minute',
 })
@@ -22,7 +22,7 @@ const stream = {
   write: (message: string) => logger.http(message),
 }
 
-// application level middlewars:
+// application level middlewares:
 app.use(
   morgan(':method :url :status :res[content-length] - :response-time ms', {
     stream,

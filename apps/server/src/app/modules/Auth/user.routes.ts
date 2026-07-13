@@ -3,7 +3,6 @@ import express, { Router } from 'express'
 import { AuthValidations } from './user.validations'
 import { AuthController } from './user.controllers'
 import { auth } from '@app/middlewares/auth'
-import { AuthRoles } from '@repo/db'
 
 const router: Router = express()
 
@@ -27,7 +26,7 @@ router.post(
 // 4. Login :
 router.post('/login', validateRequest(AuthValidations.loginSchema), AuthController.login)
 
-// 5. Forgot passwod:
+// 5. Forgot password:
 router.post(
   '/forgot-password',
   validateRequest(AuthValidations.forgotPasswordSchema),
@@ -58,7 +57,7 @@ router.post(
 // 9. Changed password:
 router.post(
   '/changed-password',
-  auth(AuthRoles.ADMIN, AuthRoles.SUPER_ADMIN, AuthRoles.USER),
+  auth(),
   validateRequest(AuthValidations.changedPasswordSchema),
   AuthController.changedPassword
 )

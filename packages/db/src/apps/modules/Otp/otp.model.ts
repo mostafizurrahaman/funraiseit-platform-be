@@ -1,8 +1,8 @@
 import { model, Schema } from 'mongoose'
-import type { IOtp, IOtpDocument, IOtpModel, IOtpType } from './otp.interface'
+import type { IOtpDocument, IOtpModel, IOtpType } from './otp.interface'
 import { otpTypeValues } from './otp.constant'
 
-const otpSchema = new Schema<IOtp, IOtpModel>(
+const otpSchema = new Schema<IOtpDocument, IOtpModel>(
   {
     user: {
       type: Schema.Types.ObjectId,
@@ -25,6 +25,7 @@ const otpSchema = new Schema<IOtp, IOtpModel>(
   },
   {
     timestamps: true,
+    versionKey: false,
   }
 )
 
@@ -57,4 +58,4 @@ otpSchema.statics.verifyAndConsumeOtp = function (
 otpSchema.index({ user: 1, type: 1 }, { unique: true })
 
 // otp model:
-export const Otp = model<IOtp, IOtpModel>('Otp', otpSchema)
+export const Otp = model<IOtpDocument, IOtpModel>('Otp', otpSchema)

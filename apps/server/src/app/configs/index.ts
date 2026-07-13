@@ -14,7 +14,7 @@ const envSchema = z.object({
   PORT: z.string().transform(Number).default(5000),
   CORS_ORIGINS: z.string().default('*'),
   DATABASE_URL: z.string().url('Invalid Database URL'),
-  PASSWORD_SOLT_ROUND: z.string().transform(Number).default(12),
+  PASSWORD_SALT_ROUND: z.string().transform(Number).default(12),
 
   // Site Config
   SITE_NAME: z.string(),
@@ -26,13 +26,13 @@ const envSchema = z.object({
   // Node Mailer
   NODE_APP_PASSWORD: z.string(),
   NODE_APP_EMAIL: z.string(),
-  NODE_EAMIL_HOST: z.string(),
+  NODE_EMAIL_HOST: z.string(),
   NODE_EMAIL_PORT: z.string().transform((val) => Number(val)),
 
   // Stripe
   STRIPE_SECRET_KEY: z.string(),
   STRIPE_PUBLISHABLE_KEY: z.string(),
-  STRIPE_WEBOOK_KEY: z.string(),
+  STRIPE_WEBHOOK_KEY: z.string(),
   STRIPE_SUCCESS_URL: z.string().url(),
   STRIPE_CANCEL_URL: z.string().url(),
   STRIPE_FIXED_FEE: z.string().transform(Number),
@@ -76,7 +76,7 @@ const configs = {
   port: env.PORT,
   corsOrigins: env.CORS_ORIGINS,
   databaseUrl: env.DATABASE_URL,
-  passwordSoltRound: env.PASSWORD_SOLT_ROUND,
+  passwordSaltRound: env.PASSWORD_SALT_ROUND,
 
   site: {
     name: env.SITE_NAME,
@@ -92,7 +92,7 @@ const configs = {
     password: env.NODE_APP_PASSWORD,
     email: env.NODE_APP_EMAIL,
     port: env.NODE_EMAIL_PORT,
-    host: env.NODE_EAMIL_HOST,
+    host: env.NODE_EMAIL_HOST,
   },
 
   stripe: {

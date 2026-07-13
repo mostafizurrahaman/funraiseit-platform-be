@@ -81,6 +81,13 @@ export const auth = (...requiredRoles: TAuthRole[]) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(req as any).user = decoded
 
+    if (req.path.includes('login')) {
+      user.lastLogin = new Date()
+    }
+    user.lastActivity = new Date()
+
+    await user.save()
+
     next()
   })
 }

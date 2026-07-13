@@ -3,6 +3,8 @@ import { Server } from 'http'
 import configs from './app/configs'
 import app from './app'
 import { logger } from '@app/libs/logger'
+import dns from 'node:dns/promises'
+dns.setServers(['1.1.1.1'])
 
 let server: Server
 //  boostrap function :

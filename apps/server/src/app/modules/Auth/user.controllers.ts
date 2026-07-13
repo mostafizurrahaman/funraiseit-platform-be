@@ -10,7 +10,7 @@ const signUp = catchAsync(async (req, res) => {
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.CREATED,
-    message: `User signed up successfully!`,
+    message: result.message,
     data: result,
   })
 })
@@ -89,7 +89,7 @@ const resendOTP = catchAsync(async (req, res) => {
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
-    message: `OTP resend successfully!`,
+    message: `A new password reset OTP has been sent to your email.`,
     data: result,
   })
 })
@@ -123,10 +123,6 @@ const changedPassword = catchAsync(async (req, res) => {
     data: null,
   })
 })
-
-
-
-
 
 export const AuthController = {
   signUp,
