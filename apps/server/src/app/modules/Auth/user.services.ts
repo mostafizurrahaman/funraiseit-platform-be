@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { AuthRoles, AuthStatus, Otp, otpTypes, User, type IUser } from '@repo/db'
+import { AuthPermission, AuthRoles, AuthStatus, Otp, otpTypes, User, type IUser } from '@repo/db'
 import type {
   IChangedPasswordType,
   IForgotPasswordType,
@@ -7,6 +7,8 @@ import type {
   IResendSignupType,
   IResetPasswordOtpType,
   ISignUpSchemaType,
+  IUpdateProfilePayload,
+  IUpdateUserStatusPayload,
   IVerifyResetPasswordOtpType,
   IVerifySignupOtpType,
 } from './user.validations'
@@ -27,6 +29,8 @@ import mongoose from 'mongoose'
 import { renderEmail, ResetPasswordOTPEmail, SignupOTPEmail } from '@repo/email-templates'
 import { sendEmail } from '@repo/email-sender'
 import { getNewOtp } from '@app/libs/get-new-otp'
+import { deleteSingleFileFromS3, uploadSingleFileToS3, type IMulterFile } from '@repo/media-hub'
+import { logger } from '@app/libs/logger'
 
 // 1. Signup
 const signUp = async (payload: ISignUpSchemaType) => {
@@ -322,8 +326,9 @@ const login = async (payload: ILoginType) => {
   return {
     refreshToken,
     accessToken,
+    role: user.role,
     email: user.email,
-    isTwofactorEnabled: user.isTwoFactorEnabled,
+    isTwoFactorEnabled: user.isTwoFactorEnabled,
   }
 }
 
@@ -574,7 +579,7 @@ const resetPassword = async (resetToken: string, payload: IResetPasswordOtpType)
 }
 
 // 9. Changed password:
-const changedPassword = async (userInfo: IJwtUserPayload, payload: IChangedPasswordType) => {
+const changedPassword = async (userInfo: IUser, payload: IChangedPasswordType) => {
   const { newPassword, oldPassword } = payload
 
   // 1. Check is user exists with this id?:
@@ -638,6 +643,176 @@ const getMe = async (user: IUser) => {
   return profile?.[0]
 }
 
+// 11. Update Profile:
+const updateProfile = async (
+  user: IUser,
+  payload: IUpdateProfilePayload,
+  profileImageFile: IMulterFile
+) => {
+  const { name, phoneNumber } = payload
+
+  const oldImageUrl = user?.profileImage
+  let newImageUrl = undefined
+  // if the profile file provided:
+
+  if (profileImageFile) {
+    const { url } = await uploadSingleFileToS3(profileImageFile, 'profileImage')
+
+    user.profileImage = url
+    newImageUrl = url
+  }
+
+  if (name !== undefined) user.name = name
+  if (phoneNumber !== undefined) user.phoneNumber = phoneNumber
+
+  try {
+    await user.save({
+      validateBeforeSave: true,
+    })
+  } catch (error) {
+    logger.info('Update profile error', error)
+    await deleteSingleFileFromS3(newImageUrl as string)
+    throw new AppError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to update profile')
+  }
+
+  if (oldImageUrl && newImageUrl) {
+    await deleteSingleFileFromS3(oldImageUrl!)
+  }
+
+  return {
+    name: user.name,
+    email: user.email,
+    phoneNumber: user.phoneNumber || null,
+    profileImageFile: user.profileImage || null,
+    createdAt: user.createdAt,
+    updated: user.updatedAt,
+  }
+}
+
+// 12. Change account status:
+const updateUserStatusIntoDB = async (
+  user: IUser,
+  targetUserId: string,
+  payload: IUpdateUserStatusPayload
+) => {
+  const { status, reason } = payload
+
+  // ? Check is targeted user exists :
+  const targetUser = await User.findOne({
+    _id: targetUserId,
+  })
+
+  if (!targetUser) {
+    throw new AppError(httpStatus.NOT_FOUND, "User doesn't exists.")
+  }
+
+  if (targetUser?._id?.toString() === user?._id?.toString()) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'You cannot change your own status.')
+  }
+
+  if (!targetUser.isOtpVerified) {
+    throw new AppError(httpStatus.NOT_FOUND, 'User account is not verified yet.')
+  }
+
+  // Now Check the permission :
+  const actorUserPermission = AuthPermission[user?.role] as number
+  const targetUserPermission = AuthPermission[targetUser?.role] as number
+
+  if (actorUserPermission <= targetUserPermission) {
+    throw new AppError(httpStatus.FORBIDDEN, "You don't have enough permission to change status!")
+  }
+
+  if (actorUserPermission === undefined || targetUserPermission === undefined) {
+    throw new AppError(httpStatus.INTERNAL_SERVER_ERROR, 'Invalid role permission configuration.')
+  }
+
+  if (targetUser.status === status) {
+    throw new AppError(httpStatus.BAD_REQUEST, `The user's status is already set to ${status}.`)
+  }
+
+  targetUser.status = status
+
+  if (targetUser.status === AuthStatus.BLOCKED) {
+    if (!reason) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'A reason is required when blocking a user.')
+    }
+    targetUser.blockedReason = reason as string
+    targetUser.blockedAt = new Date()
+  } else {
+    targetUser.blockedReason = undefined
+    targetUser.blockedAt = undefined
+  }
+
+  await targetUser.save({
+    validateBeforeSave: true,
+  })
+
+  return null
+}
+
+// 13. Refresh token:
+const refreshToken = async (token: string) => {
+  if (!token) {
+    throw new AppError(httpStatus.UNAUTHORIZED, 'Token is required!')
+  }
+
+  // Validates signature and expiration
+  const decodedData = verifyToken(token, configs.jwt.refreshToken.secret!) as IJwtUserPayload
+
+  if (!decodedData._id || !decodedData.iat) {
+    throw new AppError(httpStatus.UNAUTHORIZED, 'Invalid refresh token.')
+  }
+
+  const user = await User.findById(decodedData._id)
+
+  if (!user) {
+    throw new AppError(
+      httpStatus.UNAUTHORIZED,
+      'The account associated with this token no longer exists.'
+    )
+  }
+
+  if (!user.isOtpVerified) {
+    throw new AppError(httpStatus.UNAUTHORIZED, 'Your account has not been verified.')
+  }
+
+  if (user.status !== AuthStatus.ACTIVE) {
+    throw new AppError(
+      httpStatus.UNAUTHORIZED,
+      `Your account is currently ${user.status.toLowerCase()}.`
+    )
+  }
+
+  if (user.passwordChangedAt) {
+    const isTokenStale = await User.isJwtIssuedBeforePasswordChanged(
+      user.passwordChangedAt,
+      decodedData.iat
+    )
+
+    if (isTokenStale) {
+      throw new AppError(httpStatus.UNAUTHORIZED, 'Your session has expired. Please log in again.')
+    }
+  }
+
+  const jwtPayload: IJwtUserPayload = {
+    _id: user._id.toString(),
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    profileImage: user.profileImage!,
+    status: user.status,
+  }
+
+  const accessToken = createToken(
+    jwtPayload,
+    configs.jwt.accessToken.secret!,
+    configs.jwt.accessToken.expiresIn!
+  )
+
+  return {
+    accessToken,
+  }
+}
 export const AuthServices = {
   signUp,
   resendSignupOTP,
@@ -649,4 +824,7 @@ export const AuthServices = {
   resetPassword,
   changedPassword,
   getMe,
+  updateProfile,
+  updateUserStatusIntoDB,
+  refreshToken,
 }

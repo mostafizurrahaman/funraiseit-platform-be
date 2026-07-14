@@ -126,3 +126,29 @@ export const urlString = (fieldName = 'URL') =>
       message: `${fieldName} must be a valid http/https URL`,
     })
 
+export const requiredMongooseId = (fieldName = 'Field') => {
+  return z
+    .string({
+      error: (issue) => {
+        if (issue.code === ZodIssueCode.invalid_type && issue.input === undefined) {
+          return `${fieldName} is required`
+        }
+
+        if (issue.code === ZodIssueCode.invalid_type) {
+          return `${fieldName} must be a string`
+        }
+
+        return undefined
+      },
+    })
+    .trim()
+    .min(1, { message: `${fieldName} cannot be empty` })
+    .refine(
+      (val) => {
+        return mongoose.isValidObjectId(val)
+      },
+      {
+        error: () => 'Invalid mongoose ID!',
+      }
+    )
+}

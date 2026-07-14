@@ -7,6 +7,13 @@ export const AuthStatus = {
   DELETED: 'deleted', // soft-deleted (no login)
 } as const
 
+export const AuthPermission: Record<TAuthRole, number> = {
+  super_admin: 4,
+  admin: 3,
+  support_admin: 2,
+  organizer: 2,
+}
+
 export const AuthStatusValues = Object.values(AuthStatus)
 
 export type TAuthStatus = (typeof AuthStatus)[keyof typeof AuthStatus]
@@ -17,7 +24,7 @@ export const AuthRoles = {
   ADMIN: 'admin',
   ORGANIZER: 'organizer',
   SUPPORT_ADMIN: 'support_admin',
-}
+} as const
 
 export const AuthRolesValues = Object.values(AuthRoles)
 

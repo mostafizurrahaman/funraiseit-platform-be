@@ -24,13 +24,13 @@ export interface IUser extends Document {
   isOnboardingCompleted: boolean
 
   // reason:
-  blockedReason?: string
+  blockedReason?: string | undefined
   deletionReason?: string
 
   // common timestamps:
   lastLogin?: Date
   lastActivity?: Date
-  blockedAt?: Date
+  blockedAt?: Date | undefined
   deletedAt?: Date
   passwordChangedAt?: Date
   createdAt: Date

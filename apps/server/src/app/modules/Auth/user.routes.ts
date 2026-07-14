@@ -3,6 +3,8 @@ import express, { Router } from 'express'
 import { AuthValidations } from './user.validations'
 import { AuthController } from './user.controllers'
 import { auth } from '@app/middlewares/auth'
+import { multerFactory } from 'packages/media-hub/src'
+import { AuthRoles } from 'packages/db/src'
 
 const router: Router = express()
 
@@ -64,5 +66,32 @@ router.post(
 
 // 10. Get me:
 router.get('/me', auth(), AuthController.getMe)
+
+// 11. Update profile :
+router.patch(
+  '/profile',
+  auth(),
+  multerFactory({
+    category: 'image',
+    maxSizeInMB: 10,
+  }).single('profileImage'),
+  validateRequest(AuthValidations.updateProfile),
+  AuthController.updateProfile
+)
+
+// 12. Update User Status:
+router.patch(
+  '/update-status/:id',
+  auth(AuthRoles.ADMIN, AuthRoles.SUPER_ADMIN),
+  validateRequest(AuthValidations.updateUserStatusSchema),
+  AuthController.updateUserStatusByID
+)
+
+// 12. Refresh Token:
+router.post(
+  '/refresh-token',
+  validateRequest(AuthValidations.refreshTokenSchema),
+  AuthController.refreshToken
+)
 
 export const authRoutes = router
