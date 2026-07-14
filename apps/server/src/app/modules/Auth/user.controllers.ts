@@ -61,6 +61,26 @@ const login = catchAsync(async (req, res) => {
   })
 })
 
+// 4. Admin Login user:
+const adminLogin = catchAsync(async (req, res) => {
+  const result = await AuthServices.adminLogin(req.body)
+
+  setCookie(res, 'refreshToken', result.refreshToken, {
+    httpOnly: true,
+    secure: configs.nodeEnv === 'production',
+    maxAge: 365 * 24 * 60 * 60 * 1000, // 365 days
+    sameSite: 'lax',
+    path: '/',
+  })
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: `You have logged in successfully!`,
+    data: result,
+  })
+})
+
 // 5. Forgot password:
 const forgotPassword = catchAsync(async (req, res) => {
   const result = await AuthServices.forgotPassword(req.body)
@@ -187,6 +207,7 @@ export const AuthController = {
   resendSignupOTP,
   verifySignupOTP,
   login,
+  adminLogin,
   forgotPassword,
   verifyResetPasswordOtp,
   resendOTP,

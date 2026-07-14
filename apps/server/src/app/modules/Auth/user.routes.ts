@@ -27,6 +27,7 @@ router.post(
 
 // 4. Login :
 router.post('/login', validateRequest(AuthValidations.loginSchema), AuthController.login)
+router.post('/admin-login', validateRequest(AuthValidations.loginSchema), AuthController.adminLogin)
 
 // 5. Forgot password:
 router.post(
