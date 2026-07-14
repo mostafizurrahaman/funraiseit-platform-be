@@ -4,6 +4,7 @@ import configs from './app/configs'
 import app from './app'
 import { logger } from '@app/libs/logger'
 import dns from 'node:dns/promises'
+import { seedSuperAdmin } from '@app/libs/seed-super-admin'
 dns.setServers(['1.1.1.1'])
 
 let server: Server
@@ -11,8 +12,12 @@ let server: Server
 const boostrap = async () => {
   try {
     await connectDB(configs.databaseUrl)
-
     logger.info('✅ Database connected  successfully!')
+
+    await seedSuperAdmin()
+
+
+
     // server listen :
     server = app.listen(configs.port, () => {
       logger.info(`🧑‍🚀🚀 Server is running on ${configs.port}`)
