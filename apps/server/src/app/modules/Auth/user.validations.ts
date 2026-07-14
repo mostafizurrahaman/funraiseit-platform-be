@@ -1,4 +1,12 @@
-import { requiredEmail, requiredString } from '@repo/shared'
+import {
+  enumString,
+  optionalString,
+  requiredEmail,
+  requiredMongooseId,
+  requiredString,
+  usaPhoneRegex,
+} from '@repo/shared'
+import { AuthStatus } from '@repo/db'
 import z from 'zod/v4'
 
 // 1. Signup
@@ -73,6 +81,45 @@ const changedPasswordSchema = z.object({
   }),
 })
 
+// Update Profile :
+const updateProfile = z.object({
+  body: z.object({
+    name: optionalString('Name'),
+    phoneNumber: z
+      .string({
+        error: 'Phone number is required!',
+      })
+      .regex(usaPhoneRegex, 'Please enter a valid USA phone number'),
+  }),
+})
+
+// Update User Status :
+const updateUserStatusSchema = z.object({
+  params: z.object({
+    id: requiredMongooseId('User ID'),
+  }),
+  body: z
+    .object({
+      status: enumString([AuthStatus.ACTIVE, AuthStatus.BLOCKED, AuthStatus.IN_REVIEW], 'Status'),
+      reason: optionalString('Reason'),
+    })
+    .superRefine((data, ctx) => {
+      if (data.status === AuthStatus.BLOCKED && !data.reason?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['reason'],
+          message: 'A reason is required when blocking a user.',
+        })
+      }
+    }),
+})
+
+const refreshTokenSchema = z.object({
+  cookies: z.object({
+    refreshToken: requiredString('refreshToken'),
+  }),
+})
+
 export const AuthValidations = {
   signUserSchema,
   loginSchema,
@@ -83,9 +130,10 @@ export const AuthValidations = {
   resendOTPSchema,
   changedPasswordSchema,
   resetPasswordSchema,
+  updateProfile,
+  updateUserStatusSchema,
+  refreshTokenSchema,
 }
-
-
 
 export type ISignUpSchemaType = z.infer<typeof signUserSchema.shape.body>
 export type ILoginType = z.infer<typeof loginSchema.shape.body>
@@ -96,3 +144,5 @@ export type IVerifyResetPasswordOtpType = z.infer<typeof verifyResetPasswordOtpS
 export type IResetPasswordOtpType = z.infer<typeof resetPasswordSchema.shape.body>
 export type IResetPasswordOtpQueryType = z.infer<typeof resetPasswordSchema.shape.query>
 export type IChangedPasswordType = z.infer<typeof changedPasswordSchema.shape.body>
+export type IUpdateProfilePayload = z.infer<typeof updateProfile.shape.body>
+export type IUpdateUserStatusPayload = z.infer<typeof updateUserStatusSchema.shape.body>

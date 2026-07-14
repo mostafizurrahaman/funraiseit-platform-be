@@ -1,4 +1,5 @@
 import dotenv from 'dotenv'
+import { usaPhoneRegex } from 'packages/shared/src'
 import path from 'path'
 import { z } from 'zod'
 
@@ -55,6 +56,9 @@ const envSchema = z.object({
   // Admin & OTP
   SUPER_ADMIN_PASSWORD: z.string(),
   SUPER_ADMIN_EMAIL: z.string().email(),
+  SUPER_ADMIN_PHONE_NUMBER: z
+    .string()
+    .regex(usaPhoneRegex, { error: 'Provide a valid usa number!' }),
   OTP_EXPIRES_IN: z.string().transform(Number).default(5),
   OTP_DIGITS: z.string().transform(Number).default(6),
 })
@@ -98,7 +102,7 @@ const configs = {
   stripe: {
     secretKey: env.STRIPE_SECRET_KEY,
     publishableKey: env.STRIPE_PUBLISHABLE_KEY,
-    webhookKey: env.STRIPE_WEBOOK_KEY,
+    webhookKey: env.STRIPE_WEBHOOK_KEY,
     successUrl: env.STRIPE_SUCCESS_URL,
     cancelUrl: env.STRIPE_CANCEL_URL,
     fixedFee: env.STRIPE_FIXED_FEE,
@@ -130,6 +134,7 @@ const configs = {
   superAdmin: {
     password: env.SUPER_ADMIN_PASSWORD,
     email: env.SUPER_ADMIN_EMAIL,
+    phoneNumber: env.SUPER_ADMIN_PHONE_NUMBER,
   },
 
   otpSettings: {

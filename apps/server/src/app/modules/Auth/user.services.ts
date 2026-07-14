@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { AuthRoles, AuthStatus, Otp, otpTypes, User, type IUser } from '@repo/db'
+import { AuthPermission, AuthRoles, AuthStatus, Otp, otpTypes, User, type IUser } from '@repo/db'
 import type {
   IChangedPasswordType,
   IForgotPasswordType,
@@ -7,6 +7,8 @@ import type {
   IResendSignupType,
   IResetPasswordOtpType,
   ISignUpSchemaType,
+  IUpdateProfilePayload,
+  IUpdateUserStatusPayload,
   IVerifyResetPasswordOtpType,
   IVerifySignupOtpType,
 } from './user.validations'
@@ -27,6 +29,8 @@ import mongoose from 'mongoose'
 import { renderEmail, ResetPasswordOTPEmail, SignupOTPEmail } from '@repo/email-templates'
 import { sendEmail } from '@repo/email-sender'
 import { getNewOtp } from '@app/libs/get-new-otp'
+import { deleteSingleFileFromS3, uploadSingleFileToS3, type IMulterFile } from '@repo/media-hub'
+import { logger } from '@app/libs/logger'
 
 // 1. Signup
 const signUp = async (payload: ISignUpSchemaType) => {
@@ -273,6 +277,13 @@ const login = async (payload: ILoginType) => {
     throw new AppError(httpStatus.NOT_FOUND, "User doesn't exists!")
   }
 
+  if (user.role !== AuthRoles.ORGANIZER) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      'Only organizer accounts are permitted to log in through this portal.'
+    )
+  }
+
   // 2. check user status:
   if (user.status === AuthStatus.BLOCKED) {
     throw new AppError(httpStatus.FORBIDDEN, 'You account is blocked. Please contact support!')
@@ -322,8 +333,80 @@ const login = async (payload: ILoginType) => {
   return {
     refreshToken,
     accessToken,
+    role: user.role,
     email: user.email,
-    isTwofactorEnabled: user.isTwoFactorEnabled,
+    isTwoFactorEnabled: user.isTwoFactorEnabled,
+  }
+}
+// 4.1. Login :
+const adminLogin = async (payload: ILoginType) => {
+  const { email, password } = payload
+
+  // 1. check user
+  const user = await User.findOne({ email }).select('+password')
+  if (!user) {
+    throw new AppError(httpStatus.NOT_FOUND, "User doesn't exists!")
+  }
+
+  if (user.role === AuthRoles.ORGANIZER) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      'You are not authorized to log in through the admin portal.'
+    )
+  }
+
+  // 2. check user status:
+  if (user.status === AuthStatus.BLOCKED) {
+    throw new AppError(httpStatus.FORBIDDEN, 'You account is blocked. Please contact support!')
+  }
+
+  if (user.status === AuthStatus.DELETED) {
+    throw new AppError(httpStatus.GONE, 'Your account is deleted!')
+  }
+
+  // 3. check is in review or not ? if documents required
+
+  // 4. check is otp verified ?
+  if (!user.isOtpVerified) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Your account is not verified!')
+  }
+
+  // 5. compare given password:
+  const isPasswordMatched = await comparePassword(password, user.password)
+
+  if (!isPasswordMatched) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Credential not matched!')
+  }
+
+  // 6. Prepare jwt payload:
+  const jwtPayload: IJwtUserPayload = {
+    _id: user._id?.toString(),
+    email: user?.email,
+    name: user?.name,
+    profileImage: user?.profileImage as string,
+    status: user?.status,
+  }
+
+  // 7. Generate access token :
+  const accessToken = createToken(
+    jwtPayload,
+    configs.jwt.accessToken.secret,
+    configs.jwt.accessToken.expiresIn
+  )
+
+  // 8. Generate refresh token
+  const refreshToken = createToken(
+    jwtPayload,
+    configs.jwt.refreshToken.secret,
+    configs.jwt.refreshToken.expiresIn
+  )
+
+  return {
+    refreshToken,
+    accessToken,
+    role: user.role,
+    email: user.email,
+    isTwoFactorEnabled: user.isTwoFactorEnabled,
   }
 }
 
@@ -555,7 +638,7 @@ const resetPassword = async (resetToken: string, payload: IResetPasswordOtpType)
   }
 
   // 4. Hash password:
-  const hashedPassword = await hashPassword(newPassword, configs.passwordSoltRound)
+  const hashedPassword = await hashPassword(newPassword, configs.passwordSaltRound)
 
   // 5. Update user password:
   await User.findOneAndUpdate(
@@ -574,7 +657,7 @@ const resetPassword = async (resetToken: string, payload: IResetPasswordOtpType)
 }
 
 // 9. Changed password:
-const changedPassword = async (userInfo: IJwtUserPayload, payload: IChangedPasswordType) => {
+const changedPassword = async (userInfo: IUser, payload: IChangedPasswordType) => {
   const { newPassword, oldPassword } = payload
 
   // 1. Check is user exists with this id?:
@@ -590,7 +673,7 @@ const changedPassword = async (userInfo: IJwtUserPayload, payload: IChangedPassw
   }
 
   // 3. Hash new password:
-  const hashedPassword = await hashPassword(newPassword, configs.passwordSoltRound)
+  const hashedPassword = await hashPassword(newPassword, configs.passwordSaltRound)
 
   // 4. Update password now:
   await User.findOneAndUpdate(
@@ -607,14 +690,220 @@ const changedPassword = async (userInfo: IJwtUserPayload, payload: IChangedPassw
   )
 }
 
+// 10. Get me :
+const getMe = async (user: IUser) => {
+  const profile = await User.aggregate([
+    {
+      $match: {
+        _id: user?._id,
+      },
+    },
+    {
+      $project: {
+        _id: '$_id',
+        name: '$name',
+        email: '$email',
+        phoneNumber: { $ifNull: ['$phoneNumber', null] },
+        status: '$status',
+        role: '$role',
+        profileImage: { $ifNull: ['$profileImage', null] },
+        isOnboardingCompleted: { $ifNull: ['$isOnboardingCompleted', null] },
+        createdAt: '$createdAt',
+        updatedAt: '$updatedAt',
+      },
+    },
+  ])
+
+  if (!profile?.[0]) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Profile not found!')
+  }
+
+  return profile?.[0]
+}
+
+// 11. Update Profile:
+const updateProfile = async (
+  user: IUser,
+  payload: IUpdateProfilePayload,
+  profileImageFile: IMulterFile
+) => {
+  const { name, phoneNumber } = payload
+
+  const oldImageUrl = user?.profileImage
+  let newImageUrl = undefined
+  // if the profile file provided:
+
+  if (profileImageFile) {
+    const { url } = await uploadSingleFileToS3(profileImageFile, 'profileImage')
+
+    user.profileImage = url
+    newImageUrl = url
+  }
+
+  if (name !== undefined) user.name = name
+  if (phoneNumber !== undefined) user.phoneNumber = phoneNumber
+
+  try {
+    await user.save({
+      validateBeforeSave: true,
+    })
+  } catch (error) {
+    logger.info('Update profile error', error)
+    await deleteSingleFileFromS3(newImageUrl as string)
+    throw new AppError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to update profile')
+  }
+
+  if (oldImageUrl && newImageUrl) {
+    await deleteSingleFileFromS3(oldImageUrl!)
+  }
+
+  return {
+    name: user.name,
+    email: user.email,
+    phoneNumber: user.phoneNumber || null,
+    profileImageFile: user.profileImage || null,
+    createdAt: user.createdAt,
+    updated: user.updatedAt,
+  }
+}
+
+// 12. Change account status:
+const updateUserStatusIntoDB = async (
+  user: IUser,
+  targetUserId: string,
+  payload: IUpdateUserStatusPayload
+) => {
+  const { status, reason } = payload
+
+  // ? Check is targeted user exists :
+  const targetUser = await User.findOne({
+    _id: targetUserId,
+  })
+
+  if (!targetUser) {
+    throw new AppError(httpStatus.NOT_FOUND, "User doesn't exists.")
+  }
+
+  if (targetUser?._id?.toString() === user?._id?.toString()) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'You cannot change your own status.')
+  }
+
+  if (!targetUser.isOtpVerified) {
+    throw new AppError(httpStatus.NOT_FOUND, 'User account is not verified yet.')
+  }
+
+  // Now Check the permission :
+  const actorUserPermission = AuthPermission[user?.role] as number
+  const targetUserPermission = AuthPermission[targetUser?.role] as number
+
+  if (actorUserPermission <= targetUserPermission) {
+    throw new AppError(httpStatus.FORBIDDEN, "You don't have enough permission to change status!")
+  }
+
+  if (actorUserPermission === undefined || targetUserPermission === undefined) {
+    throw new AppError(httpStatus.INTERNAL_SERVER_ERROR, 'Invalid role permission configuration.')
+  }
+
+  if (targetUser.status === status) {
+    throw new AppError(httpStatus.BAD_REQUEST, `The user's status is already set to ${status}.`)
+  }
+
+  targetUser.status = status
+
+  if (targetUser.status === AuthStatus.BLOCKED) {
+    if (!reason) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'A reason is required when blocking a user.')
+    }
+    targetUser.blockedReason = reason as string
+    targetUser.blockedAt = new Date()
+  } else {
+    targetUser.blockedReason = undefined
+    targetUser.blockedAt = undefined
+  }
+
+  await targetUser.save({
+    validateBeforeSave: true,
+  })
+
+  return null
+}
+
+// 13. Refresh token:
+const refreshToken = async (token: string) => {
+  if (!token) {
+    throw new AppError(httpStatus.UNAUTHORIZED, 'Token is required!')
+  }
+
+  // Validates signature and expiration
+  const decodedData = verifyToken(token, configs.jwt.refreshToken.secret!) as IJwtUserPayload
+
+  if (!decodedData._id || !decodedData.iat) {
+    throw new AppError(httpStatus.UNAUTHORIZED, 'Invalid refresh token.')
+  }
+
+  const user = await User.findById(decodedData._id)
+
+  if (!user) {
+    throw new AppError(
+      httpStatus.UNAUTHORIZED,
+      'The account associated with this token no longer exists.'
+    )
+  }
+
+  if (!user.isOtpVerified) {
+    throw new AppError(httpStatus.UNAUTHORIZED, 'Your account has not been verified.')
+  }
+
+  if (user.status !== AuthStatus.ACTIVE) {
+    throw new AppError(
+      httpStatus.UNAUTHORIZED,
+      `Your account is currently ${user.status.toLowerCase()}.`
+    )
+  }
+
+  if (user.passwordChangedAt) {
+    const isTokenStale = await User.isJwtIssuedBeforePasswordChanged(
+      user.passwordChangedAt,
+      decodedData.iat
+    )
+
+    if (isTokenStale) {
+      throw new AppError(httpStatus.UNAUTHORIZED, 'Your session has expired. Please log in again.')
+    }
+  }
+
+  const jwtPayload: IJwtUserPayload = {
+    _id: user._id.toString(),
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    profileImage: user.profileImage!,
+    status: user.status,
+  }
+
+  const accessToken = createToken(
+    jwtPayload,
+    configs.jwt.accessToken.secret!,
+    configs.jwt.accessToken.expiresIn!
+  )
+
+  return {
+    accessToken,
+  }
+}
 export const AuthServices = {
   signUp,
   resendSignupOTP,
   verifySignupOTP,
   login,
+  adminLogin,
   forgotPassword,
   verifyResetPasswordOtp,
   resendOTP,
   resetPassword,
   changedPassword,
+  getMe,
+  updateProfile,
+  updateUserStatusIntoDB,
+  refreshToken,
 }
