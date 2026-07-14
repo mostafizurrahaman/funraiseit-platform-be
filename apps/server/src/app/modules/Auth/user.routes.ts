@@ -62,4 +62,7 @@ router.post(
   AuthController.changedPassword
 )
 
+// 10. Get me:
+router.get('/me', auth(), AuthController.getMe)
+
 export const authRoutes = router

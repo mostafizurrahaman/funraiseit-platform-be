@@ -555,7 +555,7 @@ const resetPassword = async (resetToken: string, payload: IResetPasswordOtpType)
   }
 
   // 4. Hash password:
-  const hashedPassword = await hashPassword(newPassword, configs.passwordSoltRound)
+  const hashedPassword = await hashPassword(newPassword, configs.passwordSaltRound)
 
   // 5. Update user password:
   await User.findOneAndUpdate(
@@ -590,7 +590,7 @@ const changedPassword = async (userInfo: IJwtUserPayload, payload: IChangedPassw
   }
 
   // 3. Hash new password:
-  const hashedPassword = await hashPassword(newPassword, configs.passwordSoltRound)
+  const hashedPassword = await hashPassword(newPassword, configs.passwordSaltRound)
 
   // 4. Update password now:
   await User.findOneAndUpdate(
@@ -607,6 +607,37 @@ const changedPassword = async (userInfo: IJwtUserPayload, payload: IChangedPassw
   )
 }
 
+// 10. Get me :
+const getMe = async (user: IUser) => {
+  const profile = await User.aggregate([
+    {
+      $match: {
+        _id: user?._id,
+      },
+    },
+    {
+      $project: {
+        _id: '$_id',
+        name: '$name',
+        email: '$email',
+        phoneNumber: { $ifNull: ['$phoneNumber', null] },
+        status: '$status',
+        role: '$role',
+        profileImage: { $ifNull: ['$profileImage', null] },
+        isOnboardingCompleted: { $ifNull: ['$isOnboardingCompleted', null] },
+        createdAt: '$createdAt',
+        updatedAt: '$updatedAt',
+      },
+    },
+  ])
+
+  if (!profile?.[0]) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Profile not found!')
+  }
+
+  return profile?.[0]
+}
+
 export const AuthServices = {
   signUp,
   resendSignupOTP,
@@ -617,4 +648,5 @@ export const AuthServices = {
   resendOTP,
   resetPassword,
   changedPassword,
+  getMe,
 }

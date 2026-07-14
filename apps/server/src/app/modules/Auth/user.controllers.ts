@@ -1,7 +1,8 @@
-import { catchAsync, getUserFromRequest, sendResponse, setCookie } from '@repo/shared'
+import { catchAsync, sendResponse, setCookie } from '@repo/shared'
 import { AuthServices } from './user.services'
 import httpStatus from 'http-status'
 import configs from '@app/configs'
+import { getUserFromRequest } from '@app/libs/get-user-from-request'
 
 // 1. Sign up
 const signUp = catchAsync(async (req, res) => {
@@ -124,6 +125,19 @@ const changedPassword = catchAsync(async (req, res) => {
   })
 })
 
+const getMe = catchAsync(async (req, res) => {
+  const user = await getUserFromRequest(req)
+
+  const result = await AuthServices.getMe(user)
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: `Profile retrieved successfully !`,
+    data: result,
+  })
+})
+
 export const AuthController = {
   signUp,
   resendSignupOTP,
@@ -134,4 +148,5 @@ export const AuthController = {
   resendOTP,
   resetPassword,
   changedPassword,
+  getMe,
 }
