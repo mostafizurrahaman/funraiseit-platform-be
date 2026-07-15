@@ -10,6 +10,7 @@ import {
   enumString,
   positiveNumber,
   requiredDate,
+  requiredMongooseId,
 } from '@repo/shared'
 import { discountType, discountTypeValues, promoCodeSortableFields } from '@repo/db'
 
@@ -44,6 +45,9 @@ const createPromoCodeSchema = z.object({
 })
 
 const updatePromoCodeSchema = z.object({
+  params: z.object({
+    id: requiredMongooseId('PromoCode ID'),
+  }),
   body: z
     .object({
       code: optionalString('Code').transform((val) => val?.toUpperCase()),

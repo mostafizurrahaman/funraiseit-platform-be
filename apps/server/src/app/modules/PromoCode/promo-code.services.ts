@@ -1,6 +1,6 @@
-import { PromoCode, promoCodeSearchableFields, type IUser } from '@repo/db'
+import { discountType, PromoCode, promoCodeSearchableFields, type IUser } from '@repo/db'
 import httpStatus from 'http-status'
-import { AppError } from '@repo/shared'
+import { AppError, isExpired } from '@repo/shared'
 import type { PipelineStage } from 'mongoose'
 
 import type {
@@ -49,13 +49,64 @@ const createPromoCode = async (user: IUser, payload: TCreatePromoCodePayloadType
 }
 
 const updatePromoCode = async (id: string, payload: TUpdatePromoCodePayloadType) => {
-  const result = await PromoCode.findOneAndUpdate({ _id: id }, { $set: payload }, { new: true })
+  // Check if the promo code exists
+  const existingPromoCode = await PromoCode.findById(id)
 
-  if (!result) {
-    throw new AppError(httpStatus.NOT_FOUND, 'PromoCode not found')
+  if (!existingPromoCode) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Promo code not found with this ID.')
   }
 
-  return result
+  if (existingPromoCode.usedCount > 0) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "This promo code has already been used and can't be updated."
+    )
+  }
+
+  // Check for duplicate promo code
+  const duplicatePromoCode = await PromoCode.findOne({
+    code: payload.code?.toUpperCase(),
+    _id: { $ne: id },
+  })
+
+  if (duplicatePromoCode) {
+    const isDuplicateExpired = duplicatePromoCode.expiresAt.getTime() <= Date.now()
+
+    if (!isDuplicateExpired) {
+      throw new AppError(
+        httpStatus.CONFLICT,
+        'A promo code with this code already exists and has not expired.'
+      )
+    }
+
+    throw new AppError(
+      httpStatus.CONFLICT,
+      `A promo code with this code already exists with status "${duplicatePromoCode.isActive}".`
+    )
+  }
+
+  const effectiveDiscountType = payload.discountType ?? existingPromoCode.discountType
+
+  const effectiveDiscountValue = payload.discountValue ?? existingPromoCode.discountValue
+
+  if (effectiveDiscountType === discountType.PERCENTAGE && effectiveDiscountValue > 100) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Discount percentage cannot exceed 100%.')
+  }
+
+  if (payload.code) {
+    payload.code = payload.code.toUpperCase()
+  }
+
+  const promoCode = await PromoCode.findByIdAndUpdate(
+    id,
+    { $set: payload },
+    {
+      new: true,
+      runValidators: true,
+    }
+  )
+
+  return promoCode
 }
 
 const getAllPromoCode = async (query: TGetAllPromoCodeQueryParamsType) => {

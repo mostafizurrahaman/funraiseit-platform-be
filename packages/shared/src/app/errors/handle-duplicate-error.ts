@@ -17,8 +17,7 @@ export const handleValidationError = (err: mongoose.Error.ValidationError): ISen
 
   return {
     statusCode,
-    message: 'Validation Error',
+    message: errorSources?.[0]?.message || 'Validation Error',
     errorSources,
   }
 }
-
