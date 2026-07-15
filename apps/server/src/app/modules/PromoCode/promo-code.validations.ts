@@ -102,7 +102,7 @@ const getAllPromoCodeSchema = z.object({
 
 const getPromoCodeByIdSchema = z.object({
   params: z.object({
-    id: requiredString('ID'),
+    id: requiredMongooseId('PromoCode ID'),
   }),
 })
 

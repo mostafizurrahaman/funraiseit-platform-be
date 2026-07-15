@@ -27,7 +27,7 @@ const updatePromoCode = catchAsync(async (req, res) => {
 })
 
 const getAllPromoCode = catchAsync(async (req, res) => {
-  const result = await promoCodeServices.getAllPromoCode(req.query)
+  const result = await promoCodeServices.getAllPromoCode(req.validateQuery)
 
   sendResponse(res, {
     success: true,

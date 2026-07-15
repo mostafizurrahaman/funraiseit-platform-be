@@ -111,14 +111,17 @@ const updatePromoCode = async (id: string, payload: TUpdatePromoCodePayloadType)
 
 const getAllPromoCode = async (query: TGetAllPromoCodeQueryParamsType) => {
   const {
-    page = 1,
-    limit = 10,
+    page: currentPage = 1,
+    limit: currentLimit = 10,
     searchTerm,
     sortOrder = 'desc',
     sortBy = 'createdAt',
     fromDate,
     toDate,
   } = query
+
+  const page = Number(currentPage) || 1
+  const limit = Number(currentLimit) || 10
 
   const skip = (page - 1) * limit
   const pipeline: PipelineStage[] = []

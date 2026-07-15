@@ -1,4 +1,4 @@
-export const promoCodeSearchableFields = ['name'] as const
+export const promoCodeSearchableFields = ['name', 'code', 'discountType', 'discountValue'] as const
 
 export const promoCodeSortableFields = [
   'createdAt',
