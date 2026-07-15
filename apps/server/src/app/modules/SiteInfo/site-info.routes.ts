@@ -17,3 +17,5 @@ router.post(
 router.get('/', siteInfoControllers.getSiteInfo)
 
 export const siteInfoRoutes = router
+
+

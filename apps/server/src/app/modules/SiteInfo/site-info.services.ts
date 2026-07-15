@@ -36,6 +36,5 @@ const getSiteInfo = async () => {
 
 export const siteInfoServices = {
   createSiteInfo,
-
   getSiteInfo,
 }

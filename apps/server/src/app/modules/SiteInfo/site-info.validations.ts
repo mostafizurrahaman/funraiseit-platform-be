@@ -1,4 +1,4 @@
-import { siteInfoSortableFields } from '@repo/db';
+import { siteInfoSortableFields } from '@repo/db'
 import z from 'zod'
 import {
   requiredString,
