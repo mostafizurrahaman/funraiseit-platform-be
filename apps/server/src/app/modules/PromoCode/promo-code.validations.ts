@@ -6,7 +6,6 @@ import {
   optionalString,
   optionalDate,
   sortingOrderValues,
-  sortOrder,
   enumString,
   positiveNumber,
   requiredDate,
@@ -123,4 +122,4 @@ export const promoCodeValidations = {
 export type TCreatePromoCodePayloadType = z.infer<typeof createPromoCodeSchema.shape.body>
 export type TGetAllPromoCodeQueryParamsType = z.infer<typeof getAllPromoCodeSchema.shape.query>
 export type TGetPromoCodeByIdParamsType = z.infer<typeof getPromoCodeByIdSchema.shape.params>
-export type TDeletePromoCodeByIdParamsType = z.infer<typeof deletePromoCodeByIdSchema.shape.params>
+export type TUpdatePromoCodePayloadType = z.infer<typeof createPromoCodeSchema.shape.body>

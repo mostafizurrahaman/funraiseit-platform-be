@@ -2,6 +2,7 @@ import { catchAsync, sendResponse } from '@repo/shared'
 import httpStatus from 'http-status'
 import { promoCodeServices } from './promo-code.services'
 import { getUserFromRequest } from '@app/libs/get-user-from-request'
+import type { TGetAllPromoCodeQueryParamsType } from './promo-code.validations'
 
 const createPromoCode = catchAsync(async (req, res) => {
   const user = await getUserFromRequest(req)
@@ -27,7 +28,9 @@ const updatePromoCode = catchAsync(async (req, res) => {
 })
 
 const getAllPromoCode = catchAsync(async (req, res) => {
-  const result = await promoCodeServices.getAllPromoCode(req.validateQuery)
+  const result = await promoCodeServices.getAllPromoCode(
+    req.query as unknown as TGetAllPromoCodeQueryParamsType
+  )
 
   sendResponse(res, {
     success: true,
@@ -49,21 +52,12 @@ const getPromoCodeById = catchAsync(async (req, res) => {
   })
 })
 
-const deletePromoCodeById = catchAsync(async (req, res) => {
-  const result = await promoCodeServices.deletePromoCodeById(req.params.id as string)
 
-  sendResponse(res, {
-    success: true,
-    statusCode: httpStatus.OK,
-    message: 'The promo code deleted successfully!',
-    data: result,
-  })
-})
 
 export const promoCodeControllers = {
   createPromoCode,
   updatePromoCode,
   getAllPromoCode,
   getPromoCodeById,
-  deletePromoCodeById,
 }
+    

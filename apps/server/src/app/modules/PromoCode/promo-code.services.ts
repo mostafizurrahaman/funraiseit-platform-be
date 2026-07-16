@@ -1,12 +1,12 @@
 import { discountType, PromoCode, promoCodeSearchableFields, type IUser } from '@repo/db'
 import httpStatus from 'http-status'
-import { AppError, isExpired } from '@repo/shared'
+import { AppError } from '@repo/shared'
 import type { PipelineStage } from 'mongoose'
 
 import type {
   TCreatePromoCodePayloadType,
-  TUpdatePromoCodePayloadType,
   TGetAllPromoCodeQueryParamsType,
+  TUpdatePromoCodePayloadType,
 } from './promo-code.validations'
 
 const createPromoCode = async (user: IUser, payload: TCreatePromoCodePayloadType) => {
@@ -134,15 +134,25 @@ const getAllPromoCode = async (query: TGetAllPromoCodeQueryParamsType) => {
     pipeline.push({ $match: { createdAt: dateFilter } })
   }
 
-  if (searchTerm) {
+  if (
     pipeline.push({
-      $match: {
-        $or: promoCodeSearchableFields.map((field) => ({
-          [field]: { $regex: searchTerm, $options: 'i' },
-        })),
+      $lookup: {
+        from: 'users',
+        localField: 'createdBy',
+        foreignField: '_id',
+        as: 'updatedDetails',
       },
     })
-  }
+  )
+    if (searchTerm) {
+      pipeline.push({
+        $match: {
+          $or: promoCodeSearchableFields.map((field) => ({
+            [field]: { $regex: searchTerm, $options: 'i' },
+          })),
+        },
+      })
+    }
 
   pipeline.push({ $sort: { [sortBy]: sortOrder === 'asc' ? 1 : -1 } })
 
@@ -179,20 +189,11 @@ const getPromoCodeById = async (id: string) => {
   return result
 }
 
-const deletePromoCodeById = async (id: string) => {
-  const result = await PromoCode.findOneAndDelete({ _id: id })
-
-  if (!result) {
-    throw new AppError(httpStatus.NOT_FOUND, 'PromoCode not found')
-  }
-
-  return result
-}
 
 export const promoCodeServices = {
   createPromoCode,
   updatePromoCode,
   getAllPromoCode,
   getPromoCodeById,
-  deletePromoCodeById,
+ 
 }

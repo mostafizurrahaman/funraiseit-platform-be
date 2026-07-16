@@ -31,11 +31,4 @@ router.get(
   validateRequest(promoCodeValidations.getPromoCodeByIdSchema),
   promoCodeControllers.getPromoCodeById
 )
-
-router.delete(
-  '/:id',
-  validateRequest(promoCodeValidations.deletePromoCodeByIdSchema),
-  promoCodeControllers.deletePromoCodeById
-)
-
 export const promoCodeRoutes = router
