@@ -393,21 +393,21 @@ const getUsersById = async (id: string) => {
   return result[0]
 }
 
-const deleteUsersById = async (id: string) => {
-  const result = await User.findOneAndDelete({ _id: id })
+// const deleteUsersById = async (id: string) => {
+//   const result = await User.findOneAndDelete({ _id: id })
 
-  if (!result) {
-    throw new AppError(httpStatus.NOT_FOUND, 'Users not found')
-  }
+//   if (!result) {
+//     throw new AppError(httpStatus.NOT_FOUND, 'Users not found')
+//   }
 
-  return result
-}
+//   return result
+// }
 
 export const usersServices = {
   createUsers,
   updateUsers,
   getAllUsers,
   getUsersById,
-  deleteUsersById,
+  // deleteUsersById,
   getAllOrganizations,
 }
