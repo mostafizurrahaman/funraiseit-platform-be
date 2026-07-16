@@ -1,5 +1,6 @@
 import { z, ZodIssueCode } from 'zod'
 import { URL_REGEX } from '../constants/regex'
+import mongoose from 'mongoose'
 
 /**
  * Creates a required string schema.

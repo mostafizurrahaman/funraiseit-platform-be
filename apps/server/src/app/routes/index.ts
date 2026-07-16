@@ -1,5 +1,7 @@
 import { authRoutes } from '@app/modules/Auth/user.routes'
+import { promoCodeRoutes } from '@app/modules/PromoCode/promo-code.routes'
 import { siteInfoRoutes } from '@app/modules/SiteInfo/site-info.routes'
+import { usersRoutes } from '@app/modules/Users/users.routes'
 import express, { Router } from 'express'
 
 const router: Router = express.Router()
@@ -10,8 +12,16 @@ const routes = [
     route: authRoutes,
   },
   {
+    path: '/user',
+    route: usersRoutes,
+  },
+  {
     path: '/site-info',
     route: siteInfoRoutes,
+  },
+  {
+    path: '/promo-code',
+    route: promoCodeRoutes,
   },
 ]
 

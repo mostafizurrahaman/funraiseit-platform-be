@@ -14,10 +14,10 @@ import {
   Text,
 } from '@react-email/components'
 
-// Type definitions for props
 interface WelcomeEmailProps {
   firstName: string
   companyName: string
+  password: string
   productName?: string
   actionUrl: string
   signatureImgSrc?: string
@@ -31,6 +31,7 @@ interface WelcomeEmailProps {
 export const WelcomeEmail: React.FC<WelcomeEmailProps> = ({
   firstName,
   companyName,
+  password,
   productName = companyName,
   actionUrl,
   signatureImgSrc,
@@ -46,6 +47,7 @@ export const WelcomeEmail: React.FC<WelcomeEmailProps> = ({
     <Html>
       <Head />
       <Preview>{previewText}</Preview>
+
       <Body style={bodyStyle}>
         <Container style={containerStyle}>
           {logoSrc && (
@@ -54,13 +56,58 @@ export const WelcomeEmail: React.FC<WelcomeEmailProps> = ({
             </Section>
           )}
 
-          <Heading style={{ ...headingStyle, color: accentColor }}>{greeting}</Heading>
+          <Heading style={{ ...headingStyle, color: accentColor }}>
+            {greeting}
+          </Heading>
 
           <Text style={textStyle}>Hi {firstName},</Text>
 
           <Text style={textStyle}>
-            We're thrilled to have you join {productName}. We're committed to providing you with the
-            best experience possible as you explore what we have to offer.
+            Welcome to <strong>{productName}</strong>! Your account has been
+            successfully created by an administrator.
+          </Text>
+
+          <Text style={textStyle}>
+            Please use the temporary password below to sign in to your account.
+          </Text>
+
+          <Section
+            style={{
+              backgroundColor: '#f8f9fa',
+              border: '1px solid #e6ebf1',
+              borderRadius: '8px',
+              padding: '18px',
+              margin: '24px 0',
+              textAlign: 'center',
+            }}
+          >
+            <Text
+              style={{
+                fontSize: '16px',
+                fontWeight: 'bold',
+                color: '#000',
+                margin: 0,
+              }}
+            >
+              Temporary Password
+            </Text>
+
+            <Text
+              style={{
+                fontSize: '22px',
+                fontWeight: 'bold',
+                color: accentColor,
+                letterSpacing: '1px',
+                margin: '12px 0 0',
+              }}
+            >
+              {password}
+            </Text>
+          </Section>
+
+          <Text style={textStyle}>
+            For your security, please change your password immediately after
+            logging in for the first time.
           </Text>
 
           <Section style={buttonContainerStyle}>
@@ -71,13 +118,12 @@ export const WelcomeEmail: React.FC<WelcomeEmailProps> = ({
                 backgroundColor: accentColor,
               }}
             >
-              Get Started
+              Login to Your Account
             </Button>
           </Section>
 
           <Text style={textStyle}>
-            If you have any questions, feel free to reply to this email or reach out to our support
-            team at{' '}
+            If you have any questions, feel free to contact our support team at{' '}
             <Link href={`mailto:${supportEmail}`} style={{ color: accentColor }}>
               {supportEmail}
             </Link>

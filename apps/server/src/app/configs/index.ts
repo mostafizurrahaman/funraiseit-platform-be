@@ -23,6 +23,8 @@ const envSchema = z.object({
   SITE_PRIMARY_COLOR: z.string().default('#000000'),
   SITE_GST_FEE: z.string().transform(Number).default(0),
   SITE_FEE: z.string().transform(Number).default(0),
+  SUPPORT_EMAIL: z.string(),
+  CLIENT_URL: z.string(),
 
   // Node Mailer
   NODE_APP_PASSWORD: z.string(),
@@ -90,6 +92,8 @@ const configs = {
     accentColor: env.SITE_PRIMARY_COLOR,
     siteGstFee: env.SITE_GST_FEE,
     siteFee: env.SITE_FEE,
+    supportEmail: env.SUPPORT_EMAIL,
+    clientUrl: env.CLIENT_URL,
   },
 
   nodeMailer: {
