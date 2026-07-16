@@ -729,6 +729,18 @@ const updateProfile = async (
 ) => {
   const { name, phoneNumber } = payload
 
+  // ? Check any user  exists with this phone number:
+  const hasAssociatedUserWithPhoneNumber = await User.exists({
+    phoneNumber,
+    $ne: {
+      _id: user?._id,
+    },
+  }).lean()
+
+  if (hasAssociatedUserWithPhoneNumber) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'The phone number have already in use.')
+  }
+
   const oldImageUrl = user?.profileImage
   let newImageUrl = undefined
   // if the profile file provided:

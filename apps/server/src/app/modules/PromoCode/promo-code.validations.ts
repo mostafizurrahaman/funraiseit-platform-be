@@ -105,18 +105,18 @@ const getPromoCodeByIdSchema = z.object({
   }),
 })
 
-const deletePromoCodeByIdSchema = z.object({
-  params: z.object({
-    id: requiredString('ID'),
-  }),
-})
+// const deletePromoCodeByIdSchema = z.object({
+//   params: z.object({
+//     id: requiredString('ID'),
+//   }),
+// })
 
 export const promoCodeValidations = {
   createPromoCodeSchema,
   updatePromoCodeSchema,
   getAllPromoCodeSchema,
   getPromoCodeByIdSchema,
-  deletePromoCodeByIdSchema,
+  // deletePromoCodeByIdSchema,
 }
 
 export type TCreatePromoCodePayloadType = z.infer<typeof createPromoCodeSchema.shape.body>
