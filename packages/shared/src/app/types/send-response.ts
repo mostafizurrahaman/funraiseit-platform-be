@@ -11,4 +11,5 @@ export type TResponse<T> = {
   message: string
   meta?: TMeta
   data: T
+  nextStep?: string
 }

@@ -1,3 +1,4 @@
+import { accountRoutes } from '@app/modules/Account/account.routes'
 import { authRoutes } from '@app/modules/Auth/user.routes'
 import { promoCodeRoutes } from '@app/modules/PromoCode/promo-code.routes'
 import { siteInfoRoutes } from '@app/modules/SiteInfo/site-info.routes'
@@ -22,6 +23,10 @@ const routes = [
   {
     path: '/promo-code',
     route: promoCodeRoutes,
+  },
+  {
+    path: '/account',
+    route: accountRoutes,
   },
 ]
 

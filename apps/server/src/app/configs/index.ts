@@ -38,6 +38,9 @@ const envSchema = z.object({
   STRIPE_WEBHOOK_KEY: z.string(),
   STRIPE_SUCCESS_URL: z.string().url(),
   STRIPE_CANCEL_URL: z.string().url(),
+  STRIPE_REFRESH_URL: z.string().url(),
+  STRIPE_RETURN_URL: z.string().url(),
+
   STRIPE_FIXED_FEE: z.string().transform(Number),
   STRIPE_FEE: z.string().transform(Number),
 
@@ -109,6 +112,8 @@ const configs = {
     webhookKey: env.STRIPE_WEBHOOK_KEY,
     successUrl: env.STRIPE_SUCCESS_URL,
     cancelUrl: env.STRIPE_CANCEL_URL,
+    refresh_url: env.STRIPE_REFRESH_URL,
+    return_url: env.STRIPE_RETURN_URL,
     fixedFee: env.STRIPE_FIXED_FEE,
     percentage: env.STRIPE_FEE,
   },

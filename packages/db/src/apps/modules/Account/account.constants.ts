@@ -59,7 +59,7 @@ export type TAccountSearchableField = (typeof accountSearchableFields)[number]
 export type TAccountSortableField = (typeof accountSortableFields)[number]
 
 export const Currency = {
-  USD: 'USD',
+  USD: 'usd',
 } as const
 
 export const CurrencyValues = Object.values(Currency)
@@ -67,3 +67,12 @@ export const CurrencyValues = Object.values(Currency)
 export type TCurrency = (typeof Currency)[keyof typeof Currency]
 
 export const DefaultCurrency: TCurrency = Currency.USD
+
+export const accountStatus = {
+  PENDING: 'pending',
+  ACTIVE: 'active',
+  RESTRICTED: 'restricted',
+} as const
+export const accountStatusValues = Object.values(accountStatus)
+
+export type TAccountStatus = (typeof accountStatus)[keyof typeof accountStatus]

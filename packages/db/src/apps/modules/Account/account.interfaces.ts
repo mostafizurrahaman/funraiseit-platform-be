@@ -1,5 +1,5 @@
 import { Document, Types } from 'mongoose'
-import type { TCountry, TCurrency } from './account.constants'
+import type { TAccountStatus, TCountry, TCurrency } from './account.constants'
 
 export interface IAccount {
   user: Types.ObjectId
@@ -9,7 +9,8 @@ export interface IAccount {
   chargesEnabled: boolean
   payoutsEnabled: boolean
   detailsSubmitted: boolean
-  isActive: boolean
+  disabledReason: string
+  status: TAccountStatus
 }
 
 export interface IAccountDoc extends Document, IAccount {}

@@ -1,114 +1,55 @@
-import { Account, accountSearchableFields  } from "@repo/db"
-import httpStatus from "http-status"
-import { AppError } from "@repo/shared"
-import type { PipelineStage } from "mongoose"
+import { Account, accountStatus, type IUser } from '@repo/db'
+import httpStatus from 'http-status'
+import { AppError } from '@repo/shared'
 
-import type {
-  TCreateAccountPayloadType,
-  TUpdateAccountPayloadType,
-  TGetAllAccountQueryParamsType
-} from "./account.validations"
+import { createStripeAccount, regenerateConnectedAccountLink } from '@app/libs/stripe'
 
-const createAccount = async (payload: TCreateAccountPayloadType) => {
-  const result = await Account.create(payload)
-  return result
-}
-
-const updateAccount = async (id: string, payload: TUpdateAccountPayloadType) => {
-  const result = await Account.findOneAndUpdate(
-    { _id: id },
-    { $set: payload },
-    { new: true }
-  )
-
-  if (!result) {
-    throw new AppError(httpStatus.NOT_FOUND, "Account not found")
-  }
-
-  return result
-}
-
-const getAllAccount = async (query: TGetAllAccountQueryParamsType) => {
-  const {
-    page = 1,
-    limit = 10,
-    searchTerm,
-    sortOrder = 'desc',
-    sortBy = 'createdAt',
-    fromDate,
-    toDate
-  } = query
-
-  const skip = (page - 1) * limit
-  const pipeline: PipelineStage[] = []
-
-  if (fromDate || toDate) {
-    const dateFilter : Record<string,unknown> = {}
-    if (fromDate) dateFilter.$gte = new Date(fromDate)
-    if (toDate) dateFilter.$lte = new Date(toDate)
-
-    pipeline.push({ $match: { createdAt: dateFilter } })
-  }
-
-  if (searchTerm) {
-    pipeline.push({
-      $match: {
-        $or: accountSearchableFields.map(field => ({
-          [field]: { $regex: searchTerm, $options: 'i' }
-        }))
-      }
-    })
-  }
-
-  pipeline.push({ $sort: { [sortBy]: sortOrder === 'asc' ? 1 : -1 } })
-
-  pipeline.push({
-    $facet: {
-      data: [{ $skip: skip }, { $limit: limit }],
-      meta: [{ $count: 'total' }]
-    }
+const connectStripeAccount = async (user: IUser) => {
+  const existingAccount = await Account.findOne({
+    user: user._id,
   })
 
-  const aggregated = await Account.aggregate(pipeline)
-
-  const data = aggregated?.[0]?.data || []
-  const total = aggregated?.[0]?.meta?.[0]?.total || 0
-
-  return {
-    data,
-    meta: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit) || 1
+  if (existingAccount) {
+    if (existingAccount.status === accountStatus.ACTIVE) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'You already have an active connected account.')
     }
-  }
-}
 
-const getAccountById = async (id: string) => {
-  const result = await Account.findById(id)
+    const url = await regenerateConnectedAccountLink(existingAccount.account)
 
-  if (!result) {
-    throw new AppError(httpStatus.NOT_FOUND, "Account not found")
+    return { url }
   }
 
-  return result
+  const stripeAccount = await createStripeAccount(user)
+
+  await Account.create({
+    account: stripeAccount.id,
+    country: stripeAccount.country!,
+    currency: stripeAccount.default_currency!,
+    user: user._id,
+    detailsSubmitted: false,
+    chargesEnabled: false,
+    payoutsEnabled: false,
+    status: accountStatus.PENDING,
+  })
+
+  const url = await regenerateConnectedAccountLink(stripeAccount.id)
+
+  return { url }
 }
 
-const deleteAccountById = async (id: string) => {
-  const result = await Account.findOneAndDelete({ _id: id })
+const getAccountById = async (user: IUser) => {
+  const result = await Account.findOne({
+    user: user?._id,
+  })
 
   if (!result) {
-    throw new AppError(httpStatus.NOT_FOUND, "Account not found")
+    throw new AppError(httpStatus.NOT_FOUND, 'Account not found')
   }
 
   return result
 }
 
 export const accountServices = {
-  createAccount,
-  updateAccount,
-  getAllAccount,
+  connectStripeAccount,
   getAccountById,
-  deleteAccountById
 }

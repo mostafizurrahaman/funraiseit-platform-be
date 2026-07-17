@@ -1,6 +1,12 @@
 import { Schema, Types, model } from 'mongoose'
 import type { IAccountDoc } from './account.interfaces'
-import { Countries, CountryValues, Currency, CurrencyValues } from './account.constants'
+import {
+  accountStatus,
+  Countries,
+  CountryValues,
+  Currency,
+  CurrencyValues,
+} from './account.constants'
 
 const accountSchema = new Schema<IAccountDoc>(
   {
@@ -13,11 +19,6 @@ const accountSchema = new Schema<IAccountDoc>(
       type: String,
       required: true,
       unique: true,
-    },
-    isActive: {
-      type: Boolean,
-      required: true,
-      default: false,
     },
     country: {
       type: String,
@@ -43,6 +44,14 @@ const accountSchema = new Schema<IAccountDoc>(
       type: Boolean,
       required: true,
       default: false,
+    },
+    disabledReason: {
+      type: String,
+    },
+    status: {
+      type: String,
+      required: true,
+      default: accountStatus.PENDING,
     },
   },
   {
