@@ -135,7 +135,7 @@ const signUp = async (payload: ISignUpSchemaType) => {
     )
 
     await session.commitTransaction()
-    session.endSession()
+    await session.endSession()
 
     // 7. Send OTP with rendered template
     sendEmail({
@@ -149,7 +149,7 @@ const signUp = async (payload: ISignUpSchemaType) => {
     }
   } catch (error: any) {
     await session.abortTransaction()
-    session.endSession()
+    await session.endSession()
     throw new Error(error)
   }
 }

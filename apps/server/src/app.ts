@@ -9,6 +9,7 @@ import { notFound } from './app/middlewares/not-found'
 import globalErrorHandler from './app/middlewares/global-error-handler'
 import { allRoutes } from '@app/routes'
 import { logger } from '@app/libs/logger'
+import { stripeController } from '@app/modules/stripe/stripe.controllers'
 
 const app: express.Application = express()
 
@@ -29,6 +30,13 @@ app.use(
   })
 )
 app.use(helmet())
+
+app.use(
+  '/api/v1/stripe/webhook',
+  express.raw({ type: 'application/json' }),
+  stripeController.handleStripeWebhook
+)
+
 app.use(express.json())
 app.use(cookieParser())
 app.use(
@@ -38,6 +46,8 @@ app.use(
   })
 )
 app.use(limiter)
+
+app.use(express.json({ type: 'application/json' }))
 
 // root endpoint:
 app.get('/', (req: Request, res: Response) => {

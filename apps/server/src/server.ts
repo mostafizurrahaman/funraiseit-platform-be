@@ -5,6 +5,7 @@ import app from './app'
 import { logger } from '@app/libs/logger'
 import dns from 'node:dns/promises'
 import { seedSuperAdmin } from '@app/libs/seed-super-admin'
+
 dns.setServers(['1.1.1.1'])
 
 let server: Server

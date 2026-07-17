@@ -16,7 +16,7 @@ import {
 
 const globalErrorHandler: ErrorRequestHandler = async (err, req, res, next) => {
   // default setting here:
-  // console.log(err);
+  console.log(err)
   let statusCode: number = httpStatus.INTERNAL_SERVER_ERROR
   let message: string = 'Something Went Wrong!!!'
 
