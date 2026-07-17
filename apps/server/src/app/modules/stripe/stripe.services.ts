@@ -62,8 +62,6 @@ const handleAccountUpdated = async (event: Stripe.Event) => {
 
   user.isOnboardingCompleted = status === accountStatus.ACTIVE
   await user.save()
-
-  
 }
 
 const listenStripeEvents = async (event: Stripe.Event) => {
