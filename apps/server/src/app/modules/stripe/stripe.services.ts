@@ -28,7 +28,7 @@ const handleAccountUpdated = async (event: Stripe.Event) => {
   const hasRequirements =
     (accountData.requirements?.currently_due?.length ?? 0) > 0 ||
     (accountData.requirements?.past_due?.length ?? 0) > 0
-  const disabledReason = hasRequirements ? accountData.requirements?.disabled_reason : null
+  const disabledReason = accountData.requirements?.disabled_reason || null
 
   let status: TAccountStatus = accountStatus.PENDING
 

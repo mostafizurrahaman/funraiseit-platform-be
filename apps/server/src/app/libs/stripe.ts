@@ -38,7 +38,7 @@ export const createStripeAccount = async (user: IUser, metadata?: Record<string,
     },
     settings: {
       payments: {
-        statement_descriptor: configs.site.name,
+        statement_descriptor: user?.name,
       },
       payouts: {
         schedule: {
@@ -53,7 +53,7 @@ export const createStripeAccount = async (user: IUser, metadata?: Record<string,
 export const regenerateConnectedAccountLink = async (account: string) => {
   const result = await stripe.accountLinks.create({
     account,
-    refresh_url: configs.stripe.refresh_url!,
+    refresh_url: `${configs.stripe.refresh_url}?account=${account}`,
     return_url: configs.stripe.return_url!,
     type: 'account_onboarding',
   })

@@ -4,6 +4,7 @@ import { AppError } from '@repo/shared'
 
 import { createStripeAccount, regenerateConnectedAccountLink } from '@app/libs/stripe'
 
+// ? 1. Connect Stripe Account :
 const connectStripeAccount = async (user: IUser) => {
   const existingAccount = await Account.findOne({
     user: user._id,
@@ -37,6 +38,7 @@ const connectStripeAccount = async (user: IUser) => {
   return { url }
 }
 
+// ? 2. Connect Get by ID:
 const getAccountById = async (user: IUser) => {
   const result = await Account.findOne({
     user: user?._id,
@@ -49,7 +51,13 @@ const getAccountById = async (user: IUser) => {
   return result
 }
 
+// ?. Refresh url:
+const refreshStripeConnect = async (account: string) => {
+  return regenerateConnectedAccountLink(account)
+}
+
 export const accountServices = {
   connectStripeAccount,
   getAccountById,
+  refreshStripeConnect,
 }

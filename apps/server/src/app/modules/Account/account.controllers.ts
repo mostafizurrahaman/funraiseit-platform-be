@@ -26,8 +26,14 @@ const getAccountById = catchAsync(async (req, res) => {
     data: result,
   })
 })
+const refreshAccount = catchAsync(async (req, res) => {
+  const url = await accountServices.refreshStripeConnect(req.query.account as string)
+
+  res.redirect(url)
+})
 
 export const accountControllers = {
   connectStripeAccount,
   getAccountById,
+  refreshAccount,
 }
