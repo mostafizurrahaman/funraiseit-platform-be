@@ -1,0 +1,41 @@
+export const campaignSearchableFields = ['name'] as const
+
+export const campaignSortableFields = ['createdAt', 'updatedAt'] as const
+
+// Types (optional but recommended)
+export type TCampaignSearchableField = (typeof campaignSearchableFields)[number]
+
+export type TCampaignSortableField = (typeof campaignSortableFields)[number]
+
+export const CampaignCategory = {
+  PHYSICAL_PRODUCT: 'physical_product',
+  DIGITAL_PRODUCT: 'digital_product',
+  EVENT_TICKET: 'event_ticket',
+  SERVICE: 'service',
+  FOOD_PRE_ORDER: 'food_pre_order',
+} as const
+
+export const campaignCategoryValues = Object.values(CampaignCategory)
+
+export type TCampaignCategory = (typeof CampaignCategory)[keyof typeof CampaignCategory]
+
+export const CampaignStatus = {
+  DRAFT: 'draft',
+  PENDING: 'pending',
+  ACTIVE: 'active',
+  COMPLETED: 'completed',
+  PAYOUT_REQUEST: 'payout_request',
+  PAID_OUT: 'paid_out',
+  REJECTED: 'rejected',
+  CANCELLED: 'cancelled',
+} as const
+
+export const campaignStatusValues = Object.values(CampaignStatus)
+
+export type TCampaignStatus = (typeof CampaignStatus)[keyof typeof CampaignStatus]
+
+export const campaignLunchPaymentStatus = {
+  PENDING: 'pending',
+  PAID: 'paid',
+  FAILED: 'failed',
+}
