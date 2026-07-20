@@ -1,9 +1,14 @@
 import { catchAsync, sendResponse } from '@repo/shared'
 import httpStatus from 'http-status'
 import { campaignServices } from './campaign.services'
+import type { IMulterFile } from 'packages/media-hub/src'
+import { getUserFromRequest } from '@app/libs/get-user-from-request'
+import type { IUser } from 'packages/db/src'
 
 const createCampaign = catchAsync(async (req, res) => {
-  const result = await campaignServices.createCampaign(req.body)
+  const user = (await getUserFromRequest(req)) as IUser
+  const file = req.file as IMulterFile
+  const result = await campaignServices.createCampaign(user, req.body, file)
 
   sendResponse(res, {
     success: true,

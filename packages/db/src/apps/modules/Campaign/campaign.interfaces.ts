@@ -20,6 +20,9 @@ export interface ICampaign {
   shippingFee: number
 
   launchFee: number // Amount charged to launch the campaign
+  finalLaunchFee: number
+  promoCode?: Types.ObjectId
+  discountAmount: number
 
   durationDays: number // days
 
@@ -30,12 +33,12 @@ export interface ICampaign {
   allowDonation: boolean
 
   // Dates:
-  startDate: Date
-  endDate: Date
-  publishedAt: Date
-  endedAt: Date
-  payoutRequestedAt: Date
-  paidOutAt: Date
+  startDate?: Date
+  endDate?: Date
+  publishedAt?: Date
+  endedAt?: Date
+  payoutRequestedAt?: Date
+  paidOutAt?: Date
 
   // Status :
   status: TCampaignStatus

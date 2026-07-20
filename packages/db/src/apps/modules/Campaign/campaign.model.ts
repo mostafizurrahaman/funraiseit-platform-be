@@ -52,17 +52,31 @@ const campaignSchema = new Schema<ICampaignDoc>(
     raisedAmount: {
       type: Number,
       required: true,
+      default: 0,
       min: 0,
     },
     shippingFee: {
       type: Number,
-      required: true,
-      min: 0,
     },
     launchFee: {
       type: Number,
       required: true,
       min: 0,
+    },
+    finalLaunchFee: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    discountAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    promoCode: {
+      type: Schema.Types.ObjectId,
+      ref: 'PromoCode',
+      default: null,
     },
     durationDays: {
       type: Number,

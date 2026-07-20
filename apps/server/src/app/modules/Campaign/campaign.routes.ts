@@ -2,14 +2,19 @@ import express, { Router } from 'express'
 import { validateRequest } from '@app/middlewares'
 import { campaignControllers } from './campaign.controllers'
 import { campaignValidations } from './campaign.validations'
+import { multerFactory } from 'packages/media-hub/src'
 
-const router : Router = express.Router()
+const router: Router = express.Router()
 
 router.post(
   '/',
+  multerFactory({
+    category: 'image',
+    maxSizeInMB: 5,
+  }).single('thumbnail'),
   validateRequest(campaignValidations.createCampaignSchema),
   campaignControllers.createCampaign
-)     
+)
 
 router.patch(
   '/:id',
