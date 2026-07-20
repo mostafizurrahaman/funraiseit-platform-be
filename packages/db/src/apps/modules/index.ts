@@ -6,3 +6,4 @@ export * from './Account'
 
 // ?? Campaign Model: 
 export * from './Campaign'
+export * from './Payment'

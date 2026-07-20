@@ -1,42 +1,47 @@
-import z from "zod"
-import { requiredString, optionalNumber, optionalEnumString, optionalString, optionalDate, sortingOrderValues, sortOrder } from '@repo/shared'
-import { campaignSortableFields } from "@repo/db"
-
-
+import z from 'zod'
+import {
+  requiredString,
+  optionalNumber,
+  optionalEnumString,
+  optionalString,
+  optionalDate,
+  sortingOrderValues,
+} from '@repo/shared'
+import { campaignSortableFields } from '@repo/db'
 
 const createCampaignSchema = z.object({
-  body: z.object({})
+  body: z.object({}),
 })
 
 const updateCampaignSchema = z.object({
   params: z.object({
-    id: requiredString("ID")
+    id: requiredString('ID'),
   }),
-  body: z.object({})
+  body: z.object({}),
 })
 
 const getAllCampaignSchema = z.object({
   query: z.object({
-    page: optionalNumber("Page"),
-    limit: optionalNumber("Limit"),
-    searchTerm: optionalString("Search term"),
-    sortOrder: optionalEnumString(sortingOrderValues, "Sort order"),
-    sortBy: optionalEnumString(campaignSortableFields, "Sort by"),
-    fromDate: optionalDate("From date"),
-    toDate: optionalDate("To date")
-  })
+    page: optionalNumber('Page'),
+    limit: optionalNumber('Limit'),
+    searchTerm: optionalString('Search term'),
+    sortOrder: optionalEnumString(sortingOrderValues, 'Sort order'),
+    sortBy: optionalEnumString(campaignSortableFields, 'Sort by'),
+    fromDate: optionalDate('From date'),
+    toDate: optionalDate('To date'),
+  }),
 })
 
 const getCampaignByIdSchema = z.object({
   params: z.object({
-    id: requiredString("ID")
-  })
+    id: requiredString('ID'),
+  }),
 })
 
 const deleteCampaignByIdSchema = z.object({
   params: z.object({
-    id: requiredString("ID")
-  })
+    id: requiredString('ID'),
+  }),
 })
 
 export const campaignValidations = {
@@ -44,7 +49,7 @@ export const campaignValidations = {
   updateCampaignSchema,
   getAllCampaignSchema,
   getCampaignByIdSchema,
-  deleteCampaignByIdSchema
+  deleteCampaignByIdSchema,
 }
 
 export type TCreateCampaignPayloadType = z.infer<typeof createCampaignSchema.shape.body>

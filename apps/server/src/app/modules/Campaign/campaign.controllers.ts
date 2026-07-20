@@ -63,5 +63,5 @@ export const campaignControllers = {
   updateCampaign,
   getAllCampaign,
   getCampaignById,
-  deleteCampaignById
+  deleteCampaignById,
 }

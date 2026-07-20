@@ -9,7 +9,7 @@ router.post(
   '/',
   validateRequest(campaignValidations.createCampaignSchema),
   campaignControllers.createCampaign
-)
+)     
 
 router.patch(
   '/:id',
