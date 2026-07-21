@@ -1,4 +1,10 @@
-import { discountType, PromoCode, promoCodeSearchableFields, type IUser } from '@repo/db'
+import {
+  discountType,
+  PromoCode,
+  promoCodeSearchableFields,
+  type IPromoCodeDoc,
+  type IUser,
+} from '@repo/db'
 import httpStatus from 'http-status'
 import { AppError } from '@repo/shared'
 import type { PipelineStage } from 'mongoose'
@@ -189,11 +195,39 @@ const getPromoCodeById = async (id: string) => {
   return result
 }
 
+const calculatePromoDiscount = (
+  amount: number,
+  promo: Pick<IPromoCodeDoc, 'discountType' | 'discountValue'>
+) => {
+  let discount = 0
+
+  switch (promo.discountType) {
+    case discountType.PERCENTAGE:
+      discount = (amount * promo.discountValue) / 100
+      break
+
+    case discountType.FIXED:
+      discount = promo.discountValue
+      break
+
+    default:
+      throw new AppError(httpStatus.BAD_REQUEST, 'Invalid promo discount type.')
+  }
+
+  // Prevent discount from exceeding the order amount
+  discount = Math.min(discount, amount)
+
+  return {
+    originalAmount: amount,
+    discountAmount: Number(discount.toFixed(2)),
+    finalAmount: Number((amount - discount).toFixed(2)),
+  }
+}
 
 export const promoCodeServices = {
   createPromoCode,
   updatePromoCode,
   getAllPromoCode,
   getPromoCodeById,
- 
+  calculatePromoDiscount,
 }
