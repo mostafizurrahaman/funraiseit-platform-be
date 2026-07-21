@@ -1,12 +1,4 @@
-import {
-  Campaign,
-  campaignSearchableFields,
-  CampaignStatus,
-  PromoCode,
-  SiteInfo,
-  type IPromoCodeDoc,
-  type IUser,
-} from '@repo/db'
+import { Campaign, campaignSearchableFields, CampaignStatus, SiteInfo, type IUser } from '@repo/db'
 import httpStatus from 'http-status'
 import { AppError } from '@repo/shared'
 import type { PipelineStage } from 'mongoose'
@@ -18,8 +10,6 @@ import type {
 } from './campaign.validations'
 import { uploadSingleFileToS3, type IMulterFile } from 'packages/media-hub/src'
 import { generateCampaignCode } from './campaign.utils'
-import { promoCodeServices } from '../PromoCode/promo-code.services'
-import mongoose from 'mongoose'
 
 const createCampaign = async (
   user: IUser,
@@ -38,12 +28,17 @@ const createCampaign = async (
     allowShipping,
     durationDays,
     shippingFee,
-    promoCode,
   } = payload
 
-  // ?? Check this organizer already have aen campaign:
+  if (!thumbnailFile) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Thumbnail image is required!')
+  }
+
+  console.log(payload)
+
+  // Only one non-finished campaign is allowed
   const existingCampaign = await Campaign.findOne({
-    organizer: user?._id,
+    organizer: user._id,
     status: {
       $nin: [CampaignStatus.CANCELLED, CampaignStatus.COMPLETED, CampaignStatus.REJECTED],
     },
@@ -52,83 +47,42 @@ const createCampaign = async (
   if (existingCampaign) {
     throw new AppError(
       httpStatus.CONFLICT,
-      `A campaign with status "${existingCampaign.status}" already exists for your account. Only one active campaign is allowed at a time.`
+      `A campaign with status "${existingCampaign.status}" already exists for your account. Only one campaign is allowed at a time.`
     )
   }
 
-  // ?? Retrieved the current lunch fee for campaign:
   const siteFees = await SiteInfo.findOne({})
-  if (!siteFees || !siteFees.campaignLaunchFee) {
+
+  if (!siteFees?.campaignLaunchFee) {
     throw new AppError(httpStatus.NOT_FOUND, 'Campaign launch fee not found!')
   }
 
-  let finalLaunceFee = siteFees?.campaignLaunchFee || 0
-  let discountValue = 0
-  let promo = null
-  if (promoCode) {
-    const promo = await PromoCode.findOne({
-      code: promoCode,
-      isActive: true,
-    })
-
-    if (!promo) {
-      throw new AppError(httpStatus.NOT_FOUND, 'Invalid Promo code!')
-    }
-
-    throw new AppError(httpStatus.BAD_REQUEST, 'This promo code is no longer available.')
-
-    const calcValue = promoCodeServices.calculatePromoDiscount(
-      siteFees?.campaignLaunchFee ?? 0,
-      promo as IPromoCodeDoc
-    )
-
-    finalLaunceFee = calcValue.finalAmount
-    discountValue = calcValue.discountAmount
-    promo = promoCode
-  }
-
-  // ?? Upload the thumbnail:
   const { url } = await uploadSingleFileToS3(thumbnailFile, 'campaign/thumbnails')
 
-  // ?? Campaign code generate:
   const campaignCode = await generateCampaignCode()
 
-  const session = await mongoose.startSession()
+  const newCampaign = await Campaign.create({
+    organizer: user._id,
+    campaignCode,
+    name,
+    thumbnail: url,
+    campaignCategory,
+    story,
+    fundUsage,
+    goalAmount,
+    raisedAmount: 0,
+    allowDonation,
+    allowLocalDelivery,
+    allowLocalPickup,
+    allowShipping,
+    durationDays,
+    shippingFee,
+    finalLaunchFee: siteFees.campaignLaunchFee,
+    launchFee: siteFees.campaignLaunchFee,
+    status: CampaignStatus.DRAFT,
+  })
 
-  try {
-    session.startTransaction()
-    const newPayload = {
-      organizer: user?._id,
-      campaignCode,
-      name,
-      thumbnail: url,
-      campaignCategory,
-      story,
-      fundUsage,
-      goalAmount,
-      raisedAmount: 0,
-      allowDonation,
-      allowLocalDelivery,
-      allowLocalPickup,
-      allowShipping,
-      durationDays,
-      shippingFee,
-      promoCode: promo?._id,
-      launchFee: siteFees?.campaignLaunchFee,
-      finalLaunceFee: finalLaunceFee,
-      discountValue,
-      status: CampaignStatus.DRAFT,
-    }
-
-    const [newCampaign] = await Campaign.create([newPayload], { session })
-
-    if (!newCampaign) {
-      throw new AppError(httpStatus.BAD_REQUEST, 'Failed to create campaign')
-    }
-  } catch (error) {}
-
-  const result = await Campaign.create(payload)
-  return result
+  return newCampaign
 }
 
 const updateCampaign = async (id: string, payload: TUpdateCampaignPayloadType) => {

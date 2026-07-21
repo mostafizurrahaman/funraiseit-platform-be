@@ -21,7 +21,7 @@ export interface ICampaign {
 
   launchFee: number // Amount charged to launch the campaign
   finalLaunchFee: number
-  promoCode?: Types.ObjectId
+  promoCode: Types.ObjectId | null
   discountAmount: number
 
   durationDays: number // days

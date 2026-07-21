@@ -8,6 +8,7 @@ import {
   sortingOrderValues,
   enumString,
   positiveNumber,
+  requiredStrBoolean,
 } from '@repo/shared'
 import { campaignCategoryValues, campaignSortableFields } from '@repo/db'
 
@@ -32,27 +33,10 @@ const createCampaignSchema = z.object({
         .min(1, {
           error: 'Duration days min. 1 days',
         }),
-      allowLocalPickup: z.coerce
-        .boolean({
-          error: 'Allow local pickup should be boolean!',
-        })
-        .default(false),
-      allowLocalDelivery: z.coerce
-        .boolean({
-          error: 'Allow local delivery should be boolean!',
-        })
-        .default(false),
-      allowShipping: z.coerce
-        .boolean({
-          error: 'Allow shipping method should be boolean!',
-        })
-        .default(false),
-      allowDonation: z.coerce
-        .boolean({
-          error: 'Allow shipping method should be boolean!',
-        })
-        .default(false),
-      promoCode: requiredString('Promo Code'),
+      allowLocalPickup: requiredStrBoolean('Allow local pickup'),
+      allowLocalDelivery: requiredStrBoolean('Allow local delivery'),
+      allowShipping: requiredStrBoolean('Allow shipping'),
+      allowDonation: requiredStrBoolean('Allow donation'),
       shippingFee: positiveNumber('Shipping fee'),
     })
     .superRefine((data, ctx) => {
@@ -65,11 +49,11 @@ const createCampaignSchema = z.object({
         })
       }
 
-      if (data.allowShipping && !data.shippingFee) {
+      if (!data.allowShipping && data.shippingFee > 0) {
         return ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['allowShipping'],
-          message: 'Shipping fee is required!',
+          message: 'Shipping fee cannot be added when shipping is disabled.',
         })
       }
     }),

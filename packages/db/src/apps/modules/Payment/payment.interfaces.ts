@@ -16,7 +16,7 @@ export interface IPayment {
   stripeChargeId?: string
   stripeApplicationFeeId?: string
   stripeBalanceTransactionId?: string
-  paidAt: Date
+  paidAt?: Date
 }
 
 export interface IDonationPayment extends IPayment {
