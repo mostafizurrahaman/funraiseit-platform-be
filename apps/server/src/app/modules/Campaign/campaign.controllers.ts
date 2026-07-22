@@ -18,6 +18,25 @@ const createCampaign = catchAsync(async (req, res) => {
   })
 })
 
+const addProductIntoCampaign = catchAsync(async (req, res) => {
+  const user = (await getUserFromRequest(req)) as IUser
+  const files = req.files as IMulterFile[]
+
+  return {
+    user,
+    files,
+  }
+  console.log(addProductIntoCampaign)
+  // const result = await campaignServices.createCampaign(user, req.body, file)
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.CREATED,
+    message: 'The campaign created successfully!',
+    data: result,
+  })
+})
+
 const updateCampaign = catchAsync(async (req, res) => {
   const result = await campaignServices.updateCampaign(req.params.id as string, req.body)
 
@@ -63,7 +82,7 @@ const deleteCampaignById = catchAsync(async (req, res) => {
   })
 })
 
-export const campaignControllers = {
+export const     campaignControllers = {
   createCampaign,
   updateCampaign,
   getAllCampaign,

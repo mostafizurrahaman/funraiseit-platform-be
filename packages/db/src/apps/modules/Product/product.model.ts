@@ -64,9 +64,9 @@ const digitalProductSchema = new Schema<IDigitalProduct>({
   },
   downloadLimit: {
     type: Number,
-    default: 0,
+    default: 1,
     required: true,
-    min: 0,
+    min: 1,
   },
 })
 

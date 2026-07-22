@@ -4,6 +4,7 @@ export * from './SiteInfo'
 export * from './PromoCode'
 export * from './Account'
 
-// ?? Campaign Model: 
+// ?? Campaign Model:
 export * from './Campaign'
 export * from './Payment'
+export * from './Product'

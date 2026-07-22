@@ -1,3 +1,4 @@
+import { FileCategory } from './file-category'
 import type {
   ARCHIVE_EXTENSIONS,
   AUDIO_EXTENSIONS,
@@ -32,14 +33,13 @@ export type FileExtension =
 export type FileCategory = keyof typeof FILE_CATEGORY_MAP
 
 export interface FileValidationConfig {
-  category?: FileCategory
+  category?: FileCategory | FileCategory[]
   allowedExtensions?: FileExtension[] // override and mix you can priority
   maxSizeInMB?: number
 }
 
-
 export interface UploadedFile {
-  key: string;
-  url: string;
-  provider: 'aws';
+  key: string
+  url: string
+  provider: 'aws'
 }

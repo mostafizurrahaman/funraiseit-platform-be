@@ -9,8 +9,14 @@ import {
   enumString,
   positiveNumber,
   requiredStrBoolean,
+  requiredMongooseId,
 } from '@repo/shared'
-import { campaignCategoryValues, campaignSortableFields } from '@repo/db'
+import {
+  campaignCategoryValues,
+  campaignSortableFields,
+  productType,
+  productTypeValues,
+} from '@repo/db'
 
 const createCampaignSchema = z.object({
   body: z
@@ -59,6 +65,32 @@ const createCampaignSchema = z.object({
     }),
 })
 
+const addProductIntoCampaignSchema = z.object({
+  params: z.object({
+    id: requiredMongooseId('Product ID'),
+  }),
+  body: z
+    .object({
+      name: requiredString('Name'),
+      description: optionalString('Description'),
+      price: positiveNumber('Price'),
+      productType: enumString(productTypeValues, 'Product type'),
+      stock: optionalString('Stock').nullable(),
+      sku: optionalString('SKU'),
+      weight: optionalString('Weight'),
+      downloadFileName: optionalString('Download file name'),
+    })
+    .superRefine((data, ctx) => {
+      if (data.productType === productType.DIGITAL && !data.downloadFileName) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['downloadFileName'],
+          message: 'Download File name is required for product type download.',
+        })
+      }
+    }),
+})
+
 const updateCampaignSchema = z.object({
   params: z.object({
     id: requiredString('ID'),
@@ -92,6 +124,7 @@ const deleteCampaignByIdSchema = z.object({
 
 export const campaignValidations = {
   createCampaignSchema,
+  addProductIntoCampaignSchema,
   updateCampaignSchema,
   getAllCampaignSchema,
   getCampaignByIdSchema,
@@ -103,3 +136,4 @@ export type TUpdateCampaignPayloadType = z.infer<typeof updateCampaignSchema.sha
 export type TGetAllCampaignQueryParamsType = z.infer<typeof getAllCampaignSchema.shape.query>
 export type TGetCampaignByIdParamsType = z.infer<typeof getCampaignByIdSchema.shape.params>
 export type TDeleteCampaignByIdParamsType = z.infer<typeof deleteCampaignByIdSchema.shape.params>
+export type TAddProductIntoCampaignPayload = z.infer<typeof addProductIntoCampaignSchema.shape.body>

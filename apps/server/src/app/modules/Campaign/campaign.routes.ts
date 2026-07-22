@@ -19,6 +19,34 @@ router.post(
   campaignControllers.createCampaign
 )
 
+router.post(
+  '/:campaignId/add-product/',
+  validateRequest(campaignValidations.addProductIntoCampaignSchema),
+  multerFactory({
+    category: [
+      'image',
+      'audio',
+      'video',
+      'archive',
+      'spreadsheet',
+      'document',
+      'presentation',
+      'text',
+    ],
+    maxSizeInMB: 50,
+  }).fields([
+    {
+      name: 'productImages',
+      maxCount: 10,
+    },
+    {
+      name: 'downloadFiles',
+      maxCount: 10,
+    },
+  ]),
+  campaignControllers.
+)
+
 router.patch(
   '/:id',
   validateRequest(campaignValidations.updateCampaignSchema),
