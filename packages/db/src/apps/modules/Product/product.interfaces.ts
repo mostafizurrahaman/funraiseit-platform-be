@@ -11,9 +11,10 @@ export interface IProduct {
 }
 
 export interface IPhysicalProduct extends IProduct, Document {
+  isUnlimited: boolean
   stock?: number | null
   sku?: string
-  weight?: string
+  weight?: number | null
 }
 
 export interface IDigitalProduct extends IProduct, Document {

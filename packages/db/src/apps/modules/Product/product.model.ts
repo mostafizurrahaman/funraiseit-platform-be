@@ -39,6 +39,10 @@ const productSchema = new Schema<IProductDoc>(
 )
 
 const physicalProductSchema = new Schema<IPhysicalProduct>({
+  isUnlimited: {
+    type: Boolean,
+    default: false,
+  },
   stock: {
     type: Number,
     default: null,
@@ -48,7 +52,7 @@ const physicalProductSchema = new Schema<IPhysicalProduct>({
     default: null,
   },
   weight: {
-    type: String,
+    type: Number,
     default: null,
   },
 })
@@ -79,4 +83,4 @@ export const Product = model<IProductDoc>('Product', productSchema)
 
 export const PhysicalProduct = Product.discriminator(productType.PHYSICAL, physicalProductSchema)
 
-export const DigitalProduct = Product.discriminator(productType.PHYSICAL, digitalProductSchema)
+export const DigitalProduct = Product.discriminator(productType.DIGITAL, digitalProductSchema)

@@ -20,8 +20,9 @@ router.post(
 )
 
 router.post(
-  '/:campaignId/add-product/',
-  validateRequest(campaignValidations.addProductIntoCampaignSchema),
+  '/:id/add-product',
+  auth(AuthRoles.ORGANIZER),
+
   multerFactory({
     category: [
       'image',
@@ -36,15 +37,16 @@ router.post(
     maxSizeInMB: 50,
   }).fields([
     {
-      name: 'productImages',
-      maxCount: 10,
+      name: 'productImage',
+      maxCount: 1,
     },
     {
       name: 'downloadFiles',
-      maxCount: 10,
+      maxCount: 1,
     },
   ]),
-  campaignControllers.
+  validateRequest(campaignValidations.addProductIntoCampaignSchema),
+  campaignControllers.addProductIntoCampaign
 )
 
 router.patch(

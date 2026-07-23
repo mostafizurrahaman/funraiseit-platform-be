@@ -67,7 +67,7 @@ const createCampaignSchema = z.object({
 
 const addProductIntoCampaignSchema = z.object({
   params: z.object({
-    id: requiredMongooseId('Product ID'),
+    id: requiredMongooseId('Campaign ID'),
   }),
   body: z
     .object({
@@ -75,9 +75,9 @@ const addProductIntoCampaignSchema = z.object({
       description: optionalString('Description'),
       price: positiveNumber('Price'),
       productType: enumString(productTypeValues, 'Product type'),
-      stock: optionalString('Stock').nullable(),
+      stock: positiveNumber('Stock').nullable().optional(),
       sku: optionalString('SKU'),
-      weight: optionalString('Weight'),
+      weight: optionalNumber('Weight'),
       downloadFileName: optionalString('Download file name'),
     })
     .superRefine((data, ctx) => {

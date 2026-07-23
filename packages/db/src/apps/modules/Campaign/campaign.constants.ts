@@ -30,6 +30,17 @@ export const CampaignStatus = {
   CANCELLED: 'cancelled',
 } as const
 
+export const CampaignStatusOrder = {
+  [CampaignStatus.DRAFT]: 1,
+  [CampaignStatus.PENDING]: 2,
+  [CampaignStatus.ACTIVE]: 3,
+  [CampaignStatus.COMPLETED]: 4,
+  [CampaignStatus.PAYOUT_REQUEST]: 5,
+  [CampaignStatus.PAID_OUT]: 6,
+  [CampaignStatus.REJECTED]: 7,
+  [CampaignStatus.CANCELLED]: 8,
+} as const
+
 export const campaignStatusValues = Object.values(CampaignStatus)
 
 export type TCampaignStatus = (typeof CampaignStatus)[keyof typeof CampaignStatus]
