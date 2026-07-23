@@ -90,6 +90,14 @@ const addProductIntoCampaignSchema = z.object({
       }
     }),
 })
+const getCampaignPreviewByID = z.object({
+  params: z.object({
+    id: requiredMongooseId('Campaign ID'),
+  }),
+  body: z.object({
+    promoCode: optionalString('Promo Code'),
+  }),
+})
 
 const updateCampaignSchema = z.object({
   params: z.object({
@@ -129,6 +137,7 @@ export const campaignValidations = {
   getAllCampaignSchema,
   getCampaignByIdSchema,
   deleteCampaignByIdSchema,
+  getCampaignPreviewByID,
 }
 
 export type TCreateCampaignPayloadType = z.infer<typeof createCampaignSchema.shape.body>
@@ -137,3 +146,4 @@ export type TGetAllCampaignQueryParamsType = z.infer<typeof getAllCampaignSchema
 export type TGetCampaignByIdParamsType = z.infer<typeof getCampaignByIdSchema.shape.params>
 export type TDeleteCampaignByIdParamsType = z.infer<typeof deleteCampaignByIdSchema.shape.params>
 export type TAddProductIntoCampaignPayload = z.infer<typeof addProductIntoCampaignSchema.shape.body>
+export type TGetCampaignPreviewByID = z.infer<typeof getCampaignPreviewByID.shape.body>

@@ -49,6 +49,13 @@ router.post(
   campaignControllers.addProductIntoCampaign
 )
 
+router.get(
+  '/:id/preview',
+  auth(AuthRoles.ORGANIZER),
+  validateRequest(campaignValidations.getCampaignPreviewByID),
+  campaignControllers.getCampaignPreview
+)
+
 router.patch(
   '/:id',
   validateRequest(campaignValidations.updateCampaignSchema),

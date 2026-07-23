@@ -3,7 +3,7 @@ import httpStatus from 'http-status'
 import { campaignServices } from './campaign.services'
 import type { IMulterFile } from 'packages/media-hub/src'
 import { getUserFromRequest } from '@app/libs/get-user-from-request'
-import { Campaign, type IUser } from 'packages/db/src'
+import { type IUser } from 'packages/db/src'
 
 const createCampaign = catchAsync(async (req, res) => {
   const user = (await getUserFromRequest(req)) as IUser
@@ -37,6 +37,20 @@ const addProductIntoCampaign = catchAsync(async (req, res) => {
     success: true,
     statusCode: httpStatus.OK,
     message: 'A product added into campaign successfully!',
+    data: result,
+  })
+})
+
+const getCampaignPreview = catchAsync(async (req, res) => {
+  const user = (await getUserFromRequest(req)) as IUser
+  const campaignId = req.params.id as string
+  const promoCode = req?.body?.promoCode
+  const result = await campaignServices.getCampaignPreview(user, campaignId, promoCode)
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: 'Campaign preview retrieved successfully.',
     data: result,
   })
 })
@@ -93,4 +107,5 @@ export const campaignControllers = {
   getCampaignById,
   deleteCampaignById,
   addProductIntoCampaign,
+  getCampaignPreview,
 }

@@ -2,6 +2,7 @@ export * from './User'
 export * from './Otp'
 export * from './SiteInfo'
 export * from './PromoCode'
+export * from './PromoCodeUsage'
 export * from './Account'
 
 // ?? Campaign Model:

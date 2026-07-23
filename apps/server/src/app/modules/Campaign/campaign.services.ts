@@ -4,9 +4,12 @@ import {
   CampaignStatus,
   CampaignStatusOrder,
   DigitalProduct,
+  discountType,
   PhysicalProduct,
   Product,
   productType,
+  PromoCode,
+  PromoCodeUsage,
   SiteInfo,
   type IUser,
 } from '@repo/db'
@@ -45,8 +48,6 @@ const createCampaign = async (
   if (!thumbnailFile) {
     throw new AppError(httpStatus.BAD_REQUEST, 'Thumbnail image is required!')
   }
-
-  console.log(payload)
 
   // Only one non-finished campaign is allowed
   const existingCampaign = await Campaign.findOne({
@@ -210,6 +211,89 @@ const addProductIntoCampaign = async (
   }
 }
 
+const getCampaignPreview = async (user: IUser, campaignId: string, promoCode?: string) => {
+  const campaign = await Campaign.findById(campaignId)
+
+  if (!campaign) {
+    throw new AppError(httpStatus.NOT_FOUND, "Campaign doesn't exist!")
+  }
+
+  if (campaign.organizer.toString() !== user._id.toString()) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'This campaign does not belong to this organizer.')
+  }
+
+  if (campaign.status !== CampaignStatus.DRAFT) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Only draft campaigns can be previewed.')
+  }
+
+  const siteFees = await SiteInfo.findOne({})
+
+  if (!siteFees || !siteFees.campaignLaunchFee) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Site is not ready yet.')
+  }
+
+  let discountAmount = 0
+  let appliedPromoCode = null
+
+  const originalAmount = Number(siteFees.campaignLaunchFee?.toFixed(2))
+
+  if (promoCode) {
+    const existingPromoCode = await PromoCode.findOne({
+      code: promoCode.trim().toUpperCase(),
+      isActive: true,
+    })
+
+    if (!existingPromoCode) {
+      throw new AppError(httpStatus.NOT_FOUND, 'Promo code does not exist.')
+    }
+
+    if (existingPromoCode.usedCount >= existingPromoCode.usageLimit) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'This promo code is no longer available.')
+    }
+
+    if (new Date(existingPromoCode.expiresAt).getTime() < new Date().getTime()) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'This promo code is not active yet.')
+    }
+
+    // Already used?
+    const isPromoCodeUsed = await PromoCodeUsage.exists({
+      user: user._id,
+      promoCode: existingPromoCode._id,
+    })
+
+    if (isPromoCodeUsed) {
+      throw new AppError(httpStatus.CONFLICT, 'You have already used this promo code.')
+    }
+
+    if (existingPromoCode.discountType === discountType.PERCENTAGE) {
+      discountAmount = (originalAmount * existingPromoCode.discountValue) / 100
+    } else {
+      discountAmount = existingPromoCode.discountValue
+    }
+
+    discountAmount = Number(Math.min(discountAmount, originalAmount).toFixed(2))
+
+    appliedPromoCode = {
+      _id: existingPromoCode._id,
+      code: existingPromoCode.code,
+      discountType: existingPromoCode.discountType,
+      discountValue: existingPromoCode.discountValue,
+    }
+  }
+
+  const payableAmount = Number(Math.max(originalAmount - discountAmount, 0).toFixed(2))
+
+  return {
+    campaign: campaign,
+    paymentSummary: {
+      originalAmount,
+      discountAmount,
+      payableAmount,
+    },
+    promoCode: appliedPromoCode,
+  }
+}
+
 const updateCampaign = async (id: string, payload: TUpdateCampaignPayloadType) => {
   const result = await Campaign.findOneAndUpdate({ _id: id }, { $set: payload }, { new: true })
 
@@ -304,4 +388,5 @@ export const campaignServices = {
   getCampaignById,
   deleteCampaignById,
   addProductIntoCampaign,
+  getCampaignPreview,
 }
