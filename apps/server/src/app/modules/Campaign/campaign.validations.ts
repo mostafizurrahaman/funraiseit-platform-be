@@ -90,6 +90,39 @@ const addProductIntoCampaignSchema = z.object({
       }
     }),
 })
+
+const updateProductIntoCampaignSchema = z.object({
+  params: z.object({
+    productId: requiredMongooseId('Product ID'),
+  }),
+
+  body: z
+    .object({
+      name: optionalString('Name'),
+      description: optionalString('Description'),
+      price: positiveNumber('Price').optional(),
+
+      // Optional because product type cannot be changed.
+      // Used only for validation if client sends it.
+      productType: optionalEnumString(productTypeValues, 'Product type'),
+
+      stock: positiveNumber('Stock').nullable().optional(),
+      sku: optionalString('SKU'),
+      weight: optionalNumber('Weight'),
+
+      downloadFileName: optionalString('Download file name'),
+    })
+    .superRefine((data, ctx) => {
+      // If somehow digital is sent, require file name
+      if (data.productType === productType.DIGITAL && !data.downloadFileName) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['downloadFileName'],
+          message: 'Download file name is required for digital products.',
+        })
+      }
+    }),
+})
 const getCampaignPreviewByID = z.object({
   params: z.object({
     id: requiredMongooseId('Campaign ID'),
@@ -182,6 +215,7 @@ export const campaignValidations = {
   getCampaignByIdSchema,
   deleteCampaignByIdSchema,
   getCampaignPreviewByID,
+  updateProductIntoCampaignSchema,
 }
 
 export type TCreateCampaignPayloadType = z.infer<typeof createCampaignSchema.shape.body>
@@ -190,4 +224,7 @@ export type TGetAllCampaignQueryParamsType = z.infer<typeof getAllCampaignSchema
 export type TGetCampaignByIdParamsType = z.infer<typeof getCampaignByIdSchema.shape.params>
 export type TDeleteCampaignByIdParamsType = z.infer<typeof deleteCampaignByIdSchema.shape.params>
 export type TAddProductIntoCampaignPayload = z.infer<typeof addProductIntoCampaignSchema.shape.body>
+export type TUpdateProductIntoCampaignPayload = z.infer<
+  typeof updateProductIntoCampaignSchema.shape.body
+>
 export type TGetCampaignPreviewByID = z.infer<typeof getCampaignPreviewByID.shape.body>

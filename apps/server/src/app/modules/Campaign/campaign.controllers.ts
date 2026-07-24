@@ -41,6 +41,29 @@ const addProductIntoCampaign = catchAsync(async (req, res) => {
   })
 })
 
+const updateProductIntoCampaign = catchAsync(async (req, res) => {
+  const user = (await getUserFromRequest(req)) as IUser
+  const files = req.files as { [fieldname: string]: IMulterFile[] }
+  const payload = req.body
+  const productId = req.params.productId as string
+  const productImage = files?.['productImage']?.[0] as IMulterFile
+  const downloadFile = files?.['downloadFiles']?.[0] as IMulterFile
+  const result = await campaignServices.updateProductByIDIntoCampaign(
+    user,
+    productId,
+    payload,
+    productImage,
+    downloadFile
+  )
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: 'The product updated successfully!',
+    data: result,
+  })
+})
+
 const getCampaignPreview = catchAsync(async (req, res) => {
   const user = (await getUserFromRequest(req)) as IUser
   const campaignId = req.params.id as string
@@ -112,5 +135,6 @@ export const campaignControllers = {
   getCampaignById,
   deleteCampaignById,
   addProductIntoCampaign,
+  updateProductIntoCampaign,
   getCampaignPreview,
 }

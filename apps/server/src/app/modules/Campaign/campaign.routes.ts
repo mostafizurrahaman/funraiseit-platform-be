@@ -49,6 +49,36 @@ router.post(
   campaignControllers.addProductIntoCampaign
 )
 
+router.patch(
+  '/:productId/update-product',
+  auth(AuthRoles.ORGANIZER),
+
+  multerFactory({
+    category: [
+      'image',
+      'audio',
+      'video',
+      'archive',
+      'spreadsheet',
+      'document',
+      'presentation',
+      'text',
+    ],
+    maxSizeInMB: 50,
+  }).fields([
+    {
+      name: 'productImage',
+      maxCount: 1,
+    },
+    {
+      name: 'downloadFiles',
+      maxCount: 1,
+    },
+  ]),
+  validateRequest(campaignValidations.updateProductIntoCampaignSchema),
+  campaignControllers.updateProductIntoCampaign
+)
+
 router.get(
   '/:id/preview',
   auth(AuthRoles.ORGANIZER),
