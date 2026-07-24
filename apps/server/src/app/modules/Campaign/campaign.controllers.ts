@@ -56,7 +56,12 @@ const getCampaignPreview = catchAsync(async (req, res) => {
 })
 
 const updateCampaign = catchAsync(async (req, res) => {
-  const result = await campaignServices.updateCampaign(req.params.id as string, req.body)
+  const user = await getUserFromRequest(req)
+  const payload = req.body
+  const campaignId = req.params.id as string
+  const thumbnailFile = req.file as IMulterFile
+
+  const result = await campaignServices.updateCampaign(campaignId, user, payload, thumbnailFile)
 
   sendResponse(res, {
     success: true,

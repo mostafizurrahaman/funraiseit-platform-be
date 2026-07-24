@@ -58,6 +58,11 @@ router.get(
 
 router.patch(
   '/:id',
+  auth(AuthRoles.ORGANIZER),
+  multerFactory({
+    category: 'image',
+    maxSizeInMB: 5,
+  }).single('thumbnail'),
   validateRequest(campaignValidations.updateCampaignSchema),
   campaignControllers.updateCampaign
 )

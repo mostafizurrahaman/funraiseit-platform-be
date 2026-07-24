@@ -1,3 +1,4 @@
+import { deleteSingleFileFromS3 } from '@repo/media-hub'
 import {
   Campaign,
   campaignSearchableFields,
@@ -191,8 +192,6 @@ const addProductIntoCampaign = async (
       'campaign/products/downloadable'
     )
 
-    console.log({ downloadFileUrl })
-
     const downloadableProduct = {
       campaign: campaign?._id,
       name: payload.name,
@@ -231,6 +230,8 @@ const getCampaignPreview = async (user: IUser, campaignId: string, promoCode?: s
   if (!siteFees || !siteFees.campaignLaunchFee) {
     throw new AppError(httpStatus.NOT_FOUND, 'Site is not ready yet.')
   }
+
+  const products = await Product.find({ campaign: campaign?._id })
 
   let discountAmount = 0
   let appliedPromoCode = null
@@ -290,18 +291,122 @@ const getCampaignPreview = async (user: IUser, campaignId: string, promoCode?: s
       discountAmount,
       payableAmount,
     },
+    products: products?.length > 0 ? products : [],
     promoCode: appliedPromoCode,
   }
 }
 
-const updateCampaign = async (id: string, payload: TUpdateCampaignPayloadType) => {
-  const result = await Campaign.findOneAndUpdate({ _id: id }, { $set: payload }, { new: true })
+const updateCampaign = async (
+  campaignId: string,
+  user: IUser,
+  payload: TUpdateCampaignPayloadType,
+  thumbnailFile: IMulterFile
+) => {
+  // ?? Check is this campaign exists ?:
+  const existingCampaign = await Campaign.findOne({
+    _id: campaignId,
+  })
 
-  if (!result) {
-    throw new AppError(httpStatus.NOT_FOUND, 'Campaign not found.')
+  if (!existingCampaign) {
+    throw new AppError(httpStatus.NOT_FOUND, "Campaign doesn't exists.")
   }
 
-  return result
+  if (existingCampaign.organizer?.toString() !== user?._id?.toString()) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'This campaign is not belongs to your account.')
+  }
+
+  if (
+    ![CampaignStatus.DRAFT, CampaignStatus.PENDING].includes(
+      existingCampaign?.status as 'draft' | 'pending'
+    )
+  ) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      `Only draft or pending status campaign is editable. Current status ${existingCampaign?.status}`
+    )
+  }
+
+  const allowLocalDelivery = payload.allowLocalDelivery ?? existingCampaign.allowLocalDelivery
+
+  const allowLocalPickup = payload.allowLocalPickup ?? existingCampaign.allowLocalPickup
+
+  const allowShipping = payload.allowShipping ?? existingCampaign.allowShipping
+
+  const isOneOptionEnabled = allowLocalDelivery || allowLocalPickup || allowShipping
+
+  if (!isOneOptionEnabled) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'At least one fulfillment option must be enabled (Local Pickup, Local Delivery, or Shipping).'
+    )
+  }
+  const siteFees = await SiteInfo.findOne({})
+
+  if (!siteFees?.campaignLaunchFee) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Campaign launch fee not found!')
+  }
+
+  // ?? Handle Thumbnail image:
+  const oldThumbnailUrl = existingCampaign?.thumbnail as string
+  let newThumbnailUrl: string | null = null
+
+  if (thumbnailFile) {
+    const { url } = await uploadSingleFileToS3(thumbnailFile, 'campaign/thumbnails')
+    newThumbnailUrl = url
+    existingCampaign.thumbnail = url
+  }
+
+  const changedAllowedShipping =
+    payload.allowShipping && payload.allowShipping !== existingCampaign.allowShipping
+
+  if (changedAllowedShipping && payload.allowShipping) {
+    const newShippingFee = payload.shippingFee || existingCampaign.shippingFee
+
+    if (newShippingFee >= 0) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        'Shipping fee is required when shipping is enabled.'
+      )
+    }
+    existingCampaign.shippingFee = newShippingFee
+  }
+
+  if (!payload.allowShipping && existingCampaign.shippingFee) existingCampaign.shippingFee = 0
+
+  if (payload.name !== undefined) existingCampaign.name = payload.name
+  if (payload.campaignCategory !== undefined)
+    existingCampaign.campaignCategory = payload.campaignCategory
+  if (payload.story !== undefined) existingCampaign.story = payload.story
+  if (
+    payload.fundUsage !== undefined &&
+    Array.isArray(payload.fundUsage) &&
+    payload.fundUsage?.length > 0
+  ) {
+    existingCampaign.fundUsage = payload.fundUsage as string[]
+  }
+
+  if (payload.goalAmount !== undefined)
+    existingCampaign.goalAmount = Math.max(payload.goalAmount, 0)
+  if (payload.allowDonation !== undefined) existingCampaign.allowDonation = payload.allowDonation
+  if (payload.allowLocalPickup !== undefined)
+    existingCampaign.allowLocalPickup = payload.allowLocalPickup
+  if (payload.allowLocalDelivery !== undefined)
+    existingCampaign.allowLocalDelivery = payload.allowLocalDelivery
+  if (payload.allowShipping !== undefined) existingCampaign.allowShipping = payload.allowShipping
+
+  if (payload.durationDays !== undefined) existingCampaign.durationDays = payload.durationDays
+  existingCampaign.launchFee = Math.max(siteFees.campaignLaunchFee, 0)
+  existingCampaign.finalLaunchFee = Math.max(siteFees.campaignLaunchFee, 0)
+
+  await existingCampaign.save({
+    validateBeforeSave: true,
+  })
+
+  if (existingCampaign.thumbnail === newThumbnailUrl && oldThumbnailUrl) {
+    await deleteSingleFileFromS3(oldThumbnailUrl)
+  }
+
+  return existingCampaign
 }
 
 const getAllCampaign = async (query: TGetAllCampaignQueryParamsType) => {
