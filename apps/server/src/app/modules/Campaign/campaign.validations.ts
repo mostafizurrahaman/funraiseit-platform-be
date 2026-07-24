@@ -14,8 +14,6 @@ import {
 import {
   campaignCategoryValues,
   campaignSortableFields,
-  productType,
-  productTypeValues,
 } from '@repo/db'
 
 const createCampaignSchema = z.object({
@@ -65,64 +63,6 @@ const createCampaignSchema = z.object({
     }),
 })
 
-const addProductIntoCampaignSchema = z.object({
-  params: z.object({
-    id: requiredMongooseId('Campaign ID'),
-  }),
-  body: z
-    .object({
-      name: requiredString('Name'),
-      description: optionalString('Description'),
-      price: positiveNumber('Price'),
-      productType: enumString(productTypeValues, 'Product type'),
-      stock: positiveNumber('Stock').nullable().optional(),
-      sku: optionalString('SKU'),
-      weight: optionalNumber('Weight'),
-      downloadFileName: optionalString('Download file name'),
-    })
-    .superRefine((data, ctx) => {
-      if (data.productType === productType.DIGITAL && !data.downloadFileName) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['downloadFileName'],
-          message: 'Download File name is required for product type download.',
-        })
-      }
-    }),
-})
-
-const updateProductIntoCampaignSchema = z.object({
-  params: z.object({
-    productId: requiredMongooseId('Product ID'),
-  }),
-
-  body: z
-    .object({
-      name: optionalString('Name'),
-      description: optionalString('Description'),
-      price: positiveNumber('Price').optional(),
-
-      // Optional because product type cannot be changed.
-      // Used only for validation if client sends it.
-      productType: optionalEnumString(productTypeValues, 'Product type'),
-
-      stock: positiveNumber('Stock').nullable().optional(),
-      sku: optionalString('SKU'),
-      weight: optionalNumber('Weight'),
-
-      downloadFileName: optionalString('Download file name'),
-    })
-    .superRefine((data, ctx) => {
-      // If somehow digital is sent, require file name
-      if (data.productType === productType.DIGITAL && !data.downloadFileName) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['downloadFileName'],
-          message: 'Download file name is required for digital products.',
-        })
-      }
-    }),
-})
 const getCampaignPreviewByID = z.object({
   params: z.object({
     id: requiredMongooseId('Campaign ID'),
@@ -209,13 +149,12 @@ const deleteCampaignByIdSchema = z.object({
 
 export const campaignValidations = {
   createCampaignSchema,
-  addProductIntoCampaignSchema,
+  
   updateCampaignSchema,
   getAllCampaignSchema,
   getCampaignByIdSchema,
   deleteCampaignByIdSchema,
   getCampaignPreviewByID,
-  updateProductIntoCampaignSchema,
 }
 
 export type TCreateCampaignPayloadType = z.infer<typeof createCampaignSchema.shape.body>
@@ -223,8 +162,5 @@ export type TUpdateCampaignPayloadType = z.infer<typeof updateCampaignSchema.sha
 export type TGetAllCampaignQueryParamsType = z.infer<typeof getAllCampaignSchema.shape.query>
 export type TGetCampaignByIdParamsType = z.infer<typeof getCampaignByIdSchema.shape.params>
 export type TDeleteCampaignByIdParamsType = z.infer<typeof deleteCampaignByIdSchema.shape.params>
-export type TAddProductIntoCampaignPayload = z.infer<typeof addProductIntoCampaignSchema.shape.body>
-export type TUpdateProductIntoCampaignPayload = z.infer<
-  typeof updateProductIntoCampaignSchema.shape.body
->
+
 export type TGetCampaignPreviewByID = z.infer<typeof getCampaignPreviewByID.shape.body>

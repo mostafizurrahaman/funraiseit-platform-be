@@ -1,20 +1,46 @@
 import { catchAsync, sendResponse } from '@repo/shared'
 import httpStatus from 'http-status'
 import { productServices } from './product.services'
+import type { IMulterFile } from 'packages/media-hub/src'
+import { getUserFromRequest } from '@app/libs/get-user-from-request'
 
-const createProduct = catchAsync(async (req, res) => {
-  const result = await productServices.createProduct(req.body)
+const addProductIntoCampaign = catchAsync(async (req, res) => {
+  const user = await getUserFromRequest(req)
+  const files = req.files as { [fieldname: string]: IMulterFile[] }
+  const payload = req.body
+  const campaignId = req.params.id as string
+  const productImage = files?.['productImage']?.[0] as IMulterFile
+  const downloadFile = files?.['downloadFiles']?.[0] as IMulterFile
+  const result = await productServices.addProductIntoCampaign(
+    user,
+    campaignId,
+    payload,
+    productImage,
+    downloadFile
+  )
 
   sendResponse(res, {
     success: true,
-    statusCode: httpStatus.CREATED,
-    message: 'The product created successfully!',
+    statusCode: httpStatus.OK,
+    message: 'A product added into campaign successfully!',
     data: result,
   })
 })
 
-const updateProduct = catchAsync(async (req, res) => {
-  const result = await productServices.updateProduct(req.params.id as string, req.body)
+const updateProductIntoCampaign = catchAsync(async (req, res) => {
+  const user = await getUserFromRequest(req)
+  const files = req.files as { [fieldname: string]: IMulterFile[] }
+  const payload = req.body
+  const productId = req.params.productId as string
+  const productImage = files?.['productImage']?.[0] as IMulterFile
+  const downloadFile = files?.['downloadFiles']?.[0] as IMulterFile
+  const result = await productServices.updateProductByIDIntoCampaign(
+    user,
+    productId,
+    payload,
+    productImage,
+    downloadFile
+  )
 
   sendResponse(res, {
     success: true,
@@ -59,9 +85,9 @@ const deleteProductById = catchAsync(async (req, res) => {
 })
 
 export const productControllers = {
-  createProduct,
-  updateProduct,
+  addProductIntoCampaign,
+  updateProductIntoCampaign,
   getAllProduct,
   getProductById,
-  deleteProductById
+  deleteProductById,
 }
