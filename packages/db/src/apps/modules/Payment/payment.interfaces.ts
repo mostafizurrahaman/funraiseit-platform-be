@@ -28,6 +28,38 @@ export interface IOrderPayment extends IPayment {
   order: Types.ObjectId
 }
 
+// Table PaymentBreakdown {
+//   id string [pk]
+
+//   payment string [ref: > Payment.id, unique]
+
+//   subtotal decimal(12,2)
+//   shippingFee decimal(12,2)
+
+//   totalAmount decimal(12,2)
+
+//   stripeFee decimal(12,2)
+//   platformFee decimal(12,2)
+
+//   organizerAmount decimal(12,2)
+//   organizerAmountWithoutShipping decimal(12,2)
+
+//   createdAt date
+//   updatedAt date
+// }
+
+export interface IPaymentBreakdown {
+  payment: Types.ObjectId
+  subtotal: number
+  shippingFee: number
+  totalAmount: number
+  stripeFee: number
+  platformFee: number
+  organizerAmount: number
+  organizerAmountWithoutShipping: number
+  discountAmount: number // only for lunching campaign:
+}
+
 export interface IPaymentDoc extends Document, IPayment {}
 
 export interface IDonationPaymentDoc extends IDonationPayment, Document {}

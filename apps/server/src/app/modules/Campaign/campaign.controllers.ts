@@ -82,12 +82,26 @@ const deleteCampaignById = catchAsync(async (req, res) => {
   })
 })
 
+const launchCampaignByID = catchAsync(async (req, res) => {
+  const user = await getUserFromRequest(req)
+  const campaignId = req.params.id
+  const promoCode = req.body.promoCode
+
+  const result = await campaignServices.launchCampaignByID(user, campaignId, promoCode)
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: 'For launching the campaign complete the payment.',
+    data: result,
+  })
+})
 export const campaignControllers = {
   createCampaign,
   updateCampaign,
   getAllCampaign,
   getCampaignById,
   deleteCampaignById,
- 
+
   getCampaignPreview,
 }

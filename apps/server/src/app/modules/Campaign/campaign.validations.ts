@@ -11,10 +11,7 @@ import {
   requiredStrBoolean,
   requiredMongooseId,
 } from '@repo/shared'
-import {
-  campaignCategoryValues,
-  campaignSortableFields,
-} from '@repo/db'
+import { campaignCategoryValues, campaignSortableFields } from '@repo/db'
 
 const createCampaignSchema = z.object({
   body: z
@@ -64,6 +61,15 @@ const createCampaignSchema = z.object({
 })
 
 const getCampaignPreviewByID = z.object({
+  params: z.object({
+    id: requiredMongooseId('Campaign ID'),
+  }),
+  body: z.object({
+    promoCode: optionalString('Promo Code'),
+  }),
+})
+
+const launchCampaignByID = z.object({
   params: z.object({
     id: requiredMongooseId('Campaign ID'),
   }),
@@ -149,12 +155,13 @@ const deleteCampaignByIdSchema = z.object({
 
 export const campaignValidations = {
   createCampaignSchema,
-  
+
   updateCampaignSchema,
   getAllCampaignSchema,
   getCampaignByIdSchema,
   deleteCampaignByIdSchema,
   getCampaignPreviewByID,
+  launchCampaignByID,
 }
 
 export type TCreateCampaignPayloadType = z.infer<typeof createCampaignSchema.shape.body>
@@ -164,3 +171,4 @@ export type TGetCampaignByIdParamsType = z.infer<typeof getCampaignByIdSchema.sh
 export type TDeleteCampaignByIdParamsType = z.infer<typeof deleteCampaignByIdSchema.shape.params>
 
 export type TGetCampaignPreviewByID = z.infer<typeof getCampaignPreviewByID.shape.body>
+export type TLaunchCampaignPayloadType = z.infer<typeof launchCampaignByID.shape.body>

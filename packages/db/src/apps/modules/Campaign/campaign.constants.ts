@@ -46,7 +46,12 @@ export const campaignStatusValues = Object.values(CampaignStatus)
 export type TCampaignStatus = (typeof CampaignStatus)[keyof typeof CampaignStatus]
 
 export const campaignLunchPaymentStatus = {
+  NOT_INITIATED: 'not_initiated',
   PENDING: 'pending',
   PAID: 'paid',
   FAILED: 'failed',
-}
+} as const
+
+export const campaignPaymentStatusValues = Object.values(campaignLunchPaymentStatus)
+export type TCampaignLunchPaymentStatusType =
+  (typeof campaignLunchPaymentStatus)[keyof typeof campaignLunchPaymentStatus]

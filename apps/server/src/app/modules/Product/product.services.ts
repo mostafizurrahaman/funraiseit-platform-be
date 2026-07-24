@@ -281,6 +281,8 @@ const updateProductByIDIntoCampaign = async (
   )
 }
 
+
+
 const getAllProduct = async (query: TGetAllProductQueryParamsType) => {
   const {
     page = 1,

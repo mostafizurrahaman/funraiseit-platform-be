@@ -19,13 +19,18 @@ router.post(
   campaignControllers.createCampaign
 )
 
-
-
 router.get(
   '/:id/preview',
   auth(AuthRoles.ORGANIZER),
   validateRequest(campaignValidations.getCampaignPreviewByID),
   campaignControllers.getCampaignPreview
+)
+
+router.post(
+  '/:id/launch',
+  auth(AuthRoles.ORGANIZER),
+  validateRequest(campaignValidations.launchCampaignByID),
+  campaignControllers.launchCampaignByID
 )
 
 router.patch(

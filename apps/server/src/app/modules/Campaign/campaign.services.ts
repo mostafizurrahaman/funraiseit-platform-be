@@ -1,6 +1,7 @@
 import { deleteSingleFileFromS3 } from '@repo/media-hub'
 import {
   Campaign,
+  campaignLunchPaymentStatus,
   campaignSearchableFields,
   CampaignStatus,
   discountType,
@@ -21,6 +22,7 @@ import type {
 } from './campaign.validations'
 import { uploadSingleFileToS3, type IMulterFile } from 'packages/media-hub/src'
 import { generateCampaignCode } from './campaign.utils'
+import mongoose from 'mongoose'
 
 const createCampaign = async (
   user: IUser,
@@ -116,6 +118,9 @@ const getCampaignPreview = async (user: IUser, campaignId: string, promoCode?: s
   }
 
   const products = await Product.find({ campaign: campaign?._id })
+  if (products?.length < 1) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Please add products before preview!')
+  }
 
   let discountAmount = 0
   let appliedPromoCode = null
@@ -368,6 +373,162 @@ const deleteCampaignById = async (id: string) => {
   }
 
   return result
+}
+
+const launchCampaignByID = async (user: IUser, campaignId: string, promoCode?: string) => {
+  const campaign = await Campaign.findById(campaignId)
+
+  if (!campaign) {
+    throw new AppError(httpStatus.NOT_FOUND, "Campaign doesn't exist!")
+  }
+
+  if (campaign.organizer.toString() !== user._id.toString()) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'This campaign does not belong to this organizer.')
+  }
+
+  if (campaign.status !== CampaignStatus.DRAFT) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Only draft campaigns can be previewed.')
+  }
+
+  const siteFees = await SiteInfo.findOne({})
+
+  if (!siteFees || !siteFees.campaignLaunchFee) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Site is not ready yet.')
+  }
+
+  const products = await Product.find({ campaign: campaign?._id })
+  if (products?.length < 1) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Please add products before preview!')
+  }
+
+  let discountAmount = 0
+  let appliedPromoCode = null
+
+  const originalAmount = Number(siteFees.campaignLaunchFee?.toFixed(2))
+
+  if (promoCode) {
+    const existingPromoCode = await PromoCode.findOne({
+      code: promoCode.trim().toUpperCase(),
+      isActive: true,
+    })
+
+    if (!existingPromoCode) {
+      throw new AppError(httpStatus.NOT_FOUND, 'Promo code does not exist.')
+    }
+
+    if (existingPromoCode.usedCount >= existingPromoCode.usageLimit) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'This promo code is no longer available.')
+    }
+
+    if (new Date(existingPromoCode.expiresAt).getTime() < new Date().getTime()) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'This promo code is not active yet.')
+    }
+
+    // Already used?
+    const isPromoCodeUsed = await PromoCodeUsage.exists({
+      user: user._id,
+      promoCode: existingPromoCode._id,
+    })
+
+    if (isPromoCodeUsed) {
+      throw new AppError(httpStatus.CONFLICT, 'You have already used this promo code.')
+    }
+
+    if (existingPromoCode.discountType === discountType.PERCENTAGE) {
+      discountAmount = (originalAmount * existingPromoCode.discountValue) / 100
+    } else {
+      discountAmount = existingPromoCode.discountValue
+    }
+
+    discountAmount = Number(Math.min(discountAmount, originalAmount).toFixed(2))
+
+    appliedPromoCode = {
+      _id: existingPromoCode._id,
+      code: existingPromoCode.code,
+      discountType: existingPromoCode.discountType,
+      discountValue: existingPromoCode.discountValue,
+    }
+  }
+
+  const payableAmount = Number(Math.max(originalAmount - discountAmount, 0).toFixed(2))
+
+  const session = await mongoose.startSession()
+
+  try {
+    session.startTransaction()
+
+    const updatedCampaign = await Campaign.findOneAndUpdate(
+      {
+        _id: campaign?._id,
+      },
+      {
+        $set: {
+          launchFee: originalAmount,
+          finalLaunchFee: payableAmount,
+          discountAmount: discountAmount,
+          promoCode: appliedPromoCode?._id,
+          paymentStatus: campaignLunchPaymentStatus.PENDING,
+        },
+      },
+      {
+        new: true,
+        session,
+      }
+    )
+
+    if (!updatedCampaign) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'The campaign failed to update')
+    }
+
+    if (appliedPromoCode) {
+      const promoCode = await PromoCode.findOneAndUpdate(
+        {
+          _id: appliedPromoCode?._id,
+        },
+        {
+          $inc: {
+            usedCount: 1,
+          },
+        },
+        {
+          new: true,
+          session,
+        }
+      )
+
+      if (!promoCode) {
+        throw new AppError(httpStatus.BAD_REQUEST, 'Promo code failed to update.')
+      }
+
+      const usedPromoCode = await PromoCodeUsage.create(
+        [
+          {
+            user: user?._id,
+            promoCode: promoCode?._id,
+            campaign: campaign?._id,
+
+            discountType: promoCode?.discountType,
+            discountValue: promoCode.discountValue, // e.g. 10 (%) or 20 ($)
+
+            originalAmount: originalAmount, // Before discount
+            discountAmount: discountAmount, // Amount deducted
+            finalAmount: payableAmount, // Amount after discount
+
+            usedAt: new Date(),
+          },
+        ],
+        {
+          session,
+        }
+      )
+
+      if (!usedPromoCode) {
+        throw new AppError(httpStatus.BAD_REQUEST, 'Promo code failed to update.')
+      }
+    }
+  } catch (err) {
+    console.log(err)
+  }
 }
 
 export const campaignServices = {

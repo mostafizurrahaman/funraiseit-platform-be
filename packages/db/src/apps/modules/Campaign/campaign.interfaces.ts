@@ -1,5 +1,9 @@
 import { Document, Types } from 'mongoose'
-import type { TCampaignCategory, TCampaignStatus } from './campaign.constants'
+import type {
+  TCampaignCategory,
+  TCampaignLunchPaymentStatusType,
+  TCampaignStatus,
+} from './campaign.constants'
 
 export interface ICampaign {
   organizer: Types.ObjectId
@@ -42,6 +46,7 @@ export interface ICampaign {
 
   // Status :
   status: TCampaignStatus
+  paymentStatus: TCampaignLunchPaymentStatusType
 }
 
 export interface ICampaignDoc extends Document, ICampaign {}
