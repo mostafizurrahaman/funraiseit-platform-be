@@ -67,4 +67,12 @@ router.patch(
   validateRequest(productValidations.updateProductIntoCampaignSchema),
   productControllers.updateProductIntoCampaign
 )
+
+router.delete(
+  '/:productId',
+  auth(AuthRoles.ORGANIZER),
+  validateRequest(productValidations.deleteProductByIdSchema),
+  productControllers.deleteProductById
+)
+
 export const productRoutes = router

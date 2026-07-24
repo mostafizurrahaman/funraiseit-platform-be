@@ -1,3 +1,4 @@
+import { campaignStatusValues } from './../../../../../../packages/db/src/apps/modules/Campaign/campaign.constants'
 import z from 'zod'
 import {
   requiredString,
@@ -75,6 +76,8 @@ const getAllProductSchema = z.object({
   query: z.object({
     page: optionalNumber('Page'),
     limit: optionalNumber('Limit'),
+    campaignId: optionalString('Campaign ID'),
+    campaignStatus: optionalEnumString(campaignStatusValues, 'Campaign Status'),
     searchTerm: optionalString('Search term'),
     sortOrder: optionalEnumString(sortingOrderValues, 'Sort order'),
     sortBy: optionalEnumString(productSortableFields, 'Sort by'),
@@ -91,7 +94,7 @@ const getProductByIdSchema = z.object({
 
 const deleteProductByIdSchema = z.object({
   params: z.object({
-    id: requiredString('ID'),
+    productId: requiredString('product ID'),
   }),
 })
 

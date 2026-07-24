@@ -74,7 +74,8 @@ const getProductById = catchAsync(async (req, res) => {
 })
 
 const deleteProductById = catchAsync(async (req, res) => {
-  const result = await productServices.deleteProductById(req.params.id as string)
+  const user = await getUserFromRequest(req)
+  const result = await productServices.deleteProductById(user, req.params.productId as string)
 
   sendResponse(res, {
     success: true,

@@ -18,7 +18,7 @@ import type {
   TGetAllProductQueryParamsType,
   TUpdateProductIntoCampaignPayload,
 } from './product.validations'
-import { uploadSingleFileToS3, type IMulterFile } from 'packages/media-hub/src'
+import { deleteMultipleFilesFromS3, uploadSingleFileToS3, type IMulterFile } from 'packages/media-hub/src'
 
 const addProductIntoCampaign = async (
   user: IUser,
@@ -288,6 +288,7 @@ const getAllProduct = async (query: TGetAllProductQueryParamsType) => {
     searchTerm,
     sortOrder = 'desc',
     sortBy = 'createdAt',
+    campaignId,
     fromDate,
     toDate,
   } = query
@@ -348,12 +349,65 @@ const getProductById = async (id: string) => {
   return result
 }
 
-const deleteProductById = async (id: string) => {
-  const result = await Product.findOneAndDelete({ _id: id })
+const deleteProductById = async (user:IUser, productId: string) => {
+
+
+   // Base product
+  const baseProduct = await Product.findById(productId)
+
+  if (!baseProduct) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Product not found.')
+  }
+
+  // Campaign
+  const campaign = await Campaign.findById(baseProduct.campaign)
+
+  if (!campaign) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Campaign not found.')
+  }
+
+  if (campaign.organizer.toString() !== user._id.toString()) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'This campaign does not belong to your account.')
+  }
+
+  if (CampaignStatusOrder[campaign.status] > CampaignStatusOrder[CampaignStatus.PENDING]) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'Products can only be deleted when the campaign is in Draft or Pending status.'
+    )
+  }
+
+
+
+  if (baseProduct.productType === productType.DIGITAL) {
+
+    const result = await DigitalProduct.findOneAndDelete({ 
+       _id: productId
+    })
 
   if (!result) {
     throw new AppError(httpStatus.NOT_FOUND, 'Product not found')
   }
+
+    const attachments = []
+
+    if (result?.productImage) attachments.push(result.productImage)
+    if (result?.digitalFileUrl) attachments.push(result.digitalFileUrl)
+    if (attachments?.length > 0) await deleteMultipleFilesFromS3(attachments) 
+
+    return result  
+}
+
+  const result = await Product.findOneAndDelete({ _id: productId })
+
+  if (!result) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Product not found')
+  }
+
+  const attachments = []
+
+  if (result?.productImage) attachments.push(result.productImage)
+  if (attachments?.length > 0) await deleteMultipleFilesFromS3(attachments) 
 
   return result
 }
