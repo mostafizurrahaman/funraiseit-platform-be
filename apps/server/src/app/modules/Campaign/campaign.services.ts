@@ -395,7 +395,7 @@ const launchCampaignByID = async (user: IUser, campaignId: string, promoCode?: s
   }
 
   if (campaign.status !== CampaignStatus.DRAFT) {
-    throw new AppError(httpStatus.BAD_REQUEST, 'Only draft campaigns can be previewed.')
+    throw new AppError(httpStatus.BAD_REQUEST, 'Only draft campaigns can be lunch.')
   }
 
   if (campaign.paymentStatus === campaignLunchPaymentStatus.PAID) {
@@ -417,7 +417,7 @@ const launchCampaignByID = async (user: IUser, campaignId: string, promoCode?: s
     const lastPendingPayment = await Payment.findOne({
       campaign: campaign?._id,
       organizer: user?._id,
-      paymentType: PaymentType.CAMPAIGN_LAUNCH_FEE,
+      paymentType: paymentType.LAUNCH_FEE,
       status: paymentStatus.PENDING,
     }).sort({ createdAt: -1 })
 
@@ -481,7 +481,7 @@ const launchCampaignByID = async (user: IUser, campaignId: string, promoCode?: s
           {
             campaign: campaign?._id,
             organizer: user?._id,
-            paymentType: PaymentType.CAMPAIGN_LAUNCH_FEE,
+            paymentType: paymentType.LAUNCH_FEE,
             status: paymentStatus.PENDING,
           },
           { session }
@@ -605,7 +605,7 @@ const launchCampaignByID = async (user: IUser, campaignId: string, promoCode?: s
           {
             organizer: user?._id,
             campaign: updatedCampaign?._id,
-            paymentType: PaymentType.CAMPAIGN_LAUNCH_FEE,
+            paymentType: paymentType.LAUNCH_FEE,
             status: paymentStatus.PAID,
             amount: payableAmount,
             paidAt: new Date(),
@@ -642,12 +642,12 @@ const launchCampaignByID = async (user: IUser, campaignId: string, promoCode?: s
 
     const result = await stripeCheckoutSession({
       name: `${campaign.name} (Campaign Launch fee)`,
-      unit_amount: payableAmount * 100, 
-      expiresAt: stripeExpiresAt, 
+      unit_amount: payableAmount * 100,
+      expiresAt: stripeExpiresAt,
       metadata: {
         organizerId: user?._id?.toString(),
         campaignId: campaign?._id?.toString(),
-        paymentType: PaymentType.CAMPAIGN_LAUNCH_FEE,
+        paymentType: paymentType.LAUNCH_FEE,
         payableAmount,
         discountAmount,
         originalAmount,
@@ -659,7 +659,7 @@ const launchCampaignByID = async (user: IUser, campaignId: string, promoCode?: s
         {
           organizer: user?._id,
           campaign: campaign?._id,
-          paymentType: PaymentType.CAMPAIGN_LAUNCH_FEE,
+          paymentType: paymentType.LAUNCH_FEE,
           status: paymentStatus.PENDING,
           amount: payableAmount,
           stripeCheckoutSessionId: result.id,

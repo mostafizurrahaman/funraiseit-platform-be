@@ -21,6 +21,11 @@ const paymentSchema = new Schema<IPaymentDoc>(
       ref: 'User',
       required: true,
     },
+    campaign: {
+      type: Schema.Types.ObjectId,
+      ref: 'Campaign',
+      required: true,
+    },
     paymentType: {
       type: String,
       enum: paymentTypeValues,
