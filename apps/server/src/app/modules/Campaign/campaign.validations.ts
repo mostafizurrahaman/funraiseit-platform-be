@@ -11,12 +11,7 @@ import {
   requiredStrBoolean,
   requiredMongooseId,
 } from '@repo/shared'
-import {
-  campaignCategoryValues,
-  campaignSortableFields,
-  productType,
-  productTypeValues,
-} from '@repo/db'
+import { campaignCategoryValues, campaignSortableFields } from '@repo/db'
 
 const createCampaignSchema = z.object({
   body: z
@@ -65,37 +60,73 @@ const createCampaignSchema = z.object({
     }),
 })
 
-const addProductIntoCampaignSchema = z.object({
+const getCampaignPreviewByID = z.object({
   params: z.object({
     id: requiredMongooseId('Campaign ID'),
   }),
-  body: z
-    .object({
-      name: requiredString('Name'),
-      description: optionalString('Description'),
-      price: positiveNumber('Price'),
-      productType: enumString(productTypeValues, 'Product type'),
-      stock: positiveNumber('Stock').nullable().optional(),
-      sku: optionalString('SKU'),
-      weight: optionalNumber('Weight'),
-      downloadFileName: optionalString('Download file name'),
-    })
-    .superRefine((data, ctx) => {
-      if (data.productType === productType.DIGITAL && !data.downloadFileName) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['downloadFileName'],
-          message: 'Download File name is required for product type download.',
-        })
-      }
-    }),
+  body: z.object({
+    promoCode: optionalString('Promo Code'),
+  }),
+})
+
+const launchCampaignByID = z.object({
+  params: z.object({
+    id: requiredMongooseId('Campaign ID'),
+  }),
+  body: z.object({
+    promoCode: optionalString('Promo Code'),
+  }),
 })
 
 const updateCampaignSchema = z.object({
   params: z.object({
     id: requiredString('ID'),
   }),
-  body: z.object({}),
+  body: z.object({
+    name: optionalString('Name'),
+    campaignCategory: optionalEnumString(campaignCategoryValues, 'Campaign category'),
+    story: optionalString('Story'),
+    fundUsage: z
+      .array(optionalString('fundUsage'), {
+        error: 'Fund usage should be an array of string',
+      })
+      .min(1, {
+        error: 'min. one item is required!',
+      })
+      .optional(),
+    goalAmount: positiveNumber('Goal amount').optional(),
+    durationDays: positiveNumber('Days')
+      .max(30, {
+        error: 'Duration days max. 7 days.',
+      })
+      .min(1, {
+        error: 'Duration days min. 1 days',
+      })
+      .optional(),
+    allowLocalPickup: requiredStrBoolean('Allow local pickup').optional(),
+    allowLocalDelivery: requiredStrBoolean('Allow local delivery').optional(),
+    allowShipping: requiredStrBoolean('Allow shipping').optional(),
+    allowDonation: requiredStrBoolean('Allow donation').optional(),
+    shippingFee: positiveNumber('Shipping fee').optional(),
+  }),
+  // .superRefine((data, ctx) => {
+  //   if (!data.allowLocalPickup && !data.allowLocalDelivery && !data.allowShipping) {
+  //     return ctx.addIssue({
+  //       code: z.ZodIssueCode.custom,
+  //       path: ['allowLocalPickup'],
+  //       message:
+  //         'At least one option must be enabled (Local Pickup, Local Delivery, Shipping, or Donation).',
+  //     })
+  //   }
+
+  //   if (!data.allowShipping && (data.shippingFee === undefined || data.shippingFee > 0)) {
+  //     return ctx.addIssue({
+  //       code: z.ZodIssueCode.custom,
+  //       path: ['allowShipping'],
+  //       message: 'Shipping fee cannot be added when shipping is disabled.',
+  //     })
+  //   }
+  // }),
 })
 
 const getAllCampaignSchema = z.object({
@@ -124,11 +155,13 @@ const deleteCampaignByIdSchema = z.object({
 
 export const campaignValidations = {
   createCampaignSchema,
-  addProductIntoCampaignSchema,
+
   updateCampaignSchema,
   getAllCampaignSchema,
   getCampaignByIdSchema,
   deleteCampaignByIdSchema,
+  getCampaignPreviewByID,
+  launchCampaignByID,
 }
 
 export type TCreateCampaignPayloadType = z.infer<typeof createCampaignSchema.shape.body>
@@ -136,4 +169,6 @@ export type TUpdateCampaignPayloadType = z.infer<typeof updateCampaignSchema.sha
 export type TGetAllCampaignQueryParamsType = z.infer<typeof getAllCampaignSchema.shape.query>
 export type TGetCampaignByIdParamsType = z.infer<typeof getCampaignByIdSchema.shape.params>
 export type TDeleteCampaignByIdParamsType = z.infer<typeof deleteCampaignByIdSchema.shape.params>
-export type TAddProductIntoCampaignPayload = z.infer<typeof addProductIntoCampaignSchema.shape.body>
+
+export type TGetCampaignPreviewByID = z.infer<typeof getCampaignPreviewByID.shape.body>
+export type TLaunchCampaignPayloadType = z.infer<typeof launchCampaignByID.shape.body>

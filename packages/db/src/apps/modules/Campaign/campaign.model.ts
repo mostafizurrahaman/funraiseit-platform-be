@@ -1,6 +1,12 @@
 import { Schema, model } from 'mongoose'
 import type { ICampaignDoc } from './campaign.interfaces'
-import { campaignCategoryValues, CampaignStatus, campaignStatusValues } from './campaign.constants'
+import {
+  campaignCategoryValues,
+  campaignLunchPaymentStatus,
+  campaignPaymentStatusValues,
+  CampaignStatus,
+  campaignStatusValues,
+} from './campaign.constants'
 import { CurrencyValues, DefaultCurrency } from '../Account'
 
 const campaignSchema = new Schema<ICampaignDoc>(
@@ -121,6 +127,11 @@ const campaignSchema = new Schema<ICampaignDoc>(
       type: String,
       enum: campaignStatusValues,
       default: CampaignStatus.DRAFT,
+    },
+    paymentStatus: {
+      type: String,
+      enum: campaignPaymentStatusValues,
+      default: campaignLunchPaymentStatus.NOT_INITIATED,
     },
   },
   {

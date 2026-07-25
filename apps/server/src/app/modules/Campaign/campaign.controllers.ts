@@ -3,7 +3,7 @@ import httpStatus from 'http-status'
 import { campaignServices } from './campaign.services'
 import type { IMulterFile } from 'packages/media-hub/src'
 import { getUserFromRequest } from '@app/libs/get-user-from-request'
-import { Campaign, type IUser } from 'packages/db/src'
+import { type IUser } from 'packages/db/src'
 
 const createCampaign = catchAsync(async (req, res) => {
   const user = (await getUserFromRequest(req)) as IUser
@@ -18,31 +18,27 @@ const createCampaign = catchAsync(async (req, res) => {
   })
 })
 
-const addProductIntoCampaign = catchAsync(async (req, res) => {
+const getCampaignPreview = catchAsync(async (req, res) => {
   const user = (await getUserFromRequest(req)) as IUser
-  const files = req.files as { [fieldname: string]: IMulterFile[] }
-  const payload = req.body
   const campaignId = req.params.id as string
-  const productImage = files?.['productImage']?.[0] as IMulterFile
-  const downloadFile = files?.['downloadFiles']?.[0] as IMulterFile
-  const result = await campaignServices.addProductIntoCampaign(
-    user,
-    campaignId,
-    payload,
-    productImage,
-    downloadFile
-  )
+  const promoCode = req?.body?.promoCode
+  const result = await campaignServices.getCampaignPreview(user, campaignId, promoCode)
 
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
-    message: 'A product added into campaign successfully!',
+    message: 'Campaign preview retrieved successfully.',
     data: result,
   })
 })
 
 const updateCampaign = catchAsync(async (req, res) => {
-  const result = await campaignServices.updateCampaign(req.params.id as string, req.body)
+  const user = await getUserFromRequest(req)
+  const payload = req.body
+  const campaignId = req.params.id as string
+  const thumbnailFile = req.file as IMulterFile
+
+  const result = await campaignServices.updateCampaign(campaignId, user, payload, thumbnailFile)
 
   sendResponse(res, {
     success: true,
@@ -86,11 +82,26 @@ const deleteCampaignById = catchAsync(async (req, res) => {
   })
 })
 
+const launchCampaignByID = catchAsync(async (req, res) => {
+  const user = await getUserFromRequest(req)
+  const campaignId = req.params.id
+  const promoCode = req.body.promoCode
+
+  const result = await campaignServices.launchCampaignByID(user, campaignId, promoCode)
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: 'For launching the campaign complete the payment.',
+    data: result,
+  })
+})
 export const campaignControllers = {
   createCampaign,
   updateCampaign,
   getAllCampaign,
   getCampaignById,
   deleteCampaignById,
-  addProductIntoCampaign,
+
+  getCampaignPreview,
 }

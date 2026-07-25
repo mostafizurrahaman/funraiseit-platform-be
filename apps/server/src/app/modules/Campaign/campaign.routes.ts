@@ -19,38 +19,27 @@ router.post(
   campaignControllers.createCampaign
 )
 
-router.post(
-  '/:id/add-product',
+router.get(
+  '/:id/preview',
   auth(AuthRoles.ORGANIZER),
+  validateRequest(campaignValidations.getCampaignPreviewByID),
+  campaignControllers.getCampaignPreview
+)
 
-  multerFactory({
-    category: [
-      'image',
-      'audio',
-      'video',
-      'archive',
-      'spreadsheet',
-      'document',
-      'presentation',
-      'text',
-    ],
-    maxSizeInMB: 50,
-  }).fields([
-    {
-      name: 'productImage',
-      maxCount: 1,
-    },
-    {
-      name: 'downloadFiles',
-      maxCount: 1,
-    },
-  ]),
-  validateRequest(campaignValidations.addProductIntoCampaignSchema),
-  campaignControllers.addProductIntoCampaign
+router.post(
+  '/:id/launch',
+  auth(AuthRoles.ORGANIZER),
+  validateRequest(campaignValidations.launchCampaignByID),
+  campaignControllers.launchCampaignByID
 )
 
 router.patch(
   '/:id',
+  auth(AuthRoles.ORGANIZER),
+  multerFactory({
+    category: 'image',
+    maxSizeInMB: 5,
+  }).single('thumbnail'),
   validateRequest(campaignValidations.updateCampaignSchema),
   campaignControllers.updateCampaign
 )

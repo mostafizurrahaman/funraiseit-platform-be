@@ -1,12 +1,13 @@
+import { deleteSingleFileFromS3 } from '@repo/media-hub'
 import {
   Campaign,
+  campaignLunchPaymentStatus,
   campaignSearchableFields,
   CampaignStatus,
-  CampaignStatusOrder,
-  DigitalProduct,
-  PhysicalProduct,
+  discountType,
   Product,
-  productType,
+  PromoCode,
+  PromoCodeUsage,
   SiteInfo,
   type IUser,
 } from '@repo/db'
@@ -18,10 +19,10 @@ import type {
   TCreateCampaignPayloadType,
   TUpdateCampaignPayloadType,
   TGetAllCampaignQueryParamsType,
-  TAddProductIntoCampaignPayload,
 } from './campaign.validations'
 import { uploadSingleFileToS3, type IMulterFile } from 'packages/media-hub/src'
 import { generateCampaignCode } from './campaign.utils'
+import mongoose from 'mongoose'
 
 const createCampaign = async (
   user: IUser,
@@ -45,8 +46,6 @@ const createCampaign = async (
   if (!thumbnailFile) {
     throw new AppError(httpStatus.BAD_REQUEST, 'Thumbnail image is required!')
   }
-
-  console.log(payload)
 
   // Only one non-finished campaign is allowed
   const existingCampaign = await Campaign.findOne({
@@ -97,127 +96,206 @@ const createCampaign = async (
   return newCampaign
 }
 
-const addProductIntoCampaign = async (
-  user: IUser,
-  campaignId: string,
-  payload: TAddProductIntoCampaignPayload,
-  productImage: IMulterFile,
-  downloadFile: IMulterFile
-) => {
-  // ? Check is this campaign exists :
-  const campaign = await Campaign.findOne({
-    _id: campaignId,
-  })
+const getCampaignPreview = async (user: IUser, campaignId: string, promoCode?: string) => {
+  const campaign = await Campaign.findById(campaignId)
 
   if (!campaign) {
-    throw new AppError(httpStatus.NOT_FOUND, `Campaign doesn't exists wit this id.`)
+    throw new AppError(httpStatus.NOT_FOUND, "Campaign doesn't exist!")
   }
 
-  // ? Check is this campaign belongs to your company:?
-  if (campaign.organizer?.toString() !== user?._id?.toString()) {
-    throw new AppError(httpStatus.BAD_REQUEST, 'This campaign is not belongs this organizer.')
+  if (campaign.organizer.toString() !== user._id.toString()) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'This campaign does not belong to this organizer.')
   }
 
-  // ? Check is the campaign:
-  if (CampaignStatusOrder[campaign.status] > CampaignStatusOrder[CampaignStatus.PENDING]) {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      'Products can only be uploaded when the campaign is in Draft or Pending status.'
-    )
+  if (campaign.status !== CampaignStatus.DRAFT) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Only draft campaigns can be previewed.')
   }
 
-  // ?? Retrieve Products :
-  const totalProducts = await Product.countDocuments({
-    campaign: campaign?._id,
-  })
+  const siteFees = await SiteInfo.findOne({})
 
-  if (totalProducts === 10) {
-    throw new AppError(httpStatus.BAD_REQUEST, 'You cannot create more than 10 products.')
+  if (!siteFees || !siteFees.campaignLaunchFee) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Site is not ready yet.')
   }
 
-  if (!productImage) {
-    throw new AppError(httpStatus.BAD_REQUEST, 'Product image is required.')
+  const products = await Product.find({ campaign: campaign?._id })
+  if (products?.length < 1) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Please add products before preview!')
   }
 
-  // ?? Check product and files :
-  if (payload.productType === productType.DIGITAL && !downloadFile) {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      'Downloadable file is required for digital type product.'
-    )
-  }
-  if (payload.productType === productType.DIGITAL && !payload.downloadFileName) {
-    throw new AppError(httpStatus.BAD_REQUEST, 'Downloadable file name is required!')
-  }
+  let discountAmount = 0
+  let appliedPromoCode = null
 
-  // ?? Upload product image:
-  const { url } = await uploadSingleFileToS3(productImage, 'campaign/products')
+  const originalAmount = Number(siteFees.campaignLaunchFee?.toFixed(2))
 
-  if (payload.productType === productType.PHYSICAL) {
-    if (payload.sku !== undefined) {
-      const duplicateSku = await Product.exists({
-        campaign: campaign?._id,
-        sku: payload.sku,
-      })
+  if (promoCode) {
+    const existingPromoCode = await PromoCode.findOne({
+      code: promoCode.trim().toUpperCase(),
+      isActive: true,
+    })
 
-      if (duplicateSku) {
-        throw new AppError(httpStatus.CONFLICT, 'A physical product exists with same sku.')
-      }
+    if (!existingPromoCode) {
+      throw new AppError(httpStatus.NOT_FOUND, 'Promo code does not exist.')
     }
 
-    const physicalProductPayload = {
-      campaign: campaign?._id,
-      name: payload.name,
-      description: payload.description!,
-      price: payload.price,
-      productImage: url,
-      productType: payload.productType,
-      // physical product related fields:
-      stock: (payload.stock as number) ?? null,
-      isUnlimited: payload.stock ? false : true,
-      sku: payload.sku!,
-      weight: (payload.weight as number) ?? null,
+    if (existingPromoCode.usedCount >= existingPromoCode.usageLimit) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'This promo code is no longer available.')
     }
 
-    const product = await PhysicalProduct.create(physicalProductPayload)
+    if (new Date(existingPromoCode.expiresAt).getTime() < new Date().getTime()) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'This promo code is not active yet.')
+    }
 
-    return product
+    // Already used?
+    const isPromoCodeUsed = await PromoCodeUsage.exists({
+      user: user._id,
+      promoCode: existingPromoCode._id,
+    })
+
+    if (isPromoCodeUsed) {
+      throw new AppError(httpStatus.CONFLICT, 'You have already used this promo code.')
+    }
+
+    if (existingPromoCode.discountType === discountType.PERCENTAGE) {
+      discountAmount = (originalAmount * existingPromoCode.discountValue) / 100
+    } else {
+      discountAmount = existingPromoCode.discountValue
+    }
+
+    discountAmount = Number(Math.min(discountAmount, originalAmount).toFixed(2))
+
+    appliedPromoCode = {
+      _id: existingPromoCode._id,
+      code: existingPromoCode.code,
+      discountType: existingPromoCode.discountType,
+      discountValue: existingPromoCode.discountValue,
+    }
   }
 
-  if (payload.productType === productType.DIGITAL) {
-    const { url: downloadFileUrl } = await uploadSingleFileToS3(
-      downloadFile,
-      'campaign/products/downloadable'
-    )
+  const payableAmount = Number(Math.max(originalAmount - discountAmount, 0).toFixed(2))
 
-    console.log({ downloadFileUrl })
-
-    const downloadableProduct = {
-      campaign: campaign?._id,
-      name: payload.name,
-      description: payload.description!,
-      price: payload.price,
-      productImage: url,
-      productType: payload.productType,
-      digitalFileUrl: downloadFileUrl,
-      digitalFileName: payload.downloadFileName!,
-      downloadLimit: 10,
-    }
-
-    const product = await DigitalProduct.create(downloadableProduct)
-
-    return product
+  return {
+    campaign: campaign,
+    paymentSummary: {
+      originalAmount,
+      discountAmount,
+      payableAmount,
+    },
+    products: products?.length > 0 ? products : [],
+    promoCode: appliedPromoCode,
   }
 }
 
-const updateCampaign = async (id: string, payload: TUpdateCampaignPayloadType) => {
-  const result = await Campaign.findOneAndUpdate({ _id: id }, { $set: payload }, { new: true })
+const updateCampaign = async (
+  campaignId: string,
+  user: IUser,
+  payload: TUpdateCampaignPayloadType,
+  thumbnailFile: IMulterFile
+) => {
+  // ?? Check is this campaign exists ?:
+  const existingCampaign = await Campaign.findOne({
+    _id: campaignId,
+  })
 
-  if (!result) {
-    throw new AppError(httpStatus.NOT_FOUND, 'Campaign not found.')
+  if (!existingCampaign) {
+    throw new AppError(httpStatus.NOT_FOUND, "Campaign doesn't exists.")
   }
 
-  return result
+  if (existingCampaign.organizer?.toString() !== user?._id?.toString()) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'This campaign is not belongs to your account.')
+  }
+
+  if (
+    ![CampaignStatus.DRAFT, CampaignStatus.PENDING].includes(
+      existingCampaign?.status as 'draft' | 'pending'
+    )
+  ) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      `Only draft or pending status campaign is editable. Current status ${existingCampaign?.status}`
+    )
+  }
+
+  const allowLocalDelivery = payload.allowLocalDelivery ?? existingCampaign.allowLocalDelivery
+
+  const allowLocalPickup = payload.allowLocalPickup ?? existingCampaign.allowLocalPickup
+
+  const allowShipping = payload.allowShipping ?? existingCampaign.allowShipping
+
+  const isOneOptionEnabled = allowLocalDelivery || allowLocalPickup || allowShipping
+
+  if (!isOneOptionEnabled) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'At least one fulfillment option must be enabled (Local Pickup, Local Delivery, or Shipping).'
+    )
+  }
+  const siteFees = await SiteInfo.findOne({})
+
+  if (!siteFees?.campaignLaunchFee) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Campaign launch fee not found!')
+  }
+
+  // ?? Handle Thumbnail image:
+  const oldThumbnailUrl = existingCampaign?.thumbnail as string
+  let newThumbnailUrl: string | null = null
+
+  if (thumbnailFile) {
+    const { url } = await uploadSingleFileToS3(thumbnailFile, 'campaign/thumbnails')
+    newThumbnailUrl = url
+    existingCampaign.thumbnail = url
+  }
+
+  const changedAllowedShipping =
+    payload.allowShipping && payload.allowShipping !== existingCampaign.allowShipping
+
+  if (changedAllowedShipping && payload.allowShipping) {
+    const newShippingFee = payload.shippingFee || existingCampaign.shippingFee
+
+    if (newShippingFee >= 0) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        'Shipping fee is required when shipping is enabled.'
+      )
+    }
+    existingCampaign.shippingFee = newShippingFee
+  }
+
+  if (!payload.allowShipping && existingCampaign.shippingFee) existingCampaign.shippingFee = 0
+
+  if (payload.name !== undefined) existingCampaign.name = payload.name
+  if (payload.campaignCategory !== undefined)
+    existingCampaign.campaignCategory = payload.campaignCategory
+  if (payload.story !== undefined) existingCampaign.story = payload.story
+  if (
+    payload.fundUsage !== undefined &&
+    Array.isArray(payload.fundUsage) &&
+    payload.fundUsage?.length > 0
+  ) {
+    existingCampaign.fundUsage = payload.fundUsage as string[]
+  }
+
+  if (payload.goalAmount !== undefined)
+    existingCampaign.goalAmount = Math.max(payload.goalAmount, 0)
+  if (payload.allowDonation !== undefined) existingCampaign.allowDonation = payload.allowDonation
+  if (payload.allowLocalPickup !== undefined)
+    existingCampaign.allowLocalPickup = payload.allowLocalPickup
+  if (payload.allowLocalDelivery !== undefined)
+    existingCampaign.allowLocalDelivery = payload.allowLocalDelivery
+  if (payload.allowShipping !== undefined) existingCampaign.allowShipping = payload.allowShipping
+
+  if (payload.durationDays !== undefined) existingCampaign.durationDays = payload.durationDays
+  existingCampaign.launchFee = Math.max(siteFees.campaignLaunchFee, 0)
+  existingCampaign.finalLaunchFee = Math.max(siteFees.campaignLaunchFee, 0)
+
+  await existingCampaign.save({
+    validateBeforeSave: true,
+  })
+
+  if (existingCampaign.thumbnail === newThumbnailUrl && oldThumbnailUrl) {
+    await deleteSingleFileFromS3(oldThumbnailUrl)
+  }
+
+  return existingCampaign
 }
 
 const getAllCampaign = async (query: TGetAllCampaignQueryParamsType) => {
@@ -297,11 +375,168 @@ const deleteCampaignById = async (id: string) => {
   return result
 }
 
+const launchCampaignByID = async (user: IUser, campaignId: string, promoCode?: string) => {
+  const campaign = await Campaign.findById(campaignId)
+
+  if (!campaign) {
+    throw new AppError(httpStatus.NOT_FOUND, "Campaign doesn't exist!")
+  }
+
+  if (campaign.organizer.toString() !== user._id.toString()) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'This campaign does not belong to this organizer.')
+  }
+
+  if (campaign.status !== CampaignStatus.DRAFT) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Only draft campaigns can be previewed.')
+  }
+
+  const siteFees = await SiteInfo.findOne({})
+
+  if (!siteFees || !siteFees.campaignLaunchFee) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Site is not ready yet.')
+  }
+
+  const products = await Product.find({ campaign: campaign?._id })
+  if (products?.length < 1) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Please add products before preview!')
+  }
+
+  let discountAmount = 0
+  let appliedPromoCode = null
+
+  const originalAmount = Number(siteFees.campaignLaunchFee?.toFixed(2))
+
+  if (promoCode) {
+    const existingPromoCode = await PromoCode.findOne({
+      code: promoCode.trim().toUpperCase(),
+      isActive: true,
+    })
+
+    if (!existingPromoCode) {
+      throw new AppError(httpStatus.NOT_FOUND, 'Promo code does not exist.')
+    }
+
+    if (existingPromoCode.usedCount >= existingPromoCode.usageLimit) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'This promo code is no longer available.')
+    }
+
+    if (new Date(existingPromoCode.expiresAt).getTime() < new Date().getTime()) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'This promo code is not active yet.')
+    }
+
+    // Already used?
+    const isPromoCodeUsed = await PromoCodeUsage.exists({
+      user: user._id,
+      promoCode: existingPromoCode._id,
+    })
+
+    if (isPromoCodeUsed) {
+      throw new AppError(httpStatus.CONFLICT, 'You have already used this promo code.')
+    }
+
+    if (existingPromoCode.discountType === discountType.PERCENTAGE) {
+      discountAmount = (originalAmount * existingPromoCode.discountValue) / 100
+    } else {
+      discountAmount = existingPromoCode.discountValue
+    }
+
+    discountAmount = Number(Math.min(discountAmount, originalAmount).toFixed(2))
+
+    appliedPromoCode = {
+      _id: existingPromoCode._id,
+      code: existingPromoCode.code,
+      discountType: existingPromoCode.discountType,
+      discountValue: existingPromoCode.discountValue,
+    }
+  }
+
+  const payableAmount = Number(Math.max(originalAmount - discountAmount, 0).toFixed(2))
+
+  const session = await mongoose.startSession()
+
+  try {
+    session.startTransaction()
+
+    const updatedCampaign = await Campaign.findOneAndUpdate(
+      {
+        _id: campaign?._id,
+      },
+      {
+        $set: {
+          launchFee: originalAmount,
+          finalLaunchFee: payableAmount,
+          discountAmount: discountAmount,
+          promoCode: appliedPromoCode?._id,
+          paymentStatus: campaignLunchPaymentStatus.PENDING,
+        },
+      },
+      {
+        new: true,
+        session,
+      }
+    )
+
+    if (!updatedCampaign) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'The campaign failed to update')
+    }
+
+    if (appliedPromoCode) {
+      const promoCode = await PromoCode.findOneAndUpdate(
+        {
+          _id: appliedPromoCode?._id,
+        },
+        {
+          $inc: {
+            usedCount: 1,
+          },
+        },
+        {
+          new: true,
+          session,
+        }
+      )
+
+      if (!promoCode) {
+        throw new AppError(httpStatus.BAD_REQUEST, 'Promo code failed to update.')
+      }
+
+      const usedPromoCode = await PromoCodeUsage.create(
+        [
+          {
+            user: user?._id,
+            promoCode: promoCode?._id,
+            campaign: campaign?._id,
+
+            discountType: promoCode?.discountType,
+            discountValue: promoCode.discountValue, // e.g. 10 (%) or 20 ($)
+
+            originalAmount: originalAmount, // Before discount
+            discountAmount: discountAmount, // Amount deducted
+            finalAmount: payableAmount, // Amount after discount
+
+            usedAt: new Date(),
+          },
+        ],
+        {
+          session,
+        }
+      )
+
+      if (!usedPromoCode) {
+        throw new AppError(httpStatus.BAD_REQUEST, 'Promo code failed to update.')
+      }
+    }
+  } catch (err) {
+    console.log(err)
+  }
+}
+
 export const campaignServices = {
   createCampaign,
   updateCampaign,
   getAllCampaign,
   getCampaignById,
   deleteCampaignById,
-  addProductIntoCampaign,
+
+  getCampaignPreview,
 }

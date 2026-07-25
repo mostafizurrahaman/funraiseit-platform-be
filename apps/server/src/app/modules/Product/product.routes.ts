@@ -1,36 +1,76 @@
 import express, { Router } from 'express'
 import { validateRequest } from '@app/middlewares'
-import { productControllers } from './product.controllers'
+import { auth } from '@app/middlewares/auth'
+import { AuthRoles } from 'packages/db/src'
+import { multerFactory } from 'packages/media-hub/src'
 import { productValidations } from './product.validations'
+import { productControllers } from './product.controllers'
 
-const router : Router = express.Router()
+const router: Router = express.Router()
 
 router.post(
-  '/',
-  validateRequest(productValidations.createProductSchema),
-  productControllers.createProduct
+  '/:id/add-product',
+  auth(AuthRoles.ORGANIZER),
+
+  multerFactory({
+    category: [
+      'image',
+      'audio',
+      'video',
+      'archive',
+      'spreadsheet',
+      'document',
+      'presentation',
+      'text',
+    ],
+    maxSizeInMB: 50,
+  }).fields([
+    {
+      name: 'productImage',
+      maxCount: 1,
+    },
+    {
+      name: 'downloadFiles',
+      maxCount: 1,
+    },
+  ]),
+  validateRequest(productValidations.addProductIntoCampaignSchema),
+  productControllers.addProductIntoCampaign
 )
 
 router.patch(
-  '/:id',
-  validateRequest(productValidations.updateProductSchema),
-  productControllers.updateProduct
-)
+  '/:productId/update-product',
+  auth(AuthRoles.ORGANIZER),
 
-router.get(
-  '/all',
-  validateRequest(productValidations.getAllProductSchema),
-  productControllers.getAllProduct
-)
-
-router.get(
-  '/:id',
-  validateRequest(productValidations.getProductByIdSchema),
-  productControllers.getProductById
+  multerFactory({
+    category: [
+      'image',
+      'audio',
+      'video',
+      'archive',
+      'spreadsheet',
+      'document',
+      'presentation',
+      'text',
+    ],
+    maxSizeInMB: 50,
+  }).fields([
+    {
+      name: 'productImage',
+      maxCount: 1,
+    },
+    {
+      name: 'downloadFiles',
+      maxCount: 1,
+    },
+  ]),
+  validateRequest(productValidations.updateProductIntoCampaignSchema),
+  productControllers.updateProductIntoCampaign
 )
 
 router.delete(
-  '/:id',
+  '/:productId',
+  auth(AuthRoles.ORGANIZER),
   validateRequest(productValidations.deleteProductByIdSchema),
   productControllers.deleteProductById
 )

@@ -1,6 +1,7 @@
 import { accountRoutes } from '@app/modules/Account/account.routes'
 import { authRoutes } from '@app/modules/Auth/user.routes'
 import { campaignRoutes } from '@app/modules/Campaign/campaign.routes'
+import { productRoutes } from '@app/modules/Product/product.routes'
 import { promoCodeRoutes } from '@app/modules/PromoCode/promo-code.routes'
 import { siteInfoRoutes } from '@app/modules/SiteInfo/site-info.routes'
 import { usersRoutes } from '@app/modules/Users/users.routes'
@@ -32,6 +33,10 @@ const routes = [
   {
     path: '/campaign',
     route: campaignRoutes,
+  },
+  {
+    path: '/product',
+    route: productRoutes,
   },
 ]
 
