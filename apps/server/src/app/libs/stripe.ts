@@ -4,6 +4,7 @@ import Stripe from 'stripe'
 import httpStatus from 'http-status'
 import { AppError } from '@repo/shared'
 import type { Request } from 'express'
+import { string, unknown } from 'zod'
 
 // ? Stripe configured:
 export const stripe = new Stripe(configs.stripe.secretKey, {
@@ -78,4 +79,44 @@ export const verifyWebHookSignature = (secretKey: string, req: Request): Stripe.
   const event = stripe.webhooks.constructEvent(req.body, signature, configs.stripe.webhookKey)
 
   return event
+}
+
+// ?? Configure Stripe check session :
+
+export const stripeCheckoutSession = async ({
+  name,
+  unit_amount,
+  expiresAt,
+  metadata,
+}: {
+  name: string
+  unit_amount: number
+  expiresAt: Date
+  metadata: Stripe.MetadataParam
+}) => {
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ['card'],
+    mode: 'payment',
+    line_items: [
+      {
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name,
+          },
+
+          unit_amount, // $50.00
+        },
+        quantity: 1,
+      },
+    ],
+    expires_at: expiresAt.getTime(),
+    metadata: {
+      ...metadata,
+    },
+    success_url: `${configs.site.clientUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${configs.site.clientUrl}payment/cancel`,
+  })
+
+  return session
 }

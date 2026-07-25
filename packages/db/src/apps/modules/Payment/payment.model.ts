@@ -1,5 +1,10 @@
 import { Schema, model } from 'mongoose'
-import type { IDonationPaymentDoc, IOrderPaymentDoc, IPaymentDoc } from './payment.interfaces'
+import {
+  IPaymentBreakdownDoc,
+  type IDonationPaymentDoc,
+  type IOrderPaymentDoc,
+  type IPaymentDoc,
+} from './payment.interfaces'
 import {
   paymentStatus,
   paymentStatusValues,
@@ -55,6 +60,12 @@ const paymentSchema = new Schema<IPaymentDoc>(
     paidAt: {
       type: Date,
     },
+    expiresAt: {
+      type: Date,
+    },
+    checkoutUrl: {
+      type: String,
+    },
   },
   {
     discriminatorKey: 'paymentType',
@@ -95,8 +106,58 @@ const donationPaymentSchema = new Schema<IDonationPaymentDoc>({
 //   return this.findById(id)
 // }
 
+const PaymentBreakDownSchema = new Schema<IPaymentBreakdownDoc>({
+  payment: {
+    type: Schema.Types.ObjectId,
+    ref: 'Payment',
+    required: true,
+  },
+  subtotal: {
+    type: Number,
+    min: 0,
+    default: 0,
+  },
+  shippingFee: {
+    type: Number,
+    min: 0,
+    default: 0,
+  },
+  totalAmount: {
+    type: Number,
+    min: 0,
+    default: 0,
+  },
+  stripeFee: {
+    type: Number,
+    min: 0,
+    default: 0,
+  },
+  platformFee: {
+    type: Number,
+    min: 0,
+    default: 0,
+  },
+  organizerAmount: {
+    type: Number,
+    min: 0,
+    default: 0,
+  },
+  organizerAmountWithoutShipping: {
+    type: Number,
+    min: 0,
+    default: 0,
+  },
+  discountAmount: {
+    type: Number,
+    min: 0,
+    default: 0,
+  },
+})
+
 export const Payment = model<IPaymentDoc>('Payment', paymentSchema)
 
 export const OrderPayment = Payment.discriminator(paymentType.ORDER, orderPaymentSchema)
 
 export const DonationPayment = Payment.discriminator(paymentType.DONATION, donationPaymentSchema)
+
+export const PaymentBreakDown = model('PaymentBreakdown', PaymentBreakDownSchema)

@@ -92,13 +92,13 @@ const signUp = async (payload: ISignUpSchemaType) => {
     }
   }
 
+  // 2. Hash password
+  const hashedPassword = await hashPassword(password, configs.passwordSaltRound)
+
   const session = await mongoose.startSession()
 
   try {
     session.startTransaction()
-
-    // 2. Hash password
-    const hashedPassword = await hashPassword(password, configs.passwordSaltRound)
 
     // 3. Create user (PENDING)
     const [newUser] = await User.create(
@@ -135,6 +135,7 @@ const signUp = async (payload: ISignUpSchemaType) => {
     )
 
     await session.commitTransaction()
+    await session.endSession()
 
     // 7. Send OTP with rendered template
     sendEmail({
@@ -149,6 +150,7 @@ const signUp = async (payload: ISignUpSchemaType) => {
   } catch (error: any) {
     console.dir(error, { depth: null })
     await session.abortTransaction()
+    await session.endSession()
 
     throw new Error(error)
   } finally {
