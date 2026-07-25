@@ -91,7 +91,7 @@ export const stripeCheckoutSession = async ({
 }: {
   name: string
   unit_amount: number
-  expiresAt: Date
+  expiresAt: number
   metadata: Stripe.MetadataParam
 }) => {
   const session = await stripe.checkout.sessions.create({
@@ -110,7 +110,7 @@ export const stripeCheckoutSession = async ({
         quantity: 1,
       },
     ],
-    expires_at: expiresAt.getTime(),
+    expires_at: expiresAt,
     metadata: {
       ...metadata,
     },
