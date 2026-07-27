@@ -26,12 +26,12 @@ router.get(
   campaignControllers.getCampaignPreview
 )
 
-// router.post(
-//   '/:id/launch',
-//   auth(AuthRoles.ORGANIZER),
-//   validateRequest(campaignValidations.launchCampaignByID),
-//   campaignControllers.launchCampaignByID
-// )
+router.post(
+  '/:id/launch',
+  auth(AuthRoles.ORGANIZER),
+  validateRequest(campaignValidations.launchCampaignByID),
+  campaignControllers.launchCampaignByID
+)
 
 router.patch(
   '/:id',

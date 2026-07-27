@@ -114,8 +114,13 @@ export const stripeCheckoutSession = async ({
     metadata: {
       ...metadata,
     },
+    payment_intent_data: {
+      metadata: {
+        ...metadata,
+      },
+    },
     success_url: `${configs.site.clientUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${configs.site.clientUrl}payment/cancel`,
+    cancel_url: `${configs.site.clientUrl}/payment/cancel`,
   })
 
   return session

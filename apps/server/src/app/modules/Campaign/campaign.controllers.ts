@@ -84,7 +84,7 @@ const deleteCampaignById = catchAsync(async (req, res) => {
 
 const launchCampaignByID = catchAsync(async (req, res) => {
   const user = await getUserFromRequest(req)
-  const campaignId = req.params.id
+  const campaignId = req.params.id as string
   const promoCode = req.body.promoCode
 
   const result = await campaignServices.launchCampaignByID(user, campaignId, promoCode)
@@ -102,6 +102,6 @@ export const campaignControllers = {
   getAllCampaign,
   getCampaignById,
   deleteCampaignById,
-
+  launchCampaignByID,
   getCampaignPreview,
 }

@@ -1,9 +1,10 @@
 import { Schema, model } from 'mongoose'
 import {
-  IPaymentBreakdownDoc,
+  type IPaymentBreakdownDoc,
   type IDonationPaymentDoc,
   type IOrderPaymentDoc,
   type IPaymentDoc,
+  type ILaunchPaymentDoc,
 } from './payment.interfaces'
 import {
   paymentStatus,
@@ -60,7 +61,7 @@ const paymentSchema = new Schema<IPaymentDoc>(
       type: String,
     },
     stripeBalanceTransactionId: {
-      typ: String,
+      type: String,
     },
     paidAt: {
       type: Date,
@@ -103,6 +104,14 @@ const donationPaymentSchema = new Schema<IDonationPaymentDoc>({
   donation: {
     type: Schema.Types.ObjectId,
     ref: 'Order',
+    required: true,
+  },
+})
+
+const launchFeeSchema = new Schema<ILaunchPaymentDoc>({
+  organizer: {
+    type: Schema.Types.ObjectId,
+    ref: 'User',
     required: true,
   },
 })
@@ -164,5 +173,9 @@ export const Payment = model<IPaymentDoc>('Payment', paymentSchema)
 export const OrderPayment = Payment.discriminator(paymentType.ORDER, orderPaymentSchema)
 
 export const DonationPayment = Payment.discriminator(paymentType.DONATION, donationPaymentSchema)
+export const LaunchPayment = Payment.discriminator(paymentType.LAUNCH_FEE, launchFeeSchema)
 
-export const PaymentBreakDown = model('PaymentBreakdown', PaymentBreakDownSchema)
+export const PaymentBreakDown = model<IPaymentBreakdownDoc>(
+  'PaymentBreakdown',
+  PaymentBreakDownSchema
+)
