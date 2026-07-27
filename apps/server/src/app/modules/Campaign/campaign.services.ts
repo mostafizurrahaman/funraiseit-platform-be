@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { deleteSingleFileFromS3 } from '@repo/media-hub'
 import {
+  AuthStatus,
   Campaign,
   campaignLunchPaymentStatus,
   campaignSearchableFields,
@@ -24,13 +25,13 @@ import type {
   TCreateCampaignPayloadType,
   TUpdateCampaignPayloadType,
   TGetAllCampaignQueryParamsType,
+  TGetAllActiveCampaignQuery,
 } from './campaign.validations'
 import { uploadSingleFileToS3, type IMulterFile } from 'packages/media-hub/src'
 import { generateCampaignCode } from './campaign.utils'
-import mongoose from 'mongoose'
+import mongoose, { Types } from 'mongoose'
 import { stripeCheckoutSession } from '@app/libs/stripe'
 import moment from 'moment'
-import { PaymentType } from '@app/libs/get-stripe-fee-breakdown'
 
 const createCampaign = async (
   user: IUser,
@@ -308,16 +309,22 @@ const updateCampaign = async (
 
 const getAllCampaign = async (query: TGetAllCampaignQueryParamsType) => {
   const {
-    page = 1,
-    limit = 10,
+    page: currentPage = 1,
+    limit: currentLimit = 10,
     searchTerm,
+    organizerId,
+    organizerStatus,
+    campaignStatus,
     sortOrder = 'desc',
     sortBy = 'createdAt',
     fromDate,
     toDate,
   } = query
 
+  const page = Math.max(Number(currentPage), 1)
+  const limit = Number(currentLimit) || 10
   const skip = (page - 1) * limit
+
   const pipeline: PipelineStage[] = []
 
   if (fromDate || toDate) {
@@ -327,6 +334,98 @@ const getAllCampaign = async (query: TGetAllCampaignQueryParamsType) => {
 
     pipeline.push({ $match: { createdAt: dateFilter } })
   }
+
+  if (campaignStatus) {
+    pipeline.push({
+      $match: {
+        status: campaignStatus,
+      },
+    })
+  }
+
+  if (organizerId) {
+    pipeline.push({
+      $match: {
+        organizer: new Types.ObjectId(organizerId),
+      },
+    })
+  }
+
+  pipeline.push(
+    {
+      $lookup: {
+        from: 'products',
+        localField: '_id',
+        foreignField: 'campaign',
+        as: 'products',
+        pipeline: [
+          {
+            $count: 'total',
+          },
+        ],
+      },
+    },
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'organizer',
+        foreignField: '_id',
+        as: 'organizerDetails',
+        // pipeline: [
+        //   {
+        //     $count: 'total',
+        //   },
+        // ],
+      },
+    },
+    {
+      $unwind: {
+        path: '$organizerDetails',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+
+    {
+      $addFields: {
+        totalProducts: { $first: '$products.total' },
+        organizerName: { $ifNull: ['$organizerDetails.name', null] },
+        organizerEmail: { $ifNull: ['$organizerDetails.email', null] },
+        organizerProfileImage: { $ifNull: ['$organizerDetails.profileImage', null] },
+        organizerStatus: { $ifNull: ['$organizerDetails.status', null] },
+        supporters: [
+          {
+            supporterId: '',
+            profileImage: '',
+            email: '',
+            phone: '',
+          },
+        ],
+        remainingDays: '',
+        totalSupporters: 0,
+        totalDonations: 0,
+        totalOrders: 0,
+        orderedAmount: 0,
+        donationAmount: 0,
+        progress: 0,
+      },
+    },
+    {
+      $project: {
+        organizerDetails: 0,
+        products: 0,
+      },
+    }
+  )
+
+  if (organizerStatus) {
+    pipeline.push({
+      $match: {
+        organizerStatus,
+      },
+    })
+  }
+
+  // TODO:  FOR SUPPORTERS: (Has to implement supporter details, like profile, and supporter count, Total orders, Total donations, Total order amount, progress calculation)
 
   if (searchTerm) {
     pipeline.push({
@@ -364,13 +463,188 @@ const getAllCampaign = async (query: TGetAllCampaignQueryParamsType) => {
 }
 
 const getCampaignById = async (id: string) => {
-  const result = await Campaign.findById(id)
+  const pipeline: PipelineStage[] = []
 
-  if (!result) {
-    throw new AppError(httpStatus.NOT_FOUND, 'Campaign not found')
+  pipeline.push(
+    {
+      $match: {
+        _id: new Types.ObjectId(id),
+      },
+    },
+    {
+      $lookup: {
+        from: 'products',
+        localField: '_id',
+        foreignField: 'campaign',
+        as: 'products',
+      },
+    },
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'organizer',
+        foreignField: '_id',
+        as: 'organizerDetails',
+        // pipeline: [
+        //   {
+        //     $count: 'total',
+        //   },
+        // ],
+      },
+    },
+    {
+      $unwind: {
+        path: '$organizerDetails',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+
+    {
+      $addFields: {
+        totalProducts: { $ifNull: [{ $size: '$products.total' }, 0] },
+        organizerName: { $ifNull: ['$organizerDetails.name', null] },
+        organizerEmail: { $ifNull: ['$organizerDetails.email', null] },
+        organizerProfileImage: { $ifNull: ['$organizerDetails.profileImage', null] },
+        organizerStatus: { $ifNull: ['$organizerDetails.status', null] },
+        supporters: [
+          {
+            supporterId: '',
+            profileImage: '',
+            email: '',
+            phone: '',
+          },
+        ],
+        remainingDays: '',
+        totalSupporters: 0,
+        totalDonations: 0,
+        totalOrders: 0,
+        orderedAmount: 0,
+        donationAmount: 0,
+        progress: 0,
+      },
+    },
+    {
+      $project: {
+        organizerDetails: 0,
+      },
+    }
+  )
+
+  // TODO:  FOR SUPPORTERS: (Has to implement supporter details, like profile, and supporter count)
+
+  const [campaign] = await Campaign.aggregate(pipeline)
+
+  if (!campaign) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Campaign not found.')
   }
 
-  return result
+  return campaign
+}
+
+const getCampaignByCampaignCode = async (code: string) => {
+  const pipeline: PipelineStage[] = [
+    {
+      $match: {
+        campaignCode: code,
+      },
+    },
+    {
+      $lookup: {
+        from: 'products',
+        let: {
+          campaignId: '$_id',
+        },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $eq: ['$campaign', '$$campaignId'],
+              },
+            },
+          },
+        ],
+        as: 'products',
+      },
+    },
+    {
+      $lookup: {
+        from: 'users',
+        let: {
+          organizerId: '$organizer',
+        },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $eq: ['$_id', '$$organizerId'],
+              },
+            },
+          },
+          {
+            $project: {
+              _id: 1,
+              name: 1,
+              email: 1,
+              profileImage: 1,
+              status: 1,
+            },
+          },
+        ],
+        as: 'organizerDetails',
+      },
+    },
+    {
+      $unwind: {
+        path: '$organizerDetails',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $addFields: {
+        totalProducts: {
+          $ifNull: [{ $size: '$products' }, 0],
+        },
+
+        organizerName: '$organizerDetails.name',
+        organizerEmail: '$organizerDetails.email',
+        organizerProfileImage: '$organizerDetails.profileImage',
+        organizerStatus: '$organizerDetails.status',
+
+        // Placeholder values (replace with real lookups later)
+        supporters: [],
+        remainingDays: null,
+        totalSupporters: 0,
+        totalDonations: 0,
+        totalOrders: 0,
+        orderedAmount: 0,
+        donationAmount: 0,
+        progress: 0,
+      },
+    },
+    {
+      $project: {
+        organizerDetails: 0,
+      },
+    },
+  ]
+
+  // TODO:  FOR SUPPORTERS: (Has to implement supporter details, like profile, and supporter count)
+
+  const [campaign] = await Campaign.aggregate(pipeline)
+
+  if (!campaign) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Campaign not found.')
+  }
+
+  if (campaign.status !== CampaignStatus.ACTIVE) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'The campaign is not live yet.')
+  }
+
+  if (campaign.organizerStatus !== AuthStatus.ACTIVE) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'The campaign organizer is not active.')
+  }
+
+  return campaign
 }
 
 const deleteCampaignById = async (id: string) => {
@@ -706,6 +980,146 @@ const launchCampaignByID = async (user: IUser, campaignId: string, promoCode?: s
   }
 }
 
+const getAllActiveCampaign = async (query: TGetAllActiveCampaignQuery) => {
+  const {
+    page: currentPage = 1,
+    limit: currentLimit = 10,
+    searchTerm,
+    organizerId,
+    sortOrder = 'desc',
+    sortBy = 'createdAt',
+    fromDate,
+    toDate,
+  } = query
+
+  const page = Math.max(Number(currentPage), 1)
+  const limit = Number(currentLimit) || 10
+  const skip = (page - 1) * limit
+
+  const pipeline: PipelineStage[] = [
+    {
+      $match: {
+        status: CampaignStatus.ACTIVE,
+      },
+    },
+  ]
+
+  if (fromDate || toDate) {
+    const dateFilter: Record<string, unknown> = {}
+    if (fromDate) dateFilter.$gte = new Date(fromDate)
+    if (toDate) dateFilter.$lte = new Date(toDate)
+
+    pipeline.push({ $match: { createdAt: dateFilter } })
+  }
+
+  if (organizerId) {
+    pipeline.push({
+      $match: {
+        organizer: new Types.ObjectId(organizerId),
+      },
+    })
+  }
+
+  pipeline.push(
+    {
+      $lookup: {
+        from: 'products',
+        localField: '_id',
+        foreignField: 'campaign',
+        as: 'products',
+        pipeline: [
+          {
+            $count: 'total',
+          },
+        ],
+      },
+    },
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'organizer',
+        foreignField: '_id',
+        as: 'organizerDetails',
+        // pipeline: [
+        //   {
+        //     $count: 'total',
+        //   },
+        // ],
+      },
+    },
+    {
+      $unwind: {
+        path: '$organizerDetails',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+
+    {
+      $addFields: {
+        totalProducts: { $first: '$products.total' },
+        organizerName: { $ifNull: ['$organizerDetails.name', null] },
+        organizerEmail: { $ifNull: ['$organizerDetails.email', null] },
+        organizerProfileImage: { $ifNull: ['$organizerDetails.profileImage', null] },
+        organizerStatus: { $ifNull: ['$organizerDetails.status', null] },
+        remainingDays: '',
+        totalSupporters: 0,
+        totalDonations: 0,
+        totalOrders: 0,
+        orderedAmount: 0,
+        donationAmount: 0,
+        progress: 0,
+      },
+    },
+    {
+      $project: {
+        organizerDetails: 0,
+        products: 0,
+      },
+    },
+    {
+      $match: {
+        organizerStatus: AuthStatus.ACTIVE,
+      },
+    }
+  )
+
+  // TODO:  FOR SUPPORTERS: (Has to implement supporter details, like profile, and supporter count)
+
+  if (searchTerm) {
+    pipeline.push({
+      $match: {
+        $or: campaignSearchableFields.map((field) => ({
+          [field]: { $regex: searchTerm, $options: 'i' },
+        })),
+      },
+    })
+  }
+
+  pipeline.push({ $sort: { [sortBy]: sortOrder === 'asc' ? 1 : -1 } })
+
+  pipeline.push({
+    $facet: {
+      data: [{ $skip: skip }, { $limit: limit }],
+      meta: [{ $count: 'total' }],
+    },
+  })
+
+  const aggregated = await Campaign.aggregate(pipeline)
+
+  const data = aggregated?.[0]?.data || []
+  const total = aggregated?.[0]?.meta?.[0]?.total || 0
+
+  return {
+    data,
+    meta: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit) || 1,
+    },
+  }
+}
+
 export const campaignServices = {
   createCampaign,
   updateCampaign,
@@ -714,4 +1128,6 @@ export const campaignServices = {
   deleteCampaignById,
   launchCampaignByID,
   getCampaignPreview,
+  getAllActiveCampaign,
+  getCampaignByCampaignCode,
 }

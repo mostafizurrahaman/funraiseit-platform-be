@@ -11,7 +11,12 @@ import {
   requiredStrBoolean,
   requiredMongooseId,
 } from '@repo/shared'
-import { campaignCategoryValues, campaignSortableFields } from '@repo/db'
+import {
+  AuthStatusValues,
+  campaignCategoryValues,
+  campaignSortableFields,
+  campaignStatusValues,
+} from '@repo/db'
 
 const createCampaignSchema = z.object({
   body: z
@@ -134,6 +139,22 @@ const getAllCampaignSchema = z.object({
     page: optionalNumber('Page'),
     limit: optionalNumber('Limit'),
     searchTerm: optionalString('Search term'),
+    organizerId: requiredMongooseId('Organizer ID').optional(),
+    campaignStatus: optionalEnumString(campaignStatusValues, 'Campaign Status'),
+    organizerStatus: optionalEnumString(AuthStatusValues, 'Organizer Status'),
+    sortOrder: optionalEnumString(sortingOrderValues, 'Sort order'),
+    sortBy: optionalEnumString(campaignSortableFields, 'Sort by'),
+    fromDate: optionalDate('From date'),
+    toDate: optionalDate('To date'),
+  }),
+})
+
+const getAllActiveCampaign = z.object({
+  query: z.object({
+    page: optionalNumber('Page'),
+    limit: optionalNumber('Limit'),
+    organizerId: requiredMongooseId('Organizer ID').optional(),
+    searchTerm: optionalString('Search term'),
     sortOrder: optionalEnumString(sortingOrderValues, 'Sort order'),
     sortBy: optionalEnumString(campaignSortableFields, 'Sort by'),
     fromDate: optionalDate('From date'),
@@ -143,7 +164,13 @@ const getAllCampaignSchema = z.object({
 
 const getCampaignByIdSchema = z.object({
   params: z.object({
-    id: requiredString('ID'),
+    id: requiredMongooseId('ID'),
+  }),
+})
+
+const getCampaignByCampaignCodeSchema = z.object({
+  params: z.object({
+    code: requiredString('Code ID'),
   }),
 })
 
@@ -159,9 +186,11 @@ export const campaignValidations = {
   updateCampaignSchema,
   getAllCampaignSchema,
   getCampaignByIdSchema,
+  getCampaignByCampaignCodeSchema,
   deleteCampaignByIdSchema,
   getCampaignPreviewByID,
   launchCampaignByID,
+  getAllActiveCampaign,
 }
 
 export type TCreateCampaignPayloadType = z.infer<typeof createCampaignSchema.shape.body>
@@ -172,3 +201,4 @@ export type TDeleteCampaignByIdParamsType = z.infer<typeof deleteCampaignByIdSch
 
 export type TGetCampaignPreviewByID = z.infer<typeof getCampaignPreviewByID.shape.body>
 export type TLaunchCampaignPayloadType = z.infer<typeof launchCampaignByID.shape.body>
+export type TGetAllActiveCampaignQuery = z.infer<typeof getAllActiveCampaign.shape.query>

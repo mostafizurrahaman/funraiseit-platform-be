@@ -1,4 +1,12 @@
-export const campaignSearchableFields = ['name'] as const
+export const campaignSearchableFields = [
+  'name',
+  'fundUsage',
+  'campaignCategory',
+  'campaignCode',
+  'story',
+  'organizerName',
+  'organizerEmail',
+] as const
 
 export const campaignSortableFields = ['createdAt', 'updatedAt'] as const
 

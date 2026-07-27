@@ -60,8 +60,31 @@ const getAllCampaign = catchAsync(async (req, res) => {
   })
 })
 
+const getAllActiveCampaign = catchAsync(async (req, res) => {
+  const result = await campaignServices.getAllActiveCampaign(req.query)
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: 'The campaign retrieved successfully!',
+    data: result.data,
+    meta: result.meta,
+  })
+})
+
 const getCampaignById = catchAsync(async (req, res) => {
   const result = await campaignServices.getCampaignById(req.params.id as string)
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: 'The campaign retrieved successfully!',
+    data: result,
+  })
+})
+
+const getCampaignByCampaignCode = catchAsync(async (req, res) => {
+  const result = await campaignServices.getCampaignByCampaignCode(req.params.code as string)
 
   sendResponse(res, {
     success: true,
@@ -101,7 +124,9 @@ export const campaignControllers = {
   updateCampaign,
   getAllCampaign,
   getCampaignById,
+  getCampaignByCampaignCode,
   deleteCampaignById,
   launchCampaignByID,
   getCampaignPreview,
+  getAllActiveCampaign,
 }

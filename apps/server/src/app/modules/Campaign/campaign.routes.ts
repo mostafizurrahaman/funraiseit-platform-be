@@ -51,9 +51,21 @@ router.get(
 )
 
 router.get(
+  '/all/active',
+  validateRequest(campaignValidations.getAllActiveCampaign),
+  campaignControllers.getAllActiveCampaign
+)
+
+router.get(
   '/:id',
   validateRequest(campaignValidations.getCampaignByIdSchema),
   campaignControllers.getCampaignById
+)
+
+router.get(
+  '/:code/details',
+  validateRequest(campaignValidations.getCampaignByCampaignCodeSchema),
+  campaignControllers.getCampaignByCampaignCode
 )
 
 router.delete(
