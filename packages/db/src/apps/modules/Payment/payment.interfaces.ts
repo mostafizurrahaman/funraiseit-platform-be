@@ -17,6 +17,8 @@ export interface IPayment {
   stripeApplicationFeeId?: string
   stripeBalanceTransactionId?: string
   paidAt?: Date
+  expiresAt?: Date
+  checkoutUrl?: string
 }
 
 export interface IDonationPayment extends IPayment {
@@ -26,6 +28,10 @@ export interface IDonationPayment extends IPayment {
 export interface IOrderPayment extends IPayment {
   supporter: Types.ObjectId
   order: Types.ObjectId
+}
+
+export interface ILaunchPayment extends IPayment {
+  organizer: Types.ObjectId
 }
 
 // Table PaymentBreakdown {
@@ -65,7 +71,9 @@ export interface IPaymentDoc extends Document, IPayment {}
 export interface IDonationPaymentDoc extends IDonationPayment, Document {}
 
 export interface IOrderPaymentDoc extends IOrderPayment, Document {}
+export interface ILaunchPaymentDoc extends ILaunchPayment, Document {}
 
 // export interface IPaymentModel extends Model<IPaymentDoc> {
 //   getById(id: string): Promise<IPayment | null>
 // }
+export interface IPaymentBreakdownDoc extends IPaymentBreakdown, Document {}

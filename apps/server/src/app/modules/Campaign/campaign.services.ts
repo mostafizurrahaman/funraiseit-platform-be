@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { deleteSingleFileFromS3 } from '@repo/media-hub'
 import {
   Campaign,
@@ -5,6 +6,10 @@ import {
   campaignSearchableFields,
   CampaignStatus,
   discountType,
+  Payment,
+  PaymentBreakDown,
+  paymentStatus,
+  paymentType,
   Product,
   PromoCode,
   PromoCodeUsage,
@@ -23,6 +28,9 @@ import type {
 import { uploadSingleFileToS3, type IMulterFile } from 'packages/media-hub/src'
 import { generateCampaignCode } from './campaign.utils'
 import mongoose from 'mongoose'
+import { stripeCheckoutSession } from '@app/libs/stripe'
+import moment from 'moment'
+import { PaymentType } from '@app/libs/get-stripe-fee-breakdown'
 
 const createCampaign = async (
   user: IUser,
@@ -387,7 +395,11 @@ const launchCampaignByID = async (user: IUser, campaignId: string, promoCode?: s
   }
 
   if (campaign.status !== CampaignStatus.DRAFT) {
-    throw new AppError(httpStatus.BAD_REQUEST, 'Only draft campaigns can be previewed.')
+    throw new AppError(httpStatus.BAD_REQUEST, 'Only draft campaigns can be lunch.')
+  }
+
+  if (campaign.paymentStatus === campaignLunchPaymentStatus.PAID) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Payment already completed for this campaign')
   }
 
   const siteFees = await SiteInfo.findOne({})
@@ -401,6 +413,96 @@ const launchCampaignByID = async (user: IUser, campaignId: string, promoCode?: s
     throw new AppError(httpStatus.NOT_FOUND, 'Please add products before preview!')
   }
 
+  if (campaign.paymentStatus === campaignLunchPaymentStatus.PENDING) {
+    const lastPendingPayment = await Payment.findOne({
+      campaign: campaign?._id,
+      organizer: user?._id,
+      paymentType: paymentType.LAUNCH_FEE,
+      status: paymentStatus.PENDING,
+    }).sort({ createdAt: -1 })
+
+    if (lastPendingPayment) {
+      if (
+        lastPendingPayment?.expiresAt &&
+        new Date(lastPendingPayment?.expiresAt).getTime() > new Date().getTime()
+      ) {
+        return {
+          url: lastPendingPayment.checkoutUrl,
+          expiresAt: lastPendingPayment.expiresAt,
+          payment_required: true,
+        }
+      }
+    } else {
+      const session = await mongoose.startSession()
+
+      try {
+        session.startTransaction()
+        if (campaign.promoCode) {
+          const updatedPromoCode = await PromoCode.findOneAndUpdate(
+            { _id: campaign?.promoCode },
+            { $set: { usedCount: { $max: [{ $subtract: ['$usedCount', 1] }, 0] } } },
+            { new: true, session }
+          )
+
+          if (!updatedPromoCode) {
+            throw new AppError(httpStatus.NOT_FOUND, 'Failed to update promo code')
+          }
+
+          const usedCodeRemoved = await PromoCodeUsage.findOneAndDelete(
+            { promoCode: campaign.promoCode, user: user?._id, campaign: campaign?._id },
+            { session }
+          )
+
+          if (!usedCodeRemoved) {
+            throw new AppError(httpStatus.NOT_FOUND, 'Failed to update promo usage.')
+          }
+        }
+
+        const updatedCampaign = await Campaign.findOneAndUpdate(
+          { _id: campaign?._id },
+          {
+            $set: {
+              launchFee: siteFees.campaignLaunchFee,
+              finalLaunchFee: siteFees.campaignLaunchFee,
+              discountAmount: 0,
+              promoCode: null,
+              status: CampaignStatus.DRAFT,
+              paymentStatus: campaignLunchPaymentStatus.NOT_INITIATED,
+            },
+          },
+          { new: true, session }
+        )
+
+        if (!updatedCampaign) {
+          throw new AppError(httpStatus.BAD_REQUEST, 'The campaign failed to update')
+        }
+
+        const deletedPendingPayment = await Payment.findOneAndDelete(
+          {
+            campaign: campaign?._id,
+            organizer: user?._id,
+            paymentType: paymentType.LAUNCH_FEE,
+            status: paymentStatus.PENDING,
+          },
+          { session }
+        )
+
+        if (!deletedPendingPayment) {
+          throw new AppError(httpStatus.BAD_REQUEST, 'Failed to delete last pending payment')
+        }
+
+        await PaymentBreakDown.deleteOne({ payment: deletedPendingPayment?._id }, { session })
+
+        await session.commitTransaction()
+        await session.endSession()
+      } catch (err) {
+        await session.abortTransaction()
+        await session.endSession()
+        throw err
+      }
+    }
+  }
+
   let discountAmount = 0
   let appliedPromoCode = null
 
@@ -412,27 +514,19 @@ const launchCampaignByID = async (user: IUser, campaignId: string, promoCode?: s
       isActive: true,
     })
 
-    if (!existingPromoCode) {
-      throw new AppError(httpStatus.NOT_FOUND, 'Promo code does not exist.')
-    }
-
-    if (existingPromoCode.usedCount >= existingPromoCode.usageLimit) {
+    if (!existingPromoCode) throw new AppError(httpStatus.NOT_FOUND, 'Promo code does not exist.')
+    if (existingPromoCode.usedCount >= existingPromoCode.usageLimit)
       throw new AppError(httpStatus.BAD_REQUEST, 'This promo code is no longer available.')
-    }
-
-    if (new Date(existingPromoCode.expiresAt).getTime() < new Date().getTime()) {
+    if (new Date(existingPromoCode.expiresAt).getTime() < new Date().getTime())
       throw new AppError(httpStatus.BAD_REQUEST, 'This promo code is not active yet.')
-    }
 
-    // Already used?
     const isPromoCodeUsed = await PromoCodeUsage.exists({
       user: user._id,
       promoCode: existingPromoCode._id,
     })
 
-    if (isPromoCodeUsed) {
+    if (isPromoCodeUsed)
       throw new AppError(httpStatus.CONFLICT, 'You have already used this promo code.')
-    }
 
     if (existingPromoCode.discountType === discountType.PERCENTAGE) {
       discountAmount = (originalAmount * existingPromoCode.discountValue) / 100
@@ -457,77 +551,158 @@ const launchCampaignByID = async (user: IUser, campaignId: string, promoCode?: s
   try {
     session.startTransaction()
 
-    const updatedCampaign = await Campaign.findOneAndUpdate(
-      {
-        _id: campaign?._id,
+    const expiresAt = moment().add(30, 'minutes').toDate()
+
+    if (appliedPromoCode) {
+      const promoCodeDoc = await PromoCode.findOneAndUpdate(
+        { _id: appliedPromoCode?._id },
+        { $inc: { usedCount: 1 } },
+        { new: true, session }
+      )
+
+      if (!promoCodeDoc) throw new AppError(httpStatus.BAD_REQUEST, 'Promo code failed to update.')
+
+      await PromoCodeUsage.create(
+        [
+          {
+            user: user?._id,
+            promoCode: promoCodeDoc?._id,
+            campaign: campaign?._id,
+            discountType: promoCodeDoc?.discountType,
+            discountValue: promoCodeDoc.discountValue,
+            originalAmount: originalAmount,
+            discountAmount: discountAmount,
+            finalAmount: payableAmount,
+            usedAt: new Date(),
+          },
+        ],
+        { session }
+      )
+    }
+
+    // 100% Free Campaign Bypass
+    if (payableAmount === 0) {
+      const updatedCampaign = await Campaign.findOneAndUpdate(
+        { _id: campaign?._id },
+        {
+          $set: {
+            launchFee: originalAmount,
+            finalLaunchFee: payableAmount,
+            discountAmount: discountAmount,
+            promoCode: appliedPromoCode?._id,
+            status: CampaignStatus.ACTIVE,
+            paymentStatus: campaignLunchPaymentStatus.PAID,
+          },
+        },
+        { new: true, session }
+      )
+
+      if (!updatedCampaign)
+        throw new AppError(httpStatus.BAD_REQUEST, 'The campaign failed to update')
+
+      const [payment] = await Payment.create(
+        [
+          {
+            organizer: user?._id,
+            campaign: updatedCampaign?._id,
+            paymentType: paymentType.LAUNCH_FEE,
+            status: paymentStatus.PAID,
+            amount: payableAmount,
+            paidAt: new Date(),
+          },
+        ],
+        { session }
+      )
+
+      if (!payment) throw new AppError(httpStatus.BAD_REQUEST, 'The payment failed to update')
+
+      await PaymentBreakDown.create(
+        [
+          {
+            payment: payment?._id,
+            subtotal: originalAmount,
+            totalAmount: payableAmount,
+            discountAmount: discountAmount,
+          },
+        ],
+        { session }
+      )
+
+      await session.commitTransaction()
+      await session.endSession()
+
+      return {
+        url: null,
+        expiresAt: null,
+        payment_required: false,
+      }
+    }
+
+    const stripeExpiresAt = Math.floor(expiresAt.getTime() / 1000)
+
+    const result = await stripeCheckoutSession({
+      name: `${campaign.name} (Campaign Launch fee)`,
+      unit_amount: payableAmount * 100,
+      expiresAt: stripeExpiresAt,
+      metadata: {
+        organizerId: user?._id?.toString(),
+        campaignId: campaign?._id?.toString(),
+        paymentType: paymentType.LAUNCH_FEE,
+        payableAmount,
+        discountAmount,
+        originalAmount,
       },
+    })
+
+    const [payment] = await Payment.create(
+      [
+        {
+          organizer: user?._id,
+          campaign: campaign?._id,
+          paymentType: paymentType.LAUNCH_FEE,
+          status: paymentStatus.PENDING,
+          amount: payableAmount,
+          stripeCheckoutSessionId: result.id,
+          expiresAt: expiresAt,
+          checkoutUrl: result.url as string,
+        },
+      ],
+      { session }
+    )
+
+    if (!payment) throw new AppError(httpStatus.BAD_REQUEST, 'The payment failed to update')
+
+    const updatedCampaign = await Campaign.findOneAndUpdate(
+      { _id: campaign?._id },
       {
         $set: {
           launchFee: originalAmount,
           finalLaunchFee: payableAmount,
           discountAmount: discountAmount,
           promoCode: appliedPromoCode?._id,
+          status: CampaignStatus.DRAFT,
           paymentStatus: campaignLunchPaymentStatus.PENDING,
         },
       },
-      {
-        new: true,
-        session,
-      }
+      { new: true, session }
     )
 
-    if (!updatedCampaign) {
+    if (!updatedCampaign)
       throw new AppError(httpStatus.BAD_REQUEST, 'The campaign failed to update')
+
+    await session.commitTransaction()
+    await session.endSession()
+
+    return {
+      url: result.url,
+      expiresAt: expiresAt,
+      payment_required: true,
     }
-
-    if (appliedPromoCode) {
-      const promoCode = await PromoCode.findOneAndUpdate(
-        {
-          _id: appliedPromoCode?._id,
-        },
-        {
-          $inc: {
-            usedCount: 1,
-          },
-        },
-        {
-          new: true,
-          session,
-        }
-      )
-
-      if (!promoCode) {
-        throw new AppError(httpStatus.BAD_REQUEST, 'Promo code failed to update.')
-      }
-
-      const usedPromoCode = await PromoCodeUsage.create(
-        [
-          {
-            user: user?._id,
-            promoCode: promoCode?._id,
-            campaign: campaign?._id,
-
-            discountType: promoCode?.discountType,
-            discountValue: promoCode.discountValue, // e.g. 10 (%) or 20 ($)
-
-            originalAmount: originalAmount, // Before discount
-            discountAmount: discountAmount, // Amount deducted
-            finalAmount: payableAmount, // Amount after discount
-
-            usedAt: new Date(),
-          },
-        ],
-        {
-          session,
-        }
-      )
-
-      if (!usedPromoCode) {
-        throw new AppError(httpStatus.BAD_REQUEST, 'Promo code failed to update.')
-      }
-    }
-  } catch (err) {
+  } catch (err: any) {
     console.log(err)
+    await session.abortTransaction()
+    await session.endSession()
+    throw new AppError(httpStatus.INTERNAL_SERVER_ERROR, err.message)
   }
 }
 
@@ -537,6 +712,6 @@ export const campaignServices = {
   getAllCampaign,
   getCampaignById,
   deleteCampaignById,
-
+  launchCampaignByID,
   getCampaignPreview,
 }

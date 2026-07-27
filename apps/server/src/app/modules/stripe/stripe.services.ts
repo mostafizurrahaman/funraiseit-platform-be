@@ -1,8 +1,12 @@
 import { logger } from '@app/libs/logger'
-import { Account, accountStatus, User, type TAccountStatus } from 'packages/db/src'
+import { Account, accountStatus, paymentType, User, type TAccountStatus } from 'packages/db/src'
 import { AppError } from 'packages/shared/src'
 import type Stripe from 'stripe'
 import httpStatus from 'http-status'
+import {
+  handleCampaignCheckoutPaymentSuccess,
+  handleCampaignCheckoutSessionExpired,
+} from './stripe.utils'
 
 // Account Updated Event:
 const handleAccountUpdated = async (event: Stripe.Event) => {
@@ -64,10 +68,34 @@ const handleAccountUpdated = async (event: Stripe.Event) => {
   await user.save()
 }
 
+// ?? Handle success:
+
+const handleCheckoutSessionSuccess = async (event: Stripe.Event) => {
+  const checkoutSession = event.data.object as Stripe.Checkout.Session
+
+  if (checkoutSession?.metadata?.paymentType === paymentType.LAUNCH_FEE) {
+    await handleCampaignCheckoutPaymentSuccess(checkoutSession)
+  }
+}
+
+const handleCheckoutSessionExpired = async (event: Stripe.Event) => {
+  const checkoutSession = event.data.object as Stripe.Checkout.Session
+
+  if (checkoutSession?.metadata?.paymentType === paymentType.LAUNCH_FEE) {
+    await handleCampaignCheckoutSessionExpired(checkoutSession)
+  }
+}
+
 const listenStripeEvents = async (event: Stripe.Event) => {
   switch (event.type) {
     case 'account.updated':
       await handleAccountUpdated(event)
+      break
+    case 'checkout.session.completed':
+      await handleCheckoutSessionSuccess(event)
+      break
+    case 'checkout.session.expired':
+      await handleCheckoutSessionExpired(event)
       break
     default:
       logger.warn(`Unhandled event type: ${event.type}`)

@@ -1,5 +1,11 @@
 import { Schema, model } from 'mongoose'
-import type { IDonationPaymentDoc, IOrderPaymentDoc, IPaymentDoc } from './payment.interfaces'
+import {
+  type IPaymentBreakdownDoc,
+  type IDonationPaymentDoc,
+  type IOrderPaymentDoc,
+  type IPaymentDoc,
+  type ILaunchPaymentDoc,
+} from './payment.interfaces'
 import {
   paymentStatus,
   paymentStatusValues,
@@ -14,6 +20,11 @@ const paymentSchema = new Schema<IPaymentDoc>(
     organizer: {
       type: Schema.Types.ObjectId,
       ref: 'User',
+      required: true,
+    },
+    campaign: {
+      type: Schema.Types.ObjectId,
+      ref: 'Campaign',
       required: true,
     },
     paymentType: {
@@ -50,10 +61,16 @@ const paymentSchema = new Schema<IPaymentDoc>(
       type: String,
     },
     stripeBalanceTransactionId: {
-      typ: String,
+      type: String,
     },
     paidAt: {
       type: Date,
+    },
+    expiresAt: {
+      type: Date,
+    },
+    checkoutUrl: {
+      type: String,
     },
   },
   {
@@ -90,13 +107,75 @@ const donationPaymentSchema = new Schema<IDonationPaymentDoc>({
     required: true,
   },
 })
+
+const launchFeeSchema = new Schema<ILaunchPaymentDoc>({
+  organizer: {
+    type: Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+  },
+})
 // Static method
 // paymentSchema.statics.getById = async function (id: string) {
 //   return this.findById(id)
 // }
+
+const PaymentBreakDownSchema = new Schema<IPaymentBreakdownDoc>({
+  payment: {
+    type: Schema.Types.ObjectId,
+    ref: 'Payment',
+    required: true,
+  },
+  subtotal: {
+    type: Number,
+    min: 0,
+    default: 0,
+  },
+  shippingFee: {
+    type: Number,
+    min: 0,
+    default: 0,
+  },
+  totalAmount: {
+    type: Number,
+    min: 0,
+    default: 0,
+  },
+  stripeFee: {
+    type: Number,
+    min: 0,
+    default: 0,
+  },
+  platformFee: {
+    type: Number,
+    min: 0,
+    default: 0,
+  },
+  organizerAmount: {
+    type: Number,
+    min: 0,
+    default: 0,
+  },
+  organizerAmountWithoutShipping: {
+    type: Number,
+    min: 0,
+    default: 0,
+  },
+  discountAmount: {
+    type: Number,
+    min: 0,
+    default: 0,
+  },
+})
 
 export const Payment = model<IPaymentDoc>('Payment', paymentSchema)
 
 export const OrderPayment = Payment.discriminator(paymentType.ORDER, orderPaymentSchema)
 
 export const DonationPayment = Payment.discriminator(paymentType.DONATION, donationPaymentSchema)
+export const LaunchPayment = Payment.discriminator(paymentType.LAUNCH_FEE, launchFeeSchema)
+
+export const PaymentBreakDown = model<IPaymentBreakdownDoc>(
+  'PaymentBreakdown',
+  PaymentBreakDownSchema
+)
