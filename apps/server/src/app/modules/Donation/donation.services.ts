@@ -99,6 +99,8 @@ const createDonation = async (payload: TCreateDonationPayloadType) => {
     donationAmount: amount,
   })
 
+  console.log(paymentBreakdown)
+
   const session = await mongoose.startSession()
 
   try {

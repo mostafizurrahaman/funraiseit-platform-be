@@ -11,6 +11,7 @@ import {
   requiredMongooseId,
   positiveNumber,
 } from '@repo/shared'
+import { donationSortableFields } from 'packages/db/src'
 
 const createDonationSchema = z.object({
   body: z.object({

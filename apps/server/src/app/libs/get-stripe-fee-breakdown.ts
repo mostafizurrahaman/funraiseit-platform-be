@@ -48,17 +48,13 @@ export const calculatePaymentBreakdown = ({
   stripeFixedFee = 0.3,
 }: CalculatePaymentBreakdownPayload) => {
   let subtotal = 0
-
   let amountBeforeStripe = 0
 
   let platformFee = 0
-
   let grossAmount = 0
-
   let stripeFee = 0
 
   let organizerNetAmount = 0
-
   let platformRevenue = 0
 
   switch (newPType) {
@@ -70,12 +66,12 @@ export const calculatePaymentBreakdown = ({
 
       amountBeforeStripe = productPrice + shippingFee
 
+      // Customer pays exactly this amount
+      grossAmount = amountBeforeStripe
+
       platformFee = round((productPrice * platformFeePercent) / 100)
 
-      const stripe = calculateStripeFee(amountBeforeStripe, stripePercentageFee, stripeFixedFee)
-
-      grossAmount = stripe.grossAmount
-      stripeFee = stripe.stripeFee
+      stripeFee = round(grossAmount * (stripePercentageFee / 100) + stripeFixedFee)
 
       organizerNetAmount = round(amountBeforeStripe - platformFee - stripeFee)
 
@@ -92,12 +88,12 @@ export const calculatePaymentBreakdown = ({
 
       amountBeforeStripe = donationAmount
 
+      // Customer pays exactly the donation amount
+      grossAmount = donationAmount
+
       platformFee = round((donationAmount * platformFeePercent) / 100)
 
-      const stripe = calculateStripeFee(amountBeforeStripe, stripePercentageFee, stripeFixedFee)
-
-      grossAmount = stripe.grossAmount
-      stripeFee = stripe.stripeFee
+      stripeFee = round(grossAmount * (stripePercentageFee / 100) + stripeFixedFee)
 
       organizerNetAmount = round(donationAmount - platformFee - stripeFee)
 
@@ -114,10 +110,10 @@ export const calculatePaymentBreakdown = ({
 
       amountBeforeStripe = campaignFee
 
-      const stripe = calculateStripeFee(campaignFee, stripePercentageFee, stripeFixedFee)
+      // Customer pays exactly the launch fee
+      grossAmount = campaignFee
 
-      grossAmount = stripe.grossAmount
-      stripeFee = stripe.stripeFee
+      stripeFee = round(grossAmount * (stripePercentageFee / 100) + stripeFixedFee)
 
       platformRevenue = round(campaignFee - stripeFee)
 
@@ -130,7 +126,7 @@ export const calculatePaymentBreakdown = ({
 
   return {
     databaseRecord: {
-      paymentType,
+      paymentType: newPType,
 
       subtotal,
 
@@ -138,7 +134,7 @@ export const calculatePaymentBreakdown = ({
 
       amountBeforeStripe,
 
-      grossAmount, // Customer pays this
+      grossAmount, // Amount customer pays
 
       stripeFee,
 
@@ -150,8 +146,10 @@ export const calculatePaymentBreakdown = ({
     },
 
     stripePayload: {
+      // Stripe Checkout amount
       amount: Math.round(grossAmount * 100),
 
+      // Platform fee collected through Stripe Connect
       application_fee_amount: Math.round(platformFee * 100),
     },
   }
