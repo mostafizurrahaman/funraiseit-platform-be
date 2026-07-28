@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { deleteSingleFileFromS3 } from '@repo/media-hub'
 import {
+  Account,
+  accountStatus,
   AuthStatus,
   Campaign,
   campaignLunchPaymentStatus,
@@ -674,6 +676,25 @@ const launchCampaignByID = async (user: IUser, campaignId: string, promoCode?: s
 
   if (campaign.paymentStatus === campaignLunchPaymentStatus.PAID) {
     throw new AppError(httpStatus.BAD_REQUEST, 'Payment already completed for this campaign')
+  }
+
+  // ?? check organization stripe account :
+  const orgAccount = await Account.findOne({
+    user: user?._id,
+  })
+
+  if (!orgAccount) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'Before launching campaign setup organization bank account.'
+    )
+  }
+
+  if (orgAccount.status !== accountStatus.ACTIVE) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      `Your connected bank account is ${accountStatus.RESTRICTED}. Please wait or submit documents.`
+    )
   }
 
   const siteFees = await SiteInfo.findOne({})

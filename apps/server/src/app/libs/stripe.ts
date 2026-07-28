@@ -86,11 +86,13 @@ export const verifyWebHookSignature = (secretKey: string, req: Request): Stripe.
 export const stripeCheckoutSession = async ({
   name,
   unit_amount,
+
   expiresAt,
   metadata,
 }: {
   name: string
   unit_amount: number
+
   expiresAt: number
   metadata: Stripe.MetadataParam
 }) => {
@@ -117,6 +119,55 @@ export const stripeCheckoutSession = async ({
     payment_intent_data: {
       metadata: {
         ...metadata,
+      },
+    },
+    success_url: `${configs.site.clientUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${configs.site.clientUrl}/payment/cancel`,
+  })
+
+  return session
+}
+
+export const stripeCheckoutSessionWithApplicationFee = async ({
+  name,
+  unit_amount,
+  application_fee,
+
+  metadata,
+  destinationAccountId,
+}: {
+  name: string
+  unit_amount: number
+  application_fee: number
+  metadata: Stripe.MetadataParam
+  destinationAccountId: string
+}) => {
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ['card'],
+    mode: 'payment',
+    line_items: [
+      {
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name,
+          },
+
+          unit_amount, // $50.00
+        },
+        quantity: 1,
+      },
+    ],
+    metadata: {
+      ...metadata,
+    },
+    payment_intent_data: {
+      metadata: {
+        ...metadata,
+      },
+      application_fee_amount: application_fee,
+      transfer_data: {
+        destination: destinationAccountId,
       },
     },
     success_url: `${configs.site.clientUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
