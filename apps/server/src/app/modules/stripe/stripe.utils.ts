@@ -6,6 +6,9 @@ import {
   Campaign,
   campaignLunchPaymentStatus,
   CampaignStatus,
+  Donation,
+  DonationPayment,
+  DonationStatus,
   Payment,
   PaymentBreakDown,
   paymentStatus,
@@ -26,6 +29,18 @@ interface TCampaignPaymentMetaData {
   payableAmount?: number
   discountAmount?: number
   originalAmount?: number
+}
+
+interface TDonationPaymentMetaData {
+  organizer: string
+  campaign: string
+  donation: string
+  supporter: string
+  paymentType: TPaymentType
+  grossAmount: number // Customer pays this
+  stripeFee: number
+  platformFee: number
+  organizerNetAmount: number
 }
 
 export const handleCampaignCheckoutPaymentSuccess = async (session: Stripe.Checkout.Session) => {
@@ -290,3 +305,367 @@ export const handleCampaignCheckoutSessionExpired = async (
     session.endSession()
   }
 }
+
+export const handleDonationCheckoutPaymentSuccess = async (
+  checkoutSession: Stripe.Checkout.Session
+) => {
+  if (checkoutSession.payment_status !== 'paid') {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Payment not paid yet.')
+  }
+
+  const { metadata } = checkoutSession
+
+  const { campaign: campaignId, donation: donationId } =
+    metadata as unknown as TDonationPaymentMetaData
+
+  const sessionId = checkoutSession.id
+  const paymentIntentId = checkoutSession.payment_intent
+
+  if (!paymentIntentId || typeof paymentIntentId !== 'string') {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Payment intent not found.')
+  }
+
+  const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId)
+
+  if (!paymentIntent.latest_charge || typeof paymentIntent.latest_charge !== 'string') {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Charge not found.')
+  }
+
+  let charge = await stripe.charges.retrieve(paymentIntent.latest_charge)
+
+  let retry = 5
+
+  while (!charge.balance_transaction && retry > 0) {
+    await sleep(1000)
+
+    charge = await stripe.charges.retrieve(charge.id)
+
+    retry--
+  }
+
+  if (!charge.balance_transaction) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Balance transaction is not available yet.')
+  }
+
+  const balanceTx = await stripe.balanceTransactions.retrieve(charge.balance_transaction as string)
+
+  /**
+   * Stripe calculation:
+   *
+   * Gross Amount
+   *        |
+   *        |- Stripe Fee
+   *        |
+   *        = balanceTx.net
+   *
+   * Organizer Amount:
+   * balanceTx.net - Application Fee
+   */
+
+  const grossAmount = balanceTx.amount / 100
+  const stripeFee = balanceTx.fee / 100
+  const stripeNetAmount = balanceTx.net / 100
+
+  let applicationFee = 0
+  let applicationFeeId: string | undefined
+
+  if (charge.application_fee) {
+    const fee = await stripe.applicationFees.retrieve(charge.application_fee as string)
+
+    applicationFeeId = fee.id
+    applicationFee = fee.amount / 100
+  }
+
+  const organizerNetAmount = stripeNetAmount - applicationFee
+
+  const mongoSession = await mongoose.startSession()
+
+  try {
+    mongoSession.startTransaction()
+
+    // Prevent duplicate webhook processing
+    const existingPayment = await DonationPayment.findOne({
+      stripeCheckoutSessionId: sessionId,
+      status: paymentStatus.PAID,
+    }).session(mongoSession)
+
+    if (existingPayment) {
+      await mongoSession.commitTransaction()
+      return existingPayment
+    }
+
+    const payment = await DonationPayment.findOneAndUpdate(
+      {
+        stripeCheckoutSessionId: sessionId,
+      },
+      {
+        $set: {
+          status: paymentStatus.PAID,
+          amount: grossAmount,
+
+          stripePaymentIntentId: paymentIntentId,
+          stripeChargeId: charge.id,
+          stripeApplicationFeeId: applicationFeeId,
+          stripeBalanceTransactionId: balanceTx.id,
+
+          paidAt: new Date(),
+        },
+      },
+      {
+        sort: {
+          createdAt: -1,
+        },
+        new: true,
+        session: mongoSession,
+      }
+    )
+
+    if (!payment) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'Payment not found.')
+    }
+
+    const paymentBreakdownExists = await PaymentBreakDown.findOne({
+      payment: payment._id,
+    }).session(mongoSession)
+
+    if (!paymentBreakdownExists) {
+      await PaymentBreakDown.create(
+        [
+          {
+            payment: payment._id,
+
+            subtotal: grossAmount,
+            totalAmount: grossAmount,
+
+            stripeFee,
+            platformFee: applicationFee,
+
+            organizerAmount: organizerNetAmount,
+            organizerAmountWithoutShipping: organizerNetAmount,
+
+            discountAmount: 0,
+          },
+        ],
+        {
+          session: mongoSession,
+        }
+      )
+    }
+
+    // Update donation
+
+    const donation = await Donation.findOneAndUpdate(
+      {
+        _id: donationId,
+      },
+      {
+        $set: {
+          totalAmount: grossAmount,
+          status: DonationStatus.PAID,
+        },
+      },
+      {
+        session: mongoSession,
+        new: true,
+      }
+    )
+
+    if (!donation) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'Donation failed to update.')
+    }
+
+    // Update campaign amount safely
+
+    const campaign = await Campaign.findOneAndUpdate(
+      {
+        _id: campaignId,
+      },
+      {
+        $inc: {
+          raisedAmount: organizerNetAmount,
+        },
+      },
+      {
+        session: mongoSession,
+        new: true,
+      }
+    )
+
+    if (!campaign) {
+      throw new AppError(httpStatus.NOT_FOUND, 'Campaign not found.')
+    }
+
+    await mongoSession.commitTransaction()
+
+    return payment
+  } catch (error) {
+    await mongoSession.abortTransaction()
+
+    throw error
+  } finally {
+    await mongoSession.endSession()
+  }
+}
+
+export const handleDonationCheckoutPaymentFailed = async (
+  checkoutSession: Stripe.Checkout.Session
+) => {
+  const { metadata } = checkoutSession
+
+  const { donation: donationId } = metadata as unknown as TDonationPaymentMetaData
+
+  const sessionId = checkoutSession.id
+
+  const mongoSession = await mongoose.startSession()
+
+  try {
+    mongoSession.startTransaction()
+
+    // Prevent updating already completed payment
+    const payment = await DonationPayment.findOne({
+      stripeCheckoutSessionId: sessionId,
+    }).session(mongoSession)
+
+    if (!payment) {
+      throw new AppError(httpStatus.NOT_FOUND, 'Payment not found.')
+    }
+
+    // If already paid, don't mark failed
+    if (payment.status === paymentStatus.PAID) {
+      await mongoSession.commitTransaction()
+      return payment
+    }
+
+    const updatedPayment = await DonationPayment.findOneAndUpdate(
+      {
+        stripeCheckoutSessionId: sessionId,
+      },
+      {
+        $set: {
+          status: paymentStatus.FAILED,
+        },
+      },
+      {
+        session: mongoSession,
+        new: true,
+      }
+    )
+
+    if (!updatedPayment) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'Payment update failed.')
+    }
+
+    // Update donation status
+    if (donationId) {
+      const donation = await Donation.findOneAndUpdate(
+        {
+          _id: donationId,
+        },
+        {
+          $set: {
+            status: DonationStatus.FAILED,
+          },
+        },
+        {
+          session: mongoSession,
+          new: true,
+        }
+      )
+
+      if (!donation) {
+        throw new AppError(httpStatus.BAD_REQUEST, 'Donation update failed.')
+      }
+    }
+
+    await mongoSession.commitTransaction()
+
+    return updatedPayment
+  } catch (error) {
+    await mongoSession.abortTransaction()
+
+    throw error
+  } finally {
+    await mongoSession.endSession()
+  }
+}
+
+export const handleDonationPaymentIntentFailed = async (paymentIntent: Stripe.PaymentIntent) => {
+  const { metadata } = paymentIntent
+
+  const { donation: donationId } = metadata as unknown as TDonationPaymentMetaData
+
+  const paymentIntentId = paymentIntent.id
+
+  const mongoSession = await mongoose.startSession()
+
+  try {
+    mongoSession.startTransaction()
+
+    // Find payment
+    const payment = await DonationPayment.findOne({
+      stripePaymentIntentId: paymentIntentId,
+    }).session(mongoSession)
+
+    if (!payment) {
+      throw new AppError(httpStatus.NOT_FOUND, 'Payment not found.')
+    }
+
+    // Already paid, don't update as failed
+    if (payment.status === paymentStatus.PAID) {
+      await mongoSession.commitTransaction()
+      return payment
+    }
+
+    const updatedPayment = await DonationPayment.findOneAndUpdate(
+      {
+        stripePaymentIntentId: paymentIntentId,
+      },
+      {
+        $set: {
+          status: paymentStatus.FAILED,
+        },
+      },
+      {
+        session: mongoSession,
+        new: true,
+      }
+    )
+
+    if (!updatedPayment) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'Payment failed update.')
+    }
+
+    // Update donation
+    if (donationId) {
+      const donation = await Donation.findOneAndUpdate(
+        {
+          _id: donationId,
+        },
+        {
+          $set: {
+            status: DonationStatus.FAILED,
+          },
+        },
+        {
+          session: mongoSession,
+          new: true,
+        }
+      )
+
+      if (!donation) {
+        throw new AppError(httpStatus.BAD_REQUEST, 'Donation failed update.')
+      }
+    }
+
+    await mongoSession.commitTransaction()
+
+    return updatedPayment
+  } catch (error) {
+    await mongoSession.abortTransaction()
+
+    throw error
+  } finally {
+    await mongoSession.endSession()
+  }
+}
+

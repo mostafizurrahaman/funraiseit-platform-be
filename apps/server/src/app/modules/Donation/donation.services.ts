@@ -27,7 +27,6 @@ import { calculatePaymentBreakdown } from '@app/libs/get-stripe-fee-breakdown'
 import { stripeCheckoutSessionWithApplicationFee } from '@app/libs/stripe'
 const MIN_DONATION = 0.5
 
-
 const createDonation = async (payload: TCreateDonationPayloadType) => {
   const { campaignId, firstName, lastName, amount, email, message, phone } = payload
 
@@ -160,6 +159,11 @@ const createDonation = async (payload: TCreateDonationPayloadType) => {
         campaign: campaign?._id.toString(),
         donation: donation?._id.toString(),
         supporter: newSupporter?._id.toString(),
+        paymentType: paymentBreakdown.databaseRecord.paymentType as unknown as string,
+        grossAmount: paymentBreakdown.databaseRecord.grossAmount, // Customer pays this
+        stripeFee: paymentBreakdown.databaseRecord.stripeFee,
+        platformFee: paymentBreakdown.databaseRecord.platformFee,
+        organizerNetAmount: paymentBreakdown.databaseRecord.organizerNetAmount,
       },
     })
 
@@ -174,6 +178,7 @@ const createDonation = async (payload: TCreateDonationPayloadType) => {
           amount: paymentBreakdown.databaseRecord.grossAmount,
           status: paymentStatus.PENDING,
           stripeCheckoutSessionId: checkoutSession.id!,
+          stripePaymentIntentId: checkoutSession.payment_intent as string,
           checkoutUrl: checkoutSession.url!,
         },
       ],

@@ -6,6 +6,9 @@ import httpStatus from 'http-status'
 import {
   handleCampaignCheckoutPaymentSuccess,
   handleCampaignCheckoutSessionExpired,
+  handleDonationCheckoutPaymentFailed,
+  handleDonationCheckoutPaymentSuccess,
+  handleDonationPaymentIntentFailed,
 } from './stripe.utils'
 
 // Account Updated Event:
@@ -76,6 +79,10 @@ const handleCheckoutSessionSuccess = async (event: Stripe.Event) => {
   if (checkoutSession?.metadata?.paymentType === paymentType.LAUNCH_FEE) {
     await handleCampaignCheckoutPaymentSuccess(checkoutSession)
   }
+
+  if (checkoutSession?.metadata?.paymentType === paymentType.DONATION) {
+    await handleDonationCheckoutPaymentSuccess(checkoutSession)
+  }
 }
 
 const handleCheckoutSessionExpired = async (event: Stripe.Event) => {
@@ -83,6 +90,17 @@ const handleCheckoutSessionExpired = async (event: Stripe.Event) => {
 
   if (checkoutSession?.metadata?.paymentType === paymentType.LAUNCH_FEE) {
     await handleCampaignCheckoutSessionExpired(checkoutSession)
+  }
+  if (checkoutSession?.metadata?.paymentType === paymentType.DONATION) {
+    await handleDonationCheckoutPaymentFailed(checkoutSession)
+  }
+}
+
+const handlePaymentIntentFailed = async (event: Stripe.Event) => {
+  const paymentIntent = event.data.object as Stripe.PaymentIntent
+
+  if (paymentIntent?.metadata?.paymentType === paymentType.DONATION) {
+    await handleDonationPaymentIntentFailed(paymentIntent)
   }
 }
 
@@ -96,6 +114,9 @@ const listenStripeEvents = async (event: Stripe.Event) => {
       break
     case 'checkout.session.expired':
       await handleCheckoutSessionExpired(event)
+      break
+    case 'payment_intent.payment_failed':
+      await handlePaymentIntentFailed(event)
       break
     default:
       logger.warn(`Unhandled event type: ${event.type}`)
