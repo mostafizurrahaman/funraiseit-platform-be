@@ -13,5 +13,7 @@ export * from './Product'
 // ?? Supporter , Orders and Order Item and Order Address :
 
 export * from './Supporter'
+export * from './Order'
+export * from './OrderItem'
 export * from './OrderAddress'
 export * from './Donation'
