@@ -16,6 +16,8 @@ export const OrderStatus = {
   REFUNDED: 'refunded',
 } as const
 
+export const shippingTypes = ['local_pickup', 'local_delivery', 'shipping']
+
 export const OrderStatusValues = Object.values(OrderStatus)
 
 export type TOrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus]
