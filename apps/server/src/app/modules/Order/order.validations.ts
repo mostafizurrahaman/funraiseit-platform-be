@@ -12,7 +12,7 @@ import {
   requiredEmail,
   usaPhoneRegex,
 } from '@repo/shared'
-import { orderSortableFields, productType, productTypeValues, shippingTypes } from '@repo/db'
+import { orderSortableFields, productType, productTypeValues, shippingTypesValues } from '@repo/db'
 
 const orderItemSchema = z.object({
   product: requiredMongooseId('Product ID'),
@@ -24,7 +24,7 @@ const createOrderSchema = z.object({
   body: z
     .object({
       campaignId: requiredMongooseId('Campaign ID'),
-      shippingType: enumString(shippingTypes, 'Shipping type').optional(),
+      shippingType: enumString(shippingTypesValues, 'Shipping type').optional(),
 
       // Product:
       orderItems: z
@@ -85,9 +85,91 @@ const createOrderSchema = z.object({
           message: 'Shipping type is required for physical products.',
         })
       }
+
+      const productMap = new Map<string, number>()
+
+      orderItems.forEach(({ product }, index) => {
+        if (productMap.has(product)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['orderItems', index, 'quantity'],
+            message: 'Duplicate product found in order items.',
+          })
+        }
+
+        productMap.set(product, index)
+      })
     }),
 })
 
+const previewOrderSchema = z.object({
+  body: z
+    .object({
+      campaignId: requiredMongooseId('Campaign ID'),
+      shippingType: enumString(shippingTypesValues, 'Shipping type').optional(),
+
+      // Product:
+      orderItems: z
+        .array(orderItemSchema, {
+          error: 'Order items should be an array of product & quantity.',
+        })
+        .min(1, {
+          error: 'Min. one order item required!',
+        }),
+    })
+    .superRefine((data, ctx) => {
+      const { orderItems, shippingType } = data
+
+      const digitalItems = orderItems.filter((item) => item.productType === productType.DIGITAL)
+
+      const physicalItems = orderItems.filter((item) => item.productType === productType.PHYSICAL)
+
+      // 1. Digital products can only have quantity = 1
+      digitalItems.forEach((item, index) => {
+        if (item.quantity > 1) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['orderItems', index, 'quantity'],
+            message: 'Digital products can only be purchased with a quantity of 1.',
+          })
+        }
+      })
+
+      // 2. If all products are digital, shipping type is not required
+      const allDigital = orderItems.length > 0 && physicalItems.length === 0
+
+      if (allDigital && shippingType) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['shippingType'],
+          message: 'Shipping type is not applicable when all ordered products are digital.',
+        })
+      }
+
+      // Optional: If there is any physical product, shipping type becomes required.
+      if (physicalItems.length > 0 && !shippingType) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['shippingType'],
+          message: 'Shipping type is required for physical products.',
+        })
+      }
+
+      const productMap = new Map<string, number>()
+
+      orderItems.forEach(({ product }, index) => {
+        if (productMap.has(product)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['orderItems', index, 'quantity'],
+            message: 'Duplicate product found in order items.',
+          })
+        }
+
+        productMap.set(product, index)
+      })
+    }),
+})
 const updateOrderSchema = z.object({
   params: z.object({
     id: requiredString('ID'),
@@ -121,6 +203,7 @@ const deleteOrderByIdSchema = z.object({
 
 export const orderValidations = {
   createOrderSchema,
+  previewOrderSchema,
   updateOrderSchema,
   getAllOrderSchema,
   getOrderByIdSchema,
@@ -128,6 +211,7 @@ export const orderValidations = {
 }
 
 export type TCreateOrderPayloadType = z.infer<typeof createOrderSchema.shape.body>
+export type TPreviewOrderPayloadType = z.infer<typeof previewOrderSchema.shape.body>
 export type TUpdateOrderPayloadType = z.infer<typeof updateOrderSchema.shape.body>
 export type TGetAllOrderQueryParamsType = z.infer<typeof getAllOrderSchema.shape.query>
 export type TGetOrderByIdParamsType = z.infer<typeof getOrderByIdSchema.shape.params>

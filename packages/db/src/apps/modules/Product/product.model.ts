@@ -84,3 +84,5 @@ export const Product = model<IProductDoc>('Product', productSchema)
 export const PhysicalProduct = Product.discriminator(productType.PHYSICAL, physicalProductSchema)
 
 export const DigitalProduct = Product.discriminator(productType.DIGITAL, digitalProductSchema)
+
+

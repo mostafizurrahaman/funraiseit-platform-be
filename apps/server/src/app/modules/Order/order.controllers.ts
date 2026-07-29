@@ -13,6 +13,17 @@ const createOrder = catchAsync(async (req, res) => {
   })
 })
 
+const previewOrder = catchAsync(async (req, res) => {
+  const result = await orderServices.previewOrderPrice(req.body)
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: 'The order details retrieved successfully!',
+    data: result,
+  })
+})
+
 const updateOrder = catchAsync(async (req, res) => {
   const result = await orderServices.updateOrder(req.params.id as string, req.body)
 
@@ -63,5 +74,6 @@ export const orderControllers = {
   updateOrder,
   getAllOrder,
   getOrderById,
-  deleteOrderById
+  deleteOrderById,
+  previewOrder,
 }

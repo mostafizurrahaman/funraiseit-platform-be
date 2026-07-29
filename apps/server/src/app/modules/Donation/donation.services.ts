@@ -47,8 +47,27 @@ const createDonation = async (payload: TCreateDonationPayloadType) => {
     )
   }
 
-  // ?? Check is donation allowed:
+  // ?? Check is campaign duration completed:
+  const now = Date.now()
+
+  // Check if campaign has ended for donations
+  if (campaign.endDate && new Date(campaign.endDate).getTime() < now) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'This campaign has ended. Donations are no longer accepted.'
+    )
+  }
+
+  // Check if campaign has not started yet for donations
+  if (campaign.startDate && new Date(campaign.startDate).getTime() > now) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'This campaign has not started yet. Donations cannot be made.'
+    )
+  }
+
   if (!campaign?.allowDonation) {
+    // ?? Check is donation allowed:
     throw new AppError(httpStatus.BAD_REQUEST, 'Donation is not enabled for this campaign.')
   }
 

@@ -3,13 +3,11 @@ import { validateRequest } from '@app/middlewares'
 import { orderControllers } from './order.controllers'
 import { orderValidations } from './order.validations'
 
-const router : Router = express.Router()
+const router: Router = express.Router()
 
-router.post(
-  '/',
-  validateRequest(orderValidations.createOrderSchema),
-  orderControllers.createOrder
-)
+router.post('/', validateRequest(orderValidations.createOrderSchema), orderControllers.createOrder)
+
+router.get('/', validateRequest(orderValidations.previewOrderSchema), orderControllers.previewOrder)
 
 router.patch(
   '/:id',
