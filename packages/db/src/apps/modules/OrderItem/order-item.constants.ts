@@ -12,7 +12,7 @@ export const OrderItemStatus = {
   FULFILLED: 'fulfilled',
   SHIPPED: 'shipped',
   CANCELLED: 'cancelled',
-}
+} as const
 
 export const orderItemStatusValues = Object.values(OrderItemStatus)
 

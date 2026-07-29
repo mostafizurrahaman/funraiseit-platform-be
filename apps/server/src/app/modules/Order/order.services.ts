@@ -5,14 +5,17 @@ import {
   Campaign,
   CampaignStatus,
   Order,
+  OrderItem,
+  OrderItemStatus,
   orderSearchableFields,
+  OrderStatus,
   paymentType,
   Product,
+  ShippingType,
+  SiteInfo,
+  Supporter,
   User,
-  type IDigitalProduct,
   type IPhysicalProduct,
-  type IProduct,
-  type IProductDoc,
   type ProductDoc,
 } from '@repo/db'
 import httpStatus from 'http-status'
@@ -26,6 +29,7 @@ import type {
   TPreviewOrderPayloadType,
 } from './order.validations'
 import { calculatePaymentBreakdown } from '@app/libs/get-stripe-fee-breakdown'
+import mongoose, { mongo } from 'mongoose'
 
 const createOrder = async (payload: TCreateOrderPayloadType) => {
   const {
@@ -204,7 +208,88 @@ const createOrder = async (payload: TCreateOrderPayloadType) => {
     shippingFee: shippingPrice,
   })
 
-  return paymentBreakdown
+  const siteFee = await SiteInfo.findOne({})
+  const platformFee = siteFee?.platformFee || 6
+
+  const mongoSession = await mongoose.startSession()
+
+  try {
+    mongoSession.startTransaction()
+    // ?? Supporter:
+
+    const newSupporter = await Supporter.findOneAndUpdate(
+      {
+        email: email?.trim(),
+      },
+      {
+        $set: {
+          name: fullName,
+          phoneNumber: phone,
+        },
+      },
+      {
+        upsert: true,
+        returnDocument: 'after',
+        session: mongoSession,
+      }
+    )
+
+    if (!newSupporter) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'Failed to updated supporter info.')
+    }
+
+    // ?? Order :
+    const [order] = await Order.create(
+      [
+        {
+          campaign: campaign?._id,
+          supporter: newSupporter._id,
+          customerName: fullName,
+          customerPhone: newSupporter.phoneNumber!,
+          shippingType: shippingType!,
+          subTotal: paymentBreakdown.databaseRecord.subtotal,
+          totalAmount: paymentBreakdown.databaseRecord.grossAmount,
+          shippingAmount: paymentBreakdown.databaseRecord.shippingFee,
+          stripeFeePercentage: 2.9,
+          platformFeePercentage: platformFee,
+          status: OrderStatus.PENDING,
+        },
+      ],
+      {
+        session: mongoSession,
+      }
+    )
+
+    if (!order) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'Failed to updated order.')
+    }
+
+    // ?? Order Item:
+
+    const orderItemsPayload = products?.map((p) => ({
+      order: order?._id,
+      product: p?._id,
+      quantity: orderedQuantityMap.get(p?._id?.toString())!,
+      unitPrice: p?.price,
+      status: OrderItemStatus.PENDING,
+    }))
+
+    // ?? Save the order items:
+    const orderItems = await OrderItem.create(orderItemsPayload, {
+      session: mongoSession,
+    })
+
+    // if (!orderItems || orderItems?.length < or )
+
+
+
+    // await mongoSession.commitTransaction()
+  } catch (error) {
+    await mongoSession.abortTransaction()
+    throw error
+  } finally {
+    await mongoSession.endSession()
+  }
 }
 
 const previewOrderPrice = async (payload: TPreviewOrderPayloadType) => {

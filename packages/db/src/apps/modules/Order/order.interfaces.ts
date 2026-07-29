@@ -6,6 +6,8 @@ export interface IOrder {
   campaign: Types.ObjectId
   supporter: Types.ObjectId
   shippingType: TShippingType
+  customerName: string
+  customerPhone: string
   subTotal: number
   totalAmount: number
   shippingAmount: number
