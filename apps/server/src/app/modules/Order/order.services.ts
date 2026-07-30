@@ -4,11 +4,17 @@ import {
   AuthStatus,
   Campaign,
   CampaignStatus,
+  Currency,
   Order,
+  OrderAddress,
   OrderItem,
   OrderItemStatus,
+  OrderPayment,
   orderSearchableFields,
   OrderStatus,
+  Payment,
+  PaymentBreakDown,
+  paymentStatus,
   paymentType,
   Product,
   ShippingType,
@@ -29,7 +35,8 @@ import type {
   TPreviewOrderPayloadType,
 } from './order.validations'
 import { calculatePaymentBreakdown } from '@app/libs/get-stripe-fee-breakdown'
-import mongoose, { mongo } from 'mongoose'
+import mongoose from 'mongoose'
+import { stripeCheckoutSessionWithApplicationFee } from '@app/libs/stripe'
 
 const createOrder = async (payload: TCreateOrderPayloadType) => {
   const {
@@ -202,14 +209,15 @@ const createOrder = async (payload: TCreateOrderPayloadType) => {
   const shippingPrice =
     campaign?.allowShipping && shippingType === 'shipping' ? (campaign.shippingFee ?? 0) : 0
 
+  const siteFee = await SiteInfo.findOne({})
+  const platformFee = siteFee?.platformFee || 6
+
   const paymentBreakdown = calculatePaymentBreakdown({
     paymentType: paymentType.ORDER,
     productPrice: subTotal,
     shippingFee: shippingPrice,
+    platformFeePercent: platformFee,
   })
-
-  const siteFee = await SiteInfo.findOne({})
-  const platformFee = siteFee?.platformFee || 6
 
   const mongoSession = await mongoose.startSession()
 
@@ -275,15 +283,78 @@ const createOrder = async (payload: TCreateOrderPayloadType) => {
     }))
 
     // ?? Save the order items:
-    const orderItems = await OrderItem.create(orderItemsPayload, {
+    const savedOrderItems = await OrderItem.create(orderItemsPayload, {
+      ordered: true,
       session: mongoSession,
     })
 
-    // if (!orderItems || orderItems?.length < or )
+    if (!savedOrderItems || savedOrderItems?.length < products?.length) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'Order items failed to save.')
+    }
 
+    // ?? Save the order address :
+    const [orderAddress] = await OrderAddress.create(
+      [
+        {
+          supporter: newSupporter?._id,
+          order: order?._id,
+          phoneNumber: phone,
+          addressLine1,
+          addressLine2: addressLine2!,
+          city,
+          state,
+          postalCode,
+          country,
+        },
+      ],
+      {
+        session: mongoSession,
+      }
+    )
 
+    if (!orderAddress) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'Failed to save ordered address.')
+    }
 
-    // await mongoSession.commitTransaction()
+    // ?? Initialize the payment:
+    const session = await stripeCheckoutSessionWithApplicationFee({
+      name: `Order ${order?._id} for ${newSupporter.name}`,
+      unit_amount: paymentBreakdown.stripePayload.amount,
+      application_fee: paymentBreakdown.stripePayload.application_fee_amount,
+      destinationAccountId: orgAccount?.account,
+      metadata: {
+        ...paymentBreakdown.databaseRecord,
+      },
+    })
+
+    // ?? Initiate Payment:
+    const [payment] = await OrderPayment.create(
+      [
+        {
+          campaign: campaign._id,
+          organizer: campaignOrg?._id,
+          order: order?._id,
+          supporter: newSupporter?._id,
+          status: paymentStatus.PENDING,
+          currency: Currency.USD,
+          amount: paymentBreakdown.databaseRecord.grossAmount,
+          stripeCheckoutSessionId: session.id,
+          stripePaymentIntentId: session.payment_intent as string,
+          checkoutUrl: session.url!,
+        },
+      ],
+      {
+        session: mongoSession,
+      }   
+    )
+
+    if (!payment) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'Failed to save payment.')
+    }
+
+    await mongoSession.commitTransaction()
+
+    return { url: session.url, paymentBreakdown: paymentBreakdown.databaseRecord }
   } catch (error) {
     await mongoSession.abortTransaction()
     throw error
