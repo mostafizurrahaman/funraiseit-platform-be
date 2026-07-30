@@ -323,6 +323,10 @@ const createOrder = async (payload: TCreateOrderPayloadType) => {
       application_fee: paymentBreakdown.stripePayload.application_fee_amount,
       destinationAccountId: orgAccount?.account,
       metadata: {
+        organizer: campaignOrg?._id.toString(),
+        campaign: campaign?._id.toString(),
+        order: order?._id.toString(),
+        supporter: newSupporter?._id.toString(),
         ...paymentBreakdown.databaseRecord,
       },
     })
@@ -345,7 +349,7 @@ const createOrder = async (payload: TCreateOrderPayloadType) => {
       ],
       {
         session: mongoSession,
-      }   
+      }
     )
 
     if (!payment) {
@@ -526,10 +530,14 @@ const previewOrderPrice = async (payload: TPreviewOrderPayloadType) => {
   const shippingPrice =
     campaign?.allowShipping && shippingType === 'shipping' ? (campaign.shippingFee ?? 0) : 0
 
+  const siteFee = await SiteInfo.findOne({})
+  const platformFee = siteFee?.platformFee || 6
+
   const paymentBreakdown = calculatePaymentBreakdown({
     paymentType: paymentType.ORDER,
     productPrice: subTotal,
     shippingFee: shippingPrice,
+    platformFeePercent: platformFee,
   })
 
   return paymentBreakdown.databaseRecord
