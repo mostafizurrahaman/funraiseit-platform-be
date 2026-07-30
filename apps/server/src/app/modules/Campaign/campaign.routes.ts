@@ -68,10 +68,10 @@ router.get(
   campaignControllers.getCampaignByCampaignCode
 )
 
-router.delete(
-  '/:id',
-  validateRequest(campaignValidations.deleteCampaignByIdSchema),
-  campaignControllers.deleteCampaignById
-)
+// router.delete(
+//   '/:id',
+//   validateRequest(campaignValidations.deleteCampaignByIdSchema),
+//   campaignControllers.deleteCampaignById
+// )
 
 export const campaignRoutes = router
