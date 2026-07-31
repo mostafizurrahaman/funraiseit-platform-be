@@ -41,7 +41,7 @@ export interface ICampaign {
   endDate?: Date
   publishedAt?: Date
   endedAt?: Date
-  payoutRequestedAt?: Date
+  expectedPayoutDate?: Date
   paidOutAt?: Date
 
   // Status :

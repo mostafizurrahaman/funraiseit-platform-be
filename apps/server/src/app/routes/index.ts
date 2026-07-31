@@ -1,4 +1,5 @@
 import { accountRoutes } from '@app/modules/Account/account.routes'
+import { analyticsRoutes } from '@app/modules/analytics/analytics.route'
 import { authRoutes } from '@app/modules/Auth/user.routes'
 import { campaignRoutes } from '@app/modules/Campaign/campaign.routes'
 import { donationRoutes } from '@app/modules/Donation/donation.routes'
@@ -47,6 +48,10 @@ const routes = [
   {
     path: '/order',
     route: orderRoutes,
+  },
+  {
+    path: '/analytics',
+    route: analyticsRoutes,
   },
 ]
 
