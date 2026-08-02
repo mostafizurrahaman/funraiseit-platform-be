@@ -12,7 +12,14 @@ import {
   requiredEmail,
   usaPhoneRegex,
 } from '@repo/shared'
-import { orderSortableFields, productType, productTypeValues, shippingTypesValues } from '@repo/db'
+import {
+  orderSortableFields,
+  OrderStatusValues,
+  paymentStatusValues,
+  productType,
+  productTypeValues,
+  shippingTypesValues,
+} from '@repo/db'
 
 const orderItemSchema = z.object({
   product: requiredMongooseId('Product ID'),
@@ -179,11 +186,20 @@ const updateOrderSchema = z.object({
 
 const getAllOrderSchema = z.object({
   query: z.object({
+    campaignId: requiredMongooseId('Campaign ID'),
     page: optionalNumber('Page'),
     limit: optionalNumber('Limit'),
     searchTerm: optionalString('Search term'),
     sortOrder: optionalEnumString(sortingOrderValues, 'Sort order'),
     sortBy: optionalEnumString(orderSortableFields, 'Sort by'),
+    orderStatus: optionalEnumString(OrderStatusValues, 'Order Status'),
+    paymentStatus: optionalEnumString(paymentStatusValues, 'Payment Status'),
+    skipPagination: z.coerce
+      .boolean({
+        error: 'skip pagination should be boolean',
+      })
+      .default(false)
+      .optional(),
     fromDate: optionalDate('From date'),
     toDate: optionalDate('To date'),
   }),

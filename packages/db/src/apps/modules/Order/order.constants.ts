@@ -1,6 +1,31 @@
-export const orderSearchableFields = ['name'] as const
+export const orderSearchableFields = [
+  'name',
+  'supporterEmail',
+  'customerPhone',
+  'customerName',
+  'shippingAddress.state',
+  'shippingAddress.city',
+  'shippingAddress.country',
+  'shippingAddress.postalCode',
+  'shippingAddress.addressLine1',
+  'shippingAddress.addressLine2',
+  'shippingAddress.phoneNumber',
+] as const
 
-export const orderSortableFields = ['createdAt', 'updatedAt'] as const
+export const orderSortableFields = [
+  'createdAt',
+  'updatedAt',
+  'paidAt',
+  'orderStatus',
+  'paymentStatus',
+  'subTotal',
+  'shippingAmount',
+  'totalAmount',
+  'stripeFeeAmount',
+  'platformFeeAmount',
+  'organizerNetAmount',
+  'organizerAmountWithoutShipping',
+] as const
 
 // Types (optional but recommended)
 export type TOrderSearchableField = (typeof orderSearchableFields)[number]

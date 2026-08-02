@@ -10,12 +10,16 @@ import {
   DonationPayment,
   DonationStatus,
   Order,
+  OrderItem,
   OrderPayment,
   OrderStatus,
   Payment,
   PaymentBreakDown,
   paymentStatus,
   paymentType,
+  PhysicalProduct,
+  Product,
+  productType,
   PromoCode,
   PromoCodeUsage,
   type TPaymentType,
@@ -892,64 +896,169 @@ export const handleOrderCheckoutPaymentSuccess = async (
 }
 
 export const handleOrderCheckoutExpired = async (checkoutSession: Stripe.Checkout.Session) => {
-  const payment = await OrderPayment.findOneAndUpdate(
-    {
-      stripeCheckoutSessionId: checkoutSession.id,
-      status: paymentStatus.PENDING,
-    },
-    {
-      $set: {
-        status: paymentStatus.FAILED,
-        expiredAt: new Date(),
+  const mongoSession = await mongoose.startSession()
+
+  try {
+    mongoSession.startTransaction()
+    const payment = await OrderPayment.findOneAndUpdate(
+      {
+        stripeCheckoutSessionId: checkoutSession.id,
+        status: paymentStatus.PENDING,
       },
-    },
-    {
-      returnDocument: 'after',
+      {
+        $set: {
+          status: paymentStatus.FAILED,
+          expiredAt: new Date(),
+        },
+      },
+      {
+        returnDocument: 'after',
+        session: mongoSession,
+      }
+    )
+
+    if (!payment) {
+      await mongoSession.abortTransaction()
+      return null
     }
-  )
 
-  if (!payment) {
-    return null
+    const updatedOrder = await Order.findByIdAndUpdate(
+      payment.order,
+      {
+        $set: {
+          status: OrderStatus.PAYMENT_FAILED,
+        },
+      },
+      {
+        returnDocument: 'after',
+        session: mongoSession,
+      }
+    )
+
+    if (!updatedOrder) {
+      throw new AppError(httpStatus.NOT_FOUND, 'Failed to update order.')
+    }
+
+    // ?? Check order items and release quantity for limited stock products:
+    const orderItems = await OrderItem.find({
+      order: updatedOrder._id,
+    }).session(mongoSession)
+
+    // ?? Restock products quantity (for limited quantity products)
+    const restockPromises = orderItems?.map((orderItem) => {
+      const reservedQuantity = orderItem?.quantity || 0
+
+      return PhysicalProduct.findOneAndUpdate(
+        {
+          _id: orderItem?.product,
+          productType: productType.PHYSICAL,
+          isUnlimited: false,
+        },
+        {
+          $inc: {
+            stock: reservedQuantity,
+          },
+        },
+        {
+          returnDocument: 'after',
+          session: mongoSession,
+        }
+      )
+    })
+
+    await Promise.all(restockPromises)
+
+    await mongoSession.commitTransaction()
+    return payment
+  } catch (error) {
+    await mongoSession.abortTransaction()
+    throw error
+  } finally {
+    await mongoSession.endSession()
   }
-
-  await Order.findByIdAndUpdate(payment.order, {
-    $set: {
-      status: OrderStatus.PAYMENT_FAILED,
-    },
-  })
-
-  return payment
 }
 
 export const handleOrderPaymentFailed = async (paymentIntent: Stripe.PaymentIntent) => {
-  const payment = await OrderPayment.findOneAndUpdate(
-    {
-      stripePaymentIntentId: paymentIntent.id,
-      status: paymentStatus.PENDING,
-    },
-    {
-      $set: {
-        status: paymentStatus.FAILED,
-        failedAt: new Date(),
-        failureReason: paymentIntent.last_payment_error?.message ?? 'Payment failed.',
+  // ?? mongo session:
+  const mongoSession = await mongoose.startSession()
+
+  try {
+    mongoSession.startTransaction()
+    const payment = await OrderPayment.findOneAndUpdate(
+      {
+        stripePaymentIntentId: paymentIntent.id,
+        status: paymentStatus.PENDING,
       },
-    },
-    {
-      returnDocument: 'after',
+      {
+        $set: {
+          status: paymentStatus.FAILED,
+          failedAt: new Date(),
+          failureReason: paymentIntent.last_payment_error?.message ?? 'Payment failed.',
+        },
+      },
+      {
+        returnDocument: 'after',
+        session: mongoSession,
+      }
+    )
+
+    if (!payment) {
+      await mongoSession.abortTransaction()
+      return null
     }
-  )
 
-  if (!payment) {
-    return null
+    const updatedOrder = await Order.findByIdAndUpdate(
+      payment.order,
+      {
+        $set: {
+          status: OrderStatus.PAYMENT_FAILED,
+        },
+      },
+      {
+        returnDocument: 'after',
+        session: mongoSession,
+      }
+    )
+
+    if (!updatedOrder) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'Failed to update the order.')
+    }
+
+    // ?? Check order items and release quantity for limited stock products:
+    const orderItems = await OrderItem.find({
+      order: updatedOrder._id,
+    }).session(mongoSession)
+
+    // ?? Restock products quantity (for limited quantity products)
+    const restockPromises = orderItems?.map((orderItem) => {
+      const reservedQuantity = orderItem?.quantity || 0
+
+      return PhysicalProduct.findOneAndUpdate(
+        {
+          _id: orderItem?.product,
+          productType: productType.PHYSICAL,
+          isUnlimited: false,
+        },
+        {
+          $inc: {
+            stock: reservedQuantity,
+          },
+        },
+        {
+          returnDocument: 'after',
+          session: mongoSession,
+        }
+      )
+    })
+
+    await Promise.all(restockPromises)
+
+    await mongoSession.commitTransaction()
+    return payment
+  } catch (error) {
+    await mongoSession.abortTransaction()
+    throw error
+  } finally {
+    await mongoSession.endSession()
   }
-
-  await Order.findByIdAndUpdate(payment.order, {
-    $set: {
-      status: OrderStatus.PAYMENT_FAILED,
-    },
-  })
-
-  return payment
 }
-
-

@@ -1,3 +1,4 @@
+import { paymentStatus } from './../../../../../../packages/db/src/apps/modules/Payment/payment.constants'
 import {
   Account,
   accountStatus,
@@ -12,12 +13,9 @@ import {
   OrderPayment,
   orderSearchableFields,
   OrderStatus,
-  Payment,
-  PaymentBreakDown,
-  paymentStatus,
   paymentType,
   Product,
-  ShippingType,
+  productType,
   SiteInfo,
   Supporter,
   User,
@@ -30,12 +28,11 @@ import type { PipelineStage } from 'mongoose'
 
 import type {
   TCreateOrderPayloadType,
-  TUpdateOrderPayloadType,
   TGetAllOrderQueryParamsType,
   TPreviewOrderPayloadType,
 } from './order.validations'
 import { calculatePaymentBreakdown } from '@app/libs/get-stripe-fee-breakdown'
-import mongoose from 'mongoose'
+import mongoose, { Types } from 'mongoose'
 import { stripeCheckoutSessionWithApplicationFee } from '@app/libs/stripe'
 
 const createOrder = async (payload: TCreateOrderPayloadType) => {
@@ -271,6 +268,46 @@ const createOrder = async (payload: TCreateOrderPayloadType) => {
     if (!order) {
       throw new AppError(httpStatus.BAD_REQUEST, 'Failed to updated order.')
     }
+
+    // ?? Stock update promises ( for Limited products)
+    const physicalProductsToUpdate = products.filter(
+      (p) => p.productType === 'physical' && !(p as IPhysicalProduct)?.isUnlimited
+    )
+
+    const stockUpdatedPromises = physicalProductsToUpdate.map((p) => {
+      // ?? Customer given quantity:
+      const requestQuantity = orderedQuantityMap.get(p._id?.toString()) ?? 0
+
+      const updatedProduct = Product?.findOneAndUpdate(
+        {
+          _id: p?._id,
+          productType: productType.PHYSICAL,
+          stock: {
+            $gte: requestQuantity,
+          },
+        },
+        {
+          $set: {
+            stock: -requestQuantity,
+          },
+        },
+        {
+          returnDocument: 'after',
+          session: mongoSession,
+        }
+      )
+
+      if (!updatedProduct) {
+        throw new AppError(
+          httpStatus.BAD_REQUEST,
+          `Insufficient stock for "${p.name}". Someone else may have just purchased the remaining inventory.`
+        )
+      }
+
+      return updatedProduct
+    })
+
+    await Promise.all(stockUpdatedPromises)
 
     // ?? Order Item:
 
@@ -543,29 +580,42 @@ const previewOrderPrice = async (payload: TPreviewOrderPayloadType) => {
   return paymentBreakdown.databaseRecord
 }
 
-const updateOrder = async (id: string, payload: TUpdateOrderPayloadType) => {
-  const result = await Order.findOneAndUpdate({ _id: id }, { $set: payload }, { new: true })
-
-  if (!result) {
-    throw new AppError(httpStatus.NOT_FOUND, 'Order not found')
-  }
-
-  return result
-}
-
 const getAllOrder = async (query: TGetAllOrderQueryParamsType) => {
   const {
-    page = 1,
-    limit = 10,
+    page: currentPage = 1,
+    limit: currentLimit = 10,
     searchTerm,
+    campaignId,
     sortOrder = 'desc',
     sortBy = 'createdAt',
+    orderStatus,
+    paymentStatus,
+    skipPagination = false,
     fromDate,
+
     toDate,
   } = query
 
+  const limit = Number(currentLimit) || 1
+  const page = Number(currentPage) || 10
+
   const skip = (page - 1) * limit
   const pipeline: PipelineStage[] = []
+
+  if (campaignId) {
+    pipeline.push({
+      $match: {
+        campaign: new Types.ObjectId(campaignId),
+      },
+    })
+  }
+  if (orderStatus) {
+    pipeline.push({
+      $match: {
+        status: orderStatus,
+      },
+    })
+  }
 
   if (fromDate || toDate) {
     const dateFilter: Record<string, unknown> = {}
@@ -573,6 +623,193 @@ const getAllOrder = async (query: TGetAllOrderQueryParamsType) => {
     if (toDate) dateFilter.$lte = new Date(toDate)
 
     pipeline.push({ $match: { createdAt: dateFilter } })
+  }
+
+  pipeline.push(
+    {
+      $lookup: {
+        from: 'supporters',
+        localField: 'supporter',
+        foreignField: '_id',
+        as: 'supporterDetails',
+      },
+    },
+    {
+      $lookup: {
+        from: 'orderaddresses',
+        localField: '_id',
+        foreignField: 'order',
+        as: 'shippingAddress',
+      },
+    },
+    {
+      $lookup: {
+        from: 'orderitems',
+        localField: '_id',
+        foreignField: 'order',
+        as: 'orderItems',
+        pipeline: [
+          {
+            $lookup: {
+              from: 'products',
+              localField: 'product',
+              foreignField: '_id',
+              as: 'productDetails',
+            },
+          },
+          {
+            $unwind: {
+              path: '$productDetails',
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+
+          {
+            $project: {
+              orderItemId: '$_id',
+              purchasedQuantity: '$quantity',
+              purchasedUnitPrice: '$unitPrice',
+              orderItemStatus: '$status',
+
+              // Product Info:
+              productId: '$product',
+              productName: '$productDetails.name',
+              productImage: '$productDetails.productImage',
+              productType: '$productDetails.productType',
+              productSku: '$productDetails.sku',
+
+              createdAt: '$createdAt',
+              updatedAt: '$updatedAt',
+            },
+          },
+        ],
+      },
+    },
+    {
+      $lookup: {
+        from: 'payments',
+        localField: '_id',
+        foreignField: 'order',
+        as: 'paymentDetails',
+        pipeline: [
+          {
+            $sort: {
+              createdAt: -1,
+            },
+          },
+          {
+            $lookup: {
+              from: 'paymentbreakdowns',
+              localField: '_id',
+              foreignField: 'payment',
+              as: 'paymentBreakingDown',
+              pipeline: [
+                {
+                  $sort: {
+                    createdAt: -1,
+                  },
+                },
+                {
+                  $limit: 1,
+                },
+              ],
+            },
+          },
+          {
+            $unwind: {
+              path: '$paymentBreakingDown',
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+        ],
+      },
+    },
+    {
+      $unwind: {
+        path: '$supporterDetails',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $unwind: {
+        path: '$shippingAddress',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $addFields: {
+        paymentDetails: {
+          $arrayElemAt: ['$paymentDetails', 0],
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        orderId: '$_id',
+        campaignId: '$campaign',
+        supporterId: '$supporter',
+
+        // Order Provided supporter Name:
+        customerName: '$customerName',
+        customerPhone: '$customerPhone',
+        shippingType: '$shippingType',
+
+        // Supporter Info:
+        supporterName: '$supporterDetails.name',
+        supporterEmail: '$supporterDetails.email',
+        supporterPhone: '$supporterDetails.phoneNumber',
+
+        // Payment Info:
+        paymentId: { $ifNull: ['$paymentDetails._id', null] },
+        paymentBreakDownId: { $ifNull: ['$paymentDetails.paymentBreakingDown._id', null] },
+
+        paidAt: {
+          $ifNull: ['$paymentDetails.paidAt', null],
+        },
+
+        // Fees:
+        stripeTransactionFeePercentage: '$stripeFeePercentage',
+        platformFeePercentage: '$platformFeePercentage',
+
+        // Amounts
+        subTotal: {
+          $ifNull: ['$paymentDetails.paymentBreakingDown.subTotal', '$subTotal', 0],
+        },
+        shippingAmount: {
+          $ifNull: ['$paymentDetails.paymentBreakingDown.shippingFee', '$shippingAmount', 0],
+        },
+        totalAmount: {
+          $ifNull: ['$paymentDetails.paymentBreakingDown.totalAmount', '$totalAmount', 0],
+        },
+        stripeFeeAmount: {
+          $ifNull: ['$paymentDetails.paymentBreakingDown.stripeFee', null],
+        },
+        platformFeeAmount: {
+          $ifNull: ['$paymentDetails.paymentBreakingDown.platformFee', null],
+        },
+        organizerAmountWithoutShipping: {
+          $ifNull: ['$paymentDetails.paymentBreakingDown.organizerAmount', null],
+        },
+        organizerNetAmount: {
+          $ifNull: ['$paymentDetails.paymentBreakingDown.organizerAmount', null],
+        },
+        paymentStatus: {
+          $ifNull: ['$paymentDetails.status', null],
+        },
+        orderStatus: '$status',
+        shippingAddress: '$shippingAddress',
+        orderItems: '$orderItems',
+      },
+    }
+  )
+
+  if (paymentStatus) {
+    pipeline.push({
+      $match: {
+        paymentStatus,
+      },
+    })
   }
 
   if (searchTerm) {
@@ -587,9 +824,19 @@ const getAllOrder = async (query: TGetAllOrderQueryParamsType) => {
 
   pipeline.push({ $sort: { [sortBy]: sortOrder === 'asc' ? 1 : -1 } })
 
+  const PaginationStages: PipelineStage.FacetPipelineStage[] = [
+    {
+      $match: {},
+    },
+  ]
+
+  if (!skipPagination || (typeof skipPagination === 'string' && skipPagination !== 'true')) {
+    PaginationStages.push({ $skip: skip }, { $limit: limit })
+  }
+
   pipeline.push({
     $facet: {
-      data: [{ $skip: skip }, { $limit: limit }],
+      data: PaginationStages,
       meta: [{ $count: 'total' }],
     },
   })
@@ -602,10 +849,10 @@ const getAllOrder = async (query: TGetAllOrderQueryParamsType) => {
   return {
     data,
     meta: {
-      page,
-      limit,
+      page: skipPagination ? 1 : page,
+      limit: skipPagination ? total : limit,
       total,
-      totalPages: Math.ceil(total / limit) || 1,
+      totalPages: skipPagination ? 1 : Math.ceil(total / limit) || 1,
     },
   }
 }
@@ -620,21 +867,9 @@ const getOrderById = async (id: string) => {
   return result
 }
 
-const deleteOrderById = async (id: string) => {
-  const result = await Order.findOneAndDelete({ _id: id })
-
-  if (!result) {
-    throw new AppError(httpStatus.NOT_FOUND, 'Order not found')
-  }
-
-  return result
-}
-
 export const orderServices = {
   createOrder,
-  updateOrder,
   getAllOrder,
   getOrderById,
-  deleteOrderById,
   previewOrderPrice,
 }
