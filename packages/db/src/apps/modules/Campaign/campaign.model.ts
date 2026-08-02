@@ -117,7 +117,7 @@ const campaignSchema = new Schema<ICampaignDoc>(
     endedAt: {
       type: Date,
     },
-    payoutRequestedAt: {
+    expectedPayoutDate: {
       type: Date,
     },
     paidOutAt: {

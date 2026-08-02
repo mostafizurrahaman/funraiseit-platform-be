@@ -1,3 +1,4 @@
+import moment from 'moment'
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { deleteSingleFileFromS3 } from '@repo/media-hub'
 import {
@@ -33,7 +34,7 @@ import { uploadSingleFileToS3, type IMulterFile } from 'packages/media-hub/src'
 import { generateCampaignCode } from './campaign.utils'
 import mongoose, { Types } from 'mongoose'
 import { stripeCheckoutSession } from '@app/libs/stripe'
-import moment from 'moment'
+import { logger } from '@app/libs/logger'
 
 const createCampaign = async (
   user: IUser,
@@ -649,15 +650,15 @@ const getCampaignByCampaignCode = async (code: string) => {
   return campaign
 }
 
-const deleteCampaignById = async (id: string) => {
-  const result = await Campaign.findOneAndDelete({ _id: id })
+// const deleteCampaignById = async (id: string) => {
+//   const result = await Campaign.findOneAndDelete({ _id: id })
 
-  if (!result) {
-    throw new AppError(httpStatus.NOT_FOUND, 'Campaign not found')
-  }
+//   if (!result) {
+//     throw new AppError(httpStatus.NOT_FOUND, 'Campaign not found')
+//   }
 
-  return result
-}
+//   return result
+// }
 
 const launchCampaignByID = async (user: IUser, campaignId: string, promoCode?: string) => {
   const campaign = await Campaign.findById(campaignId)
@@ -1141,14 +1142,37 @@ const getAllActiveCampaign = async (query: TGetAllActiveCampaignQuery) => {
   }
 }
 
+// ?? Complete the campaign which are in active and reached to end date:
+const cronJobToCompleteCampaign = async () => {
+  const now = new Date()
+
+  const result = await Campaign.updateMany(
+    {
+      status: CampaignStatus.ACTIVE,
+      endDate: { $lte: now },
+    },
+    {
+      $set: {
+        status: CampaignStatus.COMPLETED,
+        endedAt: now,
+      },
+    }
+  )
+
+  logger.info(`✅✅✅✅✅ Completed ${result.modifiedCount} campaigns. ${now?.toISOString()}`)
+}
+
 export const campaignServices = {
   createCampaign,
   updateCampaign,
   getAllCampaign,
   getCampaignById,
-  deleteCampaignById,
+  // deleteCampaignById,
   launchCampaignByID,
   getCampaignPreview,
   getAllActiveCampaign,
   getCampaignByCampaignCode,
+
+  // CORN JOBS:
+  cronJobToCompleteCampaign,
 }

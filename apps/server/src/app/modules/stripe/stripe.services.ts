@@ -5,10 +5,17 @@ import type Stripe from 'stripe'
 import httpStatus from 'http-status'
 import {
   handleCampaignCheckoutPaymentSuccess,
+  handleDonationCheckoutPaymentSuccess,
+  handleOrderCheckoutPaymentSuccess,
+
+  // ** Expire
   handleCampaignCheckoutSessionExpired,
   handleDonationCheckoutPaymentFailed,
-  handleDonationCheckoutPaymentSuccess,
+
+  // ** Payment intent:
   handleDonationPaymentIntentFailed,
+  handleOrderPaymentFailed,
+  handleOrderCheckoutExpired,
 } from './stripe.utils'
 
 // Account Updated Event:
@@ -83,6 +90,10 @@ const handleCheckoutSessionSuccess = async (event: Stripe.Event) => {
   if (checkoutSession?.metadata?.paymentType === paymentType.DONATION) {
     await handleDonationCheckoutPaymentSuccess(checkoutSession)
   }
+
+  if (checkoutSession?.metadata?.paymentType === paymentType.ORDER) {
+    await handleOrderCheckoutPaymentSuccess(checkoutSession)
+  }
 }
 
 const handleCheckoutSessionExpired = async (event: Stripe.Event) => {
@@ -94,6 +105,9 @@ const handleCheckoutSessionExpired = async (event: Stripe.Event) => {
   if (checkoutSession?.metadata?.paymentType === paymentType.DONATION) {
     await handleDonationCheckoutPaymentFailed(checkoutSession)
   }
+  if (checkoutSession?.metadata?.paymentType === paymentType.DONATION) {
+    await handleOrderCheckoutExpired(checkoutSession)
+  }
 }
 
 const handlePaymentIntentFailed = async (event: Stripe.Event) => {
@@ -101,6 +115,10 @@ const handlePaymentIntentFailed = async (event: Stripe.Event) => {
 
   if (paymentIntent?.metadata?.paymentType === paymentType.DONATION) {
     await handleDonationPaymentIntentFailed(paymentIntent)
+  }
+
+  if (paymentIntent?.metadata?.paymentType === paymentType.ORDER) {
+    await handleOrderPaymentFailed(paymentIntent)
   }
 }
 

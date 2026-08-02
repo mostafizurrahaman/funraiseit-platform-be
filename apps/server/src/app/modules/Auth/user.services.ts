@@ -736,8 +736,8 @@ const updateProfile = async (
   // ? Check any user  exists with this phone number:
   const hasAssociatedUserWithPhoneNumber = await User.exists({
     phoneNumber,
-    $ne: {
-      _id: user?._id,
+    _id: {
+      $ne: user?._id,
     },
   }).lean()
 

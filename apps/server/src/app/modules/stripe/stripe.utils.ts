@@ -9,6 +9,9 @@ import {
   Donation,
   DonationPayment,
   DonationStatus,
+  Order,
+  OrderPayment,
+  OrderStatus,
   Payment,
   PaymentBreakDown,
   paymentStatus,
@@ -43,20 +46,27 @@ interface TDonationPaymentMetaData {
   organizerNetAmount: number
 }
 
+interface TOrderPaymentMetaData {
+  organizer: string
+  campaign: string
+  order: string
+  supporter: string
+  paymentType: TPaymentType
+  grossAmount: number // Customer pays this
+  stripeFee: number
+  platformFee: number
+  shippingFee: number
+  organizerNetAmount: number
+}
+
 export const handleCampaignCheckoutPaymentSuccess = async (session: Stripe.Checkout.Session) => {
   if (session.payment_status !== 'paid') {
     throw new AppError(httpStatus.BAD_REQUEST, 'Payment not paid yet.')
   }
   const { metadata } = session
 
-  const {
-    campaignId,
-    organizerId,
-    paymentType: metaPaymentType,
-    discountAmount,
-    payableAmount,
-    originalAmount,
-  } = metadata as unknown as TCampaignPaymentMetaData
+  const { campaignId, organizerId, discountAmount, payableAmount, originalAmount } =
+    metadata as unknown as TCampaignPaymentMetaData
 
   const paymentIntentId = session.payment_intent
   const sessionId = session.id
@@ -397,6 +407,9 @@ export const handleDonationCheckoutPaymentSuccess = async (
     const payment = await DonationPayment.findOneAndUpdate(
       {
         stripeCheckoutSessionId: sessionId,
+        status: {
+          $ne: paymentStatus.PAID,
+        },
       },
       {
         $set: {
@@ -668,4 +681,275 @@ export const handleDonationPaymentIntentFailed = async (paymentIntent: Stripe.Pa
     await mongoSession.endSession()
   }
 }
+
+export const handleOrderCheckoutPaymentSuccess = async (
+  checkoutSession: Stripe.Checkout.Session
+) => {
+  if (checkoutSession.payment_status !== 'paid') {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Payment not paid yet.')
+  }
+
+  const { metadata } = checkoutSession
+
+  const {
+    campaign: campaignId,
+    order: orderId,
+    shippingFee,
+  } = metadata as unknown as TOrderPaymentMetaData
+
+  if (!campaignId || !orderId) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Invalid checkout metadata.')
+  }
+
+  const sessionId = checkoutSession.id
+  const paymentIntentId = checkoutSession.payment_intent
+
+  if (!paymentIntentId || typeof paymentIntentId !== 'string') {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Payment intent not found.')
+  }
+
+  const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId)
+
+  if (!paymentIntent.latest_charge || typeof paymentIntent.latest_charge !== 'string') {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Charge not found.')
+  }
+
+  let charge = await stripe.charges.retrieve(paymentIntent.latest_charge)
+
+  let retry = 5
+
+  while (!charge.balance_transaction && retry > 0) {
+    await sleep(1000)
+
+    charge = await stripe.charges.retrieve(charge.id)
+
+    retry--
+  }
+
+  if (!charge.balance_transaction) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Balance transaction is not available yet.')
+  }
+
+  const balanceTx = await stripe.balanceTransactions.retrieve(charge.balance_transaction as string)
+
+  /**
+   * Stripe calculation:
+   *
+   * Gross Amount
+   *        |
+   *        |- Stripe Fee
+   *        |
+   *        = balanceTx.net
+   *
+   * Organizer Amount:
+   * balanceTx.net - Application Fee
+   */
+
+  const grossAmount = balanceTx.amount / 100
+  const stripeFee = balanceTx.fee / 100
+  const stripeNetAmount = balanceTx.net / 100
+
+  let applicationFee = 0
+  let applicationFeeId: string | undefined
+
+  if (charge.application_fee) {
+    const fee = await stripe.applicationFees.retrieve(charge.application_fee as string)
+
+    applicationFeeId = fee.id
+    applicationFee = fee.amount / 100
+  }
+
+  const shippingAmount = Number(shippingFee ?? 0)
+  const organizerNetAmount = stripeNetAmount - applicationFee
+  const organizerAmountWithoutShipping = organizerNetAmount - shippingAmount
+  const subtotal = grossAmount - shippingAmount
+
+  const mongoSession = await mongoose.startSession()
+
+  try {
+    mongoSession.startTransaction()
+    // ?? Check is the payment already paid ?:
+    const existingPayment = await OrderPayment.findOne({
+      stripeCheckoutSessionId: sessionId,
+      status: paymentStatus.PAID,
+    }).session(mongoSession)
+    if (existingPayment) {
+      await mongoSession.abortTransaction()
+      return existingPayment
+    }
+
+    const payment = await OrderPayment.findOneAndUpdate(
+      {
+        stripeCheckoutSessionId: sessionId,
+        status: paymentStatus.PENDING,
+      },
+      {
+        $set: {
+          status: paymentStatus.PAID,
+          currency: balanceTx.currency,
+          amount: grossAmount,
+          stripePaymentIntentId: paymentIntentId,
+          stripeChargeId: charge.id,
+          stripeApplicationFeeId: applicationFeeId,
+          stripeBalanceTransactionId: balanceTx.id,
+          paidAt: new Date(),
+          checkoutUrl: null,
+        },
+      },
+      {
+        returnDocument: 'after',
+        session: mongoSession,
+      }
+    )
+
+    if (!payment) {
+      const existing = await OrderPayment.findOne({
+        stripeCheckoutSessionId: sessionId,
+        status: paymentStatus.PAID,
+      }).session(mongoSession)
+
+      if (existing) {
+        await mongoSession.abortTransaction()
+        return existing
+      }
+
+      throw new AppError(httpStatus.BAD_REQUEST, 'Failed to update payment')
+    }
+
+    const [paymentBreakdown] = await PaymentBreakDown.create(
+      [
+        {
+          payment: payment._id,
+          subtotal: subtotal,
+          totalAmount: grossAmount,
+          stripeFee,
+          platformFee: applicationFee,
+          organizerAmount: organizerNetAmount,
+          organizerAmountWithoutShipping: organizerAmountWithoutShipping,
+        },
+      ],
+      {
+        session: mongoSession,
+      }
+    )
+
+    if (!paymentBreakdown) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'Failed to update payment breakdown')
+    }
+
+    // ?? Update Order Status
+    const order = await Order.findOneAndUpdate(
+      { _id: orderId },
+      {
+        $set: {
+          subtotal,
+          shippingAmount: shippingAmount,
+          totalAmount: grossAmount,
+          status: OrderStatus.PAID,
+        },
+      },
+      {
+        returnDocument: 'after',
+        session: mongoSession,
+      }
+    )
+    if (!order) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'Failed to update order')
+    }
+
+    // ?? Update The campaign raised amount:
+    const campaign = await Campaign.findOneAndUpdate(
+      {
+        _id: campaignId,
+      },
+      {
+        $inc: {
+          raisedAmount: organizerAmountWithoutShipping,
+        },
+      },
+      {
+        returnDocument: 'after',
+        session: mongoSession,
+      }
+    )
+
+    if (!campaign) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'Failed to update order')
+    }
+
+    await mongoSession.commitTransaction()
+
+    return payment
+  } catch (error) {
+    if (mongoSession.inTransaction()) {
+      await mongoSession.abortTransaction()
+    }
+
+    throw error
+  } finally {
+    await mongoSession.endSession()
+  }
+}
+
+export const handleOrderCheckoutExpired = async (checkoutSession: Stripe.Checkout.Session) => {
+  const payment = await OrderPayment.findOneAndUpdate(
+    {
+      stripeCheckoutSessionId: checkoutSession.id,
+      status: paymentStatus.PENDING,
+    },
+    {
+      $set: {
+        status: paymentStatus.FAILED,
+        expiredAt: new Date(),
+      },
+    },
+    {
+      returnDocument: 'after',
+    }
+  )
+
+  if (!payment) {
+    return null
+  }
+
+  await Order.findByIdAndUpdate(payment.order, {
+    $set: {
+      status: OrderStatus.PAYMENT_FAILED,
+    },
+  })
+
+  return payment
+}
+
+export const handleOrderPaymentFailed = async (paymentIntent: Stripe.PaymentIntent) => {
+  const payment = await OrderPayment.findOneAndUpdate(
+    {
+      stripePaymentIntentId: paymentIntent.id,
+      status: paymentStatus.PENDING,
+    },
+    {
+      $set: {
+        status: paymentStatus.FAILED,
+        failedAt: new Date(),
+        failureReason: paymentIntent.last_payment_error?.message ?? 'Payment failed.',
+      },
+    },
+    {
+      returnDocument: 'after',
+    }
+  )
+
+  if (!payment) {
+    return null
+  }
+
+  await Order.findByIdAndUpdate(payment.order, {
+    $set: {
+      status: OrderStatus.PAYMENT_FAILED,
+    },
+  })
+
+  return payment
+}
+
 

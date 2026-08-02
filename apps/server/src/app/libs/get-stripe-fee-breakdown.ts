@@ -127,29 +127,17 @@ export const calculatePaymentBreakdown = ({
   return {
     databaseRecord: {
       paymentType: newPType,
-
       subtotal,
-
       shippingFee,
-
       amountBeforeStripe,
-
-      grossAmount, // Amount customer pays
-
+      grossAmount,
       stripeFee,
-
       platformFee,
-
       organizerNetAmount,
-
       platformRevenue,
     },
-
     stripePayload: {
-      // Stripe Checkout amount
       amount: Math.round(grossAmount * 100),
-
-      // Platform fee collected through Stripe Connect
       application_fee_amount: Math.round(platformFee * 100),
     },
   }

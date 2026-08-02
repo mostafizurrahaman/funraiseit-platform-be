@@ -1,7 +1,9 @@
 import { accountRoutes } from '@app/modules/Account/account.routes'
+import { analyticsRoutes } from '@app/modules/analytics/analytics.route'
 import { authRoutes } from '@app/modules/Auth/user.routes'
 import { campaignRoutes } from '@app/modules/Campaign/campaign.routes'
 import { donationRoutes } from '@app/modules/Donation/donation.routes'
+import { orderRoutes } from '@app/modules/Order/order.routes'
 import { productRoutes } from '@app/modules/Product/product.routes'
 import { promoCodeRoutes } from '@app/modules/PromoCode/promo-code.routes'
 import { siteInfoRoutes } from '@app/modules/SiteInfo/site-info.routes'
@@ -42,6 +44,14 @@ const routes = [
   {
     path: '/donation',
     route: donationRoutes,
+  },
+  {
+    path: '/order',
+    route: orderRoutes,
+  },
+  {
+    path: '/analytics',
+    route: analyticsRoutes,
   },
 ]
 
