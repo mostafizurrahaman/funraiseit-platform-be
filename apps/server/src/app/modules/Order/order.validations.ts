@@ -205,9 +205,9 @@ const getAllOrderSchema = z.object({
   }),
 })
 
-const getOrderByIdSchema = z.object({
-  params: z.object({
-    id: requiredString('ID'),
+const getCampaignOrderOverview = z.object({
+  query: z.object({
+    campaignId: requiredMongooseId('ID'),
   }),
 })
 
@@ -222,7 +222,7 @@ export const orderValidations = {
   previewOrderSchema,
   updateOrderSchema,
   getAllOrderSchema,
-  getOrderByIdSchema,
+  getCampaignOrderOverview,
   deleteOrderByIdSchema,
 }
 
@@ -230,5 +230,7 @@ export type TCreateOrderPayloadType = z.infer<typeof createOrderSchema.shape.bod
 export type TPreviewOrderPayloadType = z.infer<typeof previewOrderSchema.shape.body>
 export type TUpdateOrderPayloadType = z.infer<typeof updateOrderSchema.shape.body>
 export type TGetAllOrderQueryParamsType = z.infer<typeof getAllOrderSchema.shape.query>
-export type TGetOrderByIdParamsType = z.infer<typeof getOrderByIdSchema.shape.params>
+export type TGetCampaignOrderOverviewQueryType = z.infer<
+  typeof getCampaignOrderOverview.shape.query
+>
 export type TDeleteOrderByIdParamsType = z.infer<typeof deleteOrderByIdSchema.shape.params>

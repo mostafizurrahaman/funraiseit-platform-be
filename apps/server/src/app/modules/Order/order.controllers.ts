@@ -1,6 +1,7 @@
 import { catchAsync, sendResponse } from '@repo/shared'
 import httpStatus from 'http-status'
 import { orderServices } from './order.services'
+import { getUserFromRequest } from '../../libs/get-user-from-request'
 
 const createOrder = catchAsync(async (req, res) => {
   const result = await orderServices.createOrder(req.body)
@@ -47,6 +48,19 @@ const getAllOrder = catchAsync(async (req, res) => {
   })
 })
 
+const getCampaignOrderOverview = catchAsync(async (req, res) => {
+  const campaignId = req.query.campaignId
+  const user = await getUserFromRequest(req)
+  const result = await orderServices.getCampaignOrderOverview(user, campaignId)
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: 'The campaign order overview retrieved successfully!',
+    data: result,
+  })
+})
+
 const getOrderById = catchAsync(async (req, res) => {
   const result = await orderServices.getOrderById(req.params.id as string)
 
@@ -76,4 +90,5 @@ export const orderControllers = {
   getOrderById,
   deleteOrderById,
   previewOrder,
+  getCampaignOrderOverview,
 }

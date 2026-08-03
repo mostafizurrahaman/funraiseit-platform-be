@@ -20,6 +20,7 @@ import {
   Supporter,
   User,
   type IPhysicalProduct,
+  type IUser,
   type ProductDoc,
 } from '@repo/db'
 import httpStatus from 'http-status'
@@ -867,9 +868,118 @@ const getOrderById = async (id: string) => {
   return result
 }
 
+const getCampaignOrderOverview = async (user: IUser, campaignId: string) => {
+  // ?? Campaign order overview:
+  const [totalOrders, orderItems] = await Promise.all([
+    // ?? Order counts:
+    await Order.aggregate([
+      { 
+        $match: { 
+          campaign: new Types.ObjectId(campaignId)
+        }
+    }, 
+      {
+        $lookup: {
+          from: 'payments',
+          localField: 'order',
+          foreignField: '_id',
+          pipeline: [
+            {
+              $match: {
+                status: paymentStatus.PAID,
+              },
+            },
+            {
+              $limit: 1,
+            },
+          ],
+          as: 'paymentDetails',
+        },
+      },
+      {
+        $unwind: {
+          path: '$paymentDetails',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $project: {
+          paymentStatus: '$paymentDetails.status',
+        },
+      },
+      {
+        $match: {
+          paymentStatus: paymentStatus.PAID,
+        },
+      },
+      {
+        $count: 'total',
+      },
+    ]),
+
+    // ?? Order Items:
+    await OrderItem?.aggregate([
+      {
+        $lookup: {
+          from: 'orders',
+          localField: 'order',
+          foreignField: '_id',
+          as: 'orderDetails',
+          pipeline: [
+            {
+              $lookup: {
+                from: 'payments',
+                localField: 'order',
+                foreignField: '_id',
+                pipeline: [
+                  {
+                    $match: {
+                      status: paymentStatus.PAID,
+                    },
+                  },
+                  {
+                    $limit: 1,
+                  },
+                ],
+                as: 'paymentDetails',
+              },
+            },
+            {
+              $unwind: {
+                path: '$paymentDetails',
+                preserveNullAndEmptyArrays: true,
+              },
+            },
+            {
+              $project: {
+                paymentStatus: '$paymentDetails.status',
+              },
+            },
+            {
+              $match: {
+                paymentStatus: paymentStatus.PAID,
+              },
+            },
+            {
+              $count: 'total',
+            },
+          ],
+        },
+      },
+    ]),
+  ])
+
+  return {
+    totalOrders,
+
+    orderItems,
+  }
+}
+
 export const orderServices = {
   createOrder,
   getAllOrder,
   getOrderById,
   previewOrderPrice,
+  getCampaignOrderOverview,
 }
