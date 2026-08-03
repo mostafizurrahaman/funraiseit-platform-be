@@ -11,11 +11,6 @@ router.post(
   donationControllers.createDonation
 )
 
-router.patch(
-  '/:id',
-  validateRequest(donationValidations.updateDonationSchema),
-  donationControllers.updateDonation
-)
 
 router.get(
   '/all',

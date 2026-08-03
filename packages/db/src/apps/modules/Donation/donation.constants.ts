@@ -1,6 +1,19 @@
-export const donationSearchableFields = ['name'] as const
+export const donationSearchableFields = [
+  'supporterEmail',
+  'supporterPhone',
+  'supporterName',
+] as const
 
-export const donationSortableFields = ['createdAt', 'updatedAt'] as const
+export const donationSortableFields = [
+  'createdAt',
+  'paidAt',
+  'subTotal',
+  'totalAmount',
+  'organizerNetAmount',
+  'platformFeeAmount',
+  'stripeFeeAmount',
+  'platformFeeAmount',
+] as const
 
 // Types (optional but recommended)
 export type TDonationSearchableField = (typeof donationSearchableFields)[number]
