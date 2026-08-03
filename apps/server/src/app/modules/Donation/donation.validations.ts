@@ -54,6 +54,12 @@ const getDonationByIdSchema = z.object({
   }),
 })
 
+const getDonationOverviewByCampaignIdSchema = z.object({
+  query: z.object({
+    campaignId: requiredMongooseId('ID'),
+  }),
+})
+
 const deleteDonationByIdSchema = z.object({
   params: z.object({
     id: requiredString('ID'),
@@ -62,7 +68,7 @@ const deleteDonationByIdSchema = z.object({
 
 export const donationValidations = {
   createDonationSchema,
-
+  getDonationOverviewByCampaignIdSchema,
   getAllDonationSchema,
   getDonationByIdSchema,
   deleteDonationByIdSchema,
@@ -72,3 +78,6 @@ export type TCreateDonationPayloadType = z.infer<typeof createDonationSchema.sha
 export type TGetAllDonationQueryParamsType = z.infer<typeof getAllDonationSchema.shape.query>
 export type TGetDonationByIdParamsType = z.infer<typeof getDonationByIdSchema.shape.params>
 export type TDeleteDonationByIdParamsType = z.infer<typeof deleteDonationByIdSchema.shape.params>
+export type TGetDonationOverviewByCampaignIdParamsType = z.infer<
+  typeof getDonationOverviewByCampaignIdSchema.shape.query
+>

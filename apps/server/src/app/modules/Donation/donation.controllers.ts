@@ -2,6 +2,7 @@ import { catchAsync, sendResponse } from '@repo/shared'
 import httpStatus from 'http-status'
 import { donationServices } from './donation.services'
 import type { TGetAllDonationQueryParamsType } from './donation.validations'
+import { getUserFromRequest } from '../../libs/get-user-from-request'
 
 const createDonation = catchAsync(async (req, res) => {
   const result = await donationServices.createDonation(req.body)
@@ -16,7 +17,8 @@ const createDonation = catchAsync(async (req, res) => {
 
 const getAllDonation = catchAsync(async (req, res) => {
   const query = req.query as unknown as TGetAllDonationQueryParamsType
-  const result = await donationServices.getAllDonation(query)
+  const user = await getUserFromRequest(req); 
+  const result = await donationServices.getAllDonation(user, query)
 
   sendResponse(res, {
     success: true,
@@ -24,6 +26,21 @@ const getAllDonation = catchAsync(async (req, res) => {
     message: 'The donation retrieved successfully!',
     data: result.data,
     meta: result.meta,
+  })
+})
+
+const getDonationOverviewByCampaignId = catchAsync(async (req, res) => {
+  const user = await getUserFromRequest(req)
+  const result = await donationServices.getDonationOverviewByCampaignId(
+    user,
+    req.query.campaignId as string
+  )
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: 'The donation overview retrieved successfully!',
+    data: result,
   })
 })
 
@@ -54,4 +71,5 @@ export const donationControllers = {
   getAllDonation,
   getDonationById,
   deleteDonationById,
+  getDonationOverviewByCampaignId,
 }

@@ -2,6 +2,7 @@ import { catchAsync, sendResponse } from '@repo/shared'
 import httpStatus from 'http-status'
 import { orderServices } from './order.services'
 import { getUserFromRequest } from '../../libs/get-user-from-request'
+import type { TGetAllOrderQueryParamsType } from './order.validations'
 
 const createOrder = catchAsync(async (req, res) => {
   const result = await orderServices.createOrder(req.body)
@@ -37,7 +38,8 @@ const updateOrder = catchAsync(async (req, res) => {
 })
 
 const getAllOrder = catchAsync(async (req, res) => {
-  const result = await orderServices.getAllOrder(req.query)
+  const user = await getUserFromRequest(req)
+  const result = await orderServices.getAllOrder(user, req.query as TGetAllOrderQueryParamsType)
 
   sendResponse(res, {
     success: true,
@@ -51,7 +53,7 @@ const getAllOrder = catchAsync(async (req, res) => {
 const getCampaignOrderOverview = catchAsync(async (req, res) => {
   const campaignId = req.query.campaignId
   const user = await getUserFromRequest(req)
-  console.log({ campaignId})
+  console.log({ campaignId })
   const result = await orderServices.getCampaignOrderOverview(user, campaignId as string)
 
   sendResponse(res, {

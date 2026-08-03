@@ -7,11 +7,14 @@ import {
   Donation,
   DonationPayment,
   donationSearchableFields,
+  DonationStatus,
+  Payment,
   paymentStatus,
   paymentType,
   SiteInfo,
   Supporter,
   User,
+  type IUser,
 } from '@repo/db'
 import httpStatus from 'http-status'
 import { AppError } from '@repo/shared'
@@ -24,6 +27,7 @@ import type {
 import mongoose, { Types } from 'mongoose'
 import { calculatePaymentBreakdown } from '@app/libs/get-stripe-fee-breakdown'
 import { stripeCheckoutSessionWithApplicationFee } from '@app/libs/stripe'
+import { formatRelativeTime } from '../../libs/format-relative-time'
 const MIN_DONATION = 0.5
 
 const createDonation = async (payload: TCreateDonationPayloadType) => {
@@ -220,7 +224,7 @@ const createDonation = async (payload: TCreateDonationPayloadType) => {
   }
 }
 
-const getAllDonation = async (query: TGetAllDonationQueryParamsType) => {
+const getAllDonation = async (user: IUser, query: TGetAllDonationQueryParamsType) => {
   const {
     page: currentPage = 1,
     limit: currentLimit = 10,
@@ -232,7 +236,6 @@ const getAllDonation = async (query: TGetAllDonationQueryParamsType) => {
     paymentStatus,
     skipPagination = false,
     fromDate,
-
     toDate,
   } = query
 
@@ -242,6 +245,15 @@ const getAllDonation = async (query: TGetAllDonationQueryParamsType) => {
   const skip = (page - 1) * limit
   const pipeline: PipelineStage[] = []
 
+  // ?? Campaign not found:
+  const campaign = await Campaign?.findOne({
+    organizer: user?._id,
+    _id: new Types.ObjectId(campaignId),
+  })
+
+  if (!campaign) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Campaign not found.')
+  }
   if (campaignId) {
     pipeline.push({
       $match: {
@@ -451,10 +463,233 @@ const deleteDonationById = async (id: string) => {
   return result
 }
 
+const getDonationOverviewByCampaignId = async (user: IUser, campaignId: string) => {
+  const campaign = await Campaign?.findOne({
+    organizer: user?._id,
+    _id: campaignId,
+  })
+
+  if (!campaign) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Campaign not found!')
+  }
+
+  const [totalDonationRecords, totalCalculations, recentDonations, topSupporters] =
+    await Promise.all([
+      // ?? Donation Counts :
+      await DonationPayment.aggregate([
+        {
+          $match: {
+            campaign: new Types.ObjectId(campaignId),
+            status: paymentStatus.PAID,
+          },
+        },
+        {
+          $count: 'total',
+        },
+      ]),
+
+      // ?? Total Donation amounts:
+      await DonationPayment.aggregate([
+        {
+          $match: {
+            campaign: new Types.ObjectId(campaignId),
+            status: paymentStatus.PAID,
+            paymentType: {
+              $in: [paymentType.DONATION],
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: 'paymentbreakdowns',
+            localField: '_id',
+            foreignField: 'payment',
+            as: 'paymentDetails',
+          },
+        },
+
+        {
+          $unwind: {
+            path: '$paymentDetails',
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $project: {
+            paymentId: '6a6af4435366f1fe89efc79c',
+            paymentBreakdownId: '$paymentDetails._id',
+            subtotal: '$paymentDetails.subtotal',
+            shippingFee: '$paymentDetails.shippingFee',
+            totalAmount: '$paymentDetails.totalAmount',
+            stripeFee: '$paymentDetails.stripeFee',
+            platformFee: '$paymentDetails.platformFee',
+            organizerAmount: '$paymentDetails.organizerAmount',
+            organizerAmountWithoutShipping: '$paymentDetails.organizerAmountWithoutShipping',
+            discountAmount: '$paymentDetails.discountAmount',
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            subTotal: {
+              $sum: '$subtotal',
+            },
+            shippingFee: {
+              $sum: '$shippingFee',
+            },
+            totalAmount: {
+              $sum: '$totalAmount',
+            },
+            stripeFee: {
+              $sum: '$stripeFee',
+            },
+            platformFee: {
+              $sum: '$platformFee',
+            },
+            organizerAmount: {
+              $sum: '$organizerAmount',
+            },
+            organizerAmountWithoutShipping: {
+              $sum: '$organizerAmountWithoutShipping',
+            },
+          },
+        },
+      ]),
+
+      // ?? Recent donations :
+      await DonationPayment.aggregate([
+        {
+          $match: {
+            campaign: campaign?._id,
+            status: paymentStatus.PAID,
+            paymentType: {
+              $in: [paymentType.DONATION],
+            },
+          },
+        },
+        {
+          $sort: {
+            createdAt: -1,
+          },
+        },
+        {
+          $limit: 10,
+        },
+        {
+          $lookup: {
+            from: 'supporters',
+            localField: 'supporter',
+            foreignField: '_id',
+            as: 'supporterDetails',
+          },
+        },
+        {
+          $lookup: {
+            from: 'donations',
+            localField: 'donation',
+            foreignField: '_id',
+            as: 'donationDetails',
+          },
+        },
+        {
+          $unwind: {
+            path: '$donationDetails',
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $unwind: {
+            path: '$supporterDetails',
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            paymentId: '$_id',
+            donationId: '$donation',
+            name: '$supporterDetails.name',
+            message: { $ifNull: ['$donationDetails.message', null] },
+            amount: 1,
+            paidAt: 1,
+          },
+        },
+      ]),
+
+      // ?? Top Supporters:
+      await DonationPayment.aggregate([
+        {
+          $match: {
+            campaign: new Types.ObjectId(campaignId),
+            status: paymentStatus.PAID,
+          },
+        },
+        {
+          $group: {
+            _id: '$supporter',
+            amount: { $sum: '$amount' },
+          },
+        },
+        {
+          $lookup: {
+            from: 'supporters',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'supporterDetails',
+          },
+        },
+        {
+          $unwind: {
+            path: '$supporterDetails',
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            supporterId: '$supporterDetails._id',
+            supporterName: '$supporterDetails.name',
+            supporterEmail: '$supporterDetails.email',
+            amount: '$amount',
+          },
+        },
+      ]),
+    ])
+
+  const totalDonations = totalDonationRecords?.[0]?.total ?? 0
+
+  const financialBreakdown = totalCalculations?.[0] ?? {
+    _id: null,
+    subTotal: 0,
+    shippingFee: 0,
+    totalAmount: 0,
+    stripeFee: 0,
+    platformFee: 0,
+    organizerAmount: 0,
+    organizerAmountWithoutShipping: 0,
+  }
+
+  return {
+    totalDonations,
+    financialBreakdown,
+    recentDonations: recentDonations?.map((d) => ({
+      ...d,
+      paidAt: formatRelativeTime(d.paidAt),
+    })),
+    recentActivities: recentDonations?.map((d) => ({
+      text: `${d.name} donated ${d.amount}$`,
+      paidAt: formatRelativeTime(d.paidAt),
+    })),
+    messageFromSupporters: recentDonations?.map((d) => d.message),
+    topSupporters,
+  }
+}
+
 export const donationServices = {
   createDonation,
 
   getAllDonation,
   getDonationById,
   deleteDonationById,
+  getDonationOverviewByCampaignId,
 }

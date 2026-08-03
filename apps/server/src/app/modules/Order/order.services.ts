@@ -582,7 +582,7 @@ const previewOrderPrice = async (payload: TPreviewOrderPayloadType) => {
   return paymentBreakdown.databaseRecord
 }
 
-const getAllOrder = async (query: TGetAllOrderQueryParamsType) => {
+const getAllOrder = async (user: IUser, query: TGetAllOrderQueryParamsType) => {
   const {
     page: currentPage = 1,
     limit: currentLimit = 10,
@@ -603,6 +603,16 @@ const getAllOrder = async (query: TGetAllOrderQueryParamsType) => {
 
   const skip = (page - 1) * limit
   const pipeline: PipelineStage[] = []
+
+  // ?? Campaign not found:
+  const campaign = await Campaign?.findOne({
+    organizer: user?._id,
+    _id: new Types.ObjectId(campaignId),
+  })
+
+  if (!campaign) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Campaign not found.')
+  }
 
   if (campaignId) {
     pipeline.push({
