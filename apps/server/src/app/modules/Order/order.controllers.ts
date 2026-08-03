@@ -51,7 +51,8 @@ const getAllOrder = catchAsync(async (req, res) => {
 const getCampaignOrderOverview = catchAsync(async (req, res) => {
   const campaignId = req.query.campaignId
   const user = await getUserFromRequest(req)
-  const result = await orderServices.getCampaignOrderOverview(user, campaignId)
+  console.log({ campaignId})
+  const result = await orderServices.getCampaignOrderOverview(user, campaignId as string)
 
   sendResponse(res, {
     success: true,

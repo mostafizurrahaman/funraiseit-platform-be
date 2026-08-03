@@ -13,6 +13,7 @@ import {
   OrderPayment,
   orderSearchableFields,
   OrderStatus,
+  Payment,
   paymentType,
   Product,
   productType,
@@ -870,109 +871,162 @@ const getOrderById = async (id: string) => {
 
 const getCampaignOrderOverview = async (user: IUser, campaignId: string) => {
   // ?? Campaign order overview:
-  const [totalOrders, orderItems] = await Promise.all([
-    // ?? Order counts:
-    await Order.aggregate([
-      { 
-        $match: { 
-          campaign: new Types.ObjectId(campaignId)
-        }
-    }, 
-      {
-        $lookup: {
-          from: 'payments',
-          localField: 'order',
-          foreignField: '_id',
-          pipeline: [
-            {
-              $match: {
-                status: paymentStatus.PAID,
-              },
-            },
-            {
-              $limit: 1,
-            },
-          ],
-          as: 'paymentDetails',
+  const [totalOrders, totalOrderItems, totalSales, paidOrders, deliveredOrders] = await Promise.all(
+    [
+      // ?? Order Counts :
+      await OrderPayment.aggregate([
+        {
+          $match: {
+            campaign: new Types.ObjectId(campaignId),
+            status: paymentStatus.PAID,
+          },
         },
-      },
-      {
-        $unwind: {
-          path: '$paymentDetails',
-          preserveNullAndEmptyArrays: true,
+        {
+          $count: 'total',
         },
-      },
-      {
-        $project: {
-          paymentStatus: '$paymentDetails.status',
+      ]),
+      // ?? Order Items :
+      await OrderPayment.aggregate([
+        {
+          $match: {
+            campaign: new Types.ObjectId(campaignId),
+            status: paymentStatus.PAID,
+          },
         },
-      },
-      {
-        $match: {
-          paymentStatus: paymentStatus.PAID,
+        {
+          $lookup: {
+            from: 'orderitems',
+            localField: 'order',
+            foreignField: 'order',
+            as: 'orderItems',
+          },
         },
-      },
-      {
-        $count: 'total',
-      },
-    ]),
+        {
+          $unwind: {
+            path: '$orderItems',
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $count: 'total',
+        },
+      ]),
 
-    // ?? Order Items:
-    await OrderItem?.aggregate([
-      {
-        $lookup: {
-          from: 'orders',
-          localField: 'order',
-          foreignField: '_id',
-          as: 'orderDetails',
-          pipeline: [
-            {
-              $lookup: {
-                from: 'payments',
-                localField: 'order',
-                foreignField: '_id',
-                pipeline: [
-                  {
-                    $match: {
-                      status: paymentStatus.PAID,
-                    },
-                  },
-                  {
-                    $limit: 1,
-                  },
-                ],
-                as: 'paymentDetails',
-              },
+      // ?? total sales:
+      await Payment.aggregate([
+        {
+          $match: {
+            campaign: new Types.ObjectId(campaignId),
+            status: paymentStatus.PAID,
+            paymentType: {
+              $in: [paymentType.ORDER],
             },
-            {
-              $unwind: {
-                path: '$paymentDetails',
-                preserveNullAndEmptyArrays: true,
-              },
-            },
-            {
-              $project: {
-                paymentStatus: '$paymentDetails.status',
-              },
-            },
-            {
-              $match: {
-                paymentStatus: paymentStatus.PAID,
-              },
-            },
-            {
-              $count: 'total',
-            },
-          ],
+          },
         },
-      },
-    ]),
-  ])
+        {
+          $lookup: {
+            from: 'paymentbreakdowns',
+            localField: '_id',
+            foreignField: 'payment',
+            as: 'paymentDetails',
+          },
+        },
+
+        {
+          $unwind: {
+            path: '$paymentDetails',
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $project: {
+            paymentId: '6a6af4435366f1fe89efc79c',
+            paymentBreakdownId: '$paymentDetails._id',
+            subtotal: '$paymentDetails.subtotal',
+            shippingFee: '$paymentDetails.shippingFee',
+            totalAmount: '$paymentDetails.totalAmount',
+            stripeFee: '$paymentDetails.stripeFee',
+            platformFee: '$paymentDetails.platformFee',
+            organizerAmount: '$paymentDetails.organizerAmount',
+            organizerAmountWithoutShipping: '$paymentDetails.organizerAmountWithoutShipping',
+            discountAmount: '$paymentDetails.discountAmount',
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            subTotal: {
+              $sum: '$subtotal',
+            },
+            shippingFee: {
+              $sum: '$shippingFee',
+            },
+            totalAmount: {
+              $sum: '$totalAmount',
+            },
+            stripeFee: {
+              $sum: '$stripeFee',
+            },
+            platformFee: {
+              $sum: '$platformFee',
+            },
+            organizerAmount: {
+              $sum: '$organizerAmount',
+            },
+            organizerAmountWithoutShipping: {
+              $sum: '$organizerAmountWithoutShipping',
+            },
+          },
+        },
+      ]),
+
+      // ?? Total completed Order :
+      await Order?.aggregate([
+        {
+          $match: {
+            campaign: new Types.ObjectId(campaignId),
+            status: OrderStatus.PAID,
+          },
+        },
+        {
+          $count: 'total',
+        },
+      ]),
+      await Order?.aggregate([
+        {
+          $match: {
+            status: OrderStatus.DELIVERED,
+            campaign: new Types.ObjectId(campaignId),
+          },
+        },
+        {
+          $count: 'total',
+        },
+      ]),
+    ]
+  )
+
+  const totalOrder = totalOrders?.[0]?.total ?? 0
+  const totalOrderedItems = totalOrderItems?.[0]?.total ?? 0
+  const totalSale = totalSales?.[0] ?? {
+    _id: null,
+    subTotal: 0,
+    shippingFee: 0,
+    totalAmount: 0,
+    stripeFee: 0,
+    platformFee: 0,
+    organizerAmount: 0,
+    organizerAmountWithoutShipping: 0,
+  }
+  const paidOrder = paidOrders?.[0]?.total ?? 0
+  const deliveredOrder = deliveredOrders?.[0]?.total ?? 0
 
   return {
-    totalOrders,
-
-    orderItems,
+    totalOrder,
+    totalOrderedItems,
+    totalSale,
+    deliverableOrders: paidOrder,
+    deliveredOrders: deliveredOrder,
   }
 }
 

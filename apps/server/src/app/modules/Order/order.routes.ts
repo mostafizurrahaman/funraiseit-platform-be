@@ -25,22 +25,22 @@ router.get(
 )
 
 router.get(
-  '/:id',
-  validateRequest(orderValidations.getOrderByIdSchema),
-  orderControllers.getOrderById
+  '/overview',
+  auth(AuthRoles.ORGANIZER),
+  validateRequest(orderValidations.getCampaignOrderOverview),
+  orderControllers.getCampaignOrderOverview
 )
+
+// router.get(
+//   '/:id',
+//   validateRequest(orderValidations.getOrderByIdSchema),
+//   orderControllers.getOrderById
+// )
 
 router.delete(
   '/:id',
   validateRequest(orderValidations.deleteOrderByIdSchema),
   orderControllers.deleteOrderById
-)
-
-router.get(
-  '/overview',
-  auth(AuthRoles.ORGANIZER),
-  validateRequest(orderValidations.getCampaignOrderOverview),
-  orderControllers.getCampaignOrderOverview
 )
 
 export const orderRoutes = router

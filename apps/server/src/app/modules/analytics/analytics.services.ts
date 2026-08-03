@@ -4,10 +4,8 @@ import type { TGetAnalyticsOverview } from './analytics.validations'
 import {
   Campaign,
   CampaignStatus,
-  Donation,
-  DonationStatus,
-  Order,
-  OrderStatus,
+  DonationPayment,
+  OrderPayment,
   Payment,
   paymentStatus,
   paymentType,
@@ -130,11 +128,11 @@ const getCampaignAnalyticsFromDB = async (query: TGetAnalyticsOverview) => {
     },
   ])
 
-  const orders = await Order.aggregate([
+  const orders = await OrderPayment.aggregate([
     {
       $match: {
         campaign: campaign?._id,
-        status: OrderStatus.PAID,
+        status: paymentStatus.PAID,
       },
     },
     {
@@ -142,11 +140,11 @@ const getCampaignAnalyticsFromDB = async (query: TGetAnalyticsOverview) => {
     },
   ])
 
-  const donations = await Donation.aggregate([
+  const donations = await DonationPayment.aggregate([
     {
       $match: {
         campaign: campaign?._id,
-        status: DonationStatus.PAID,
+        status: paymentStatus.PAID,
       },
     },
     {
@@ -331,32 +329,3 @@ const getCampaignAnalyticsFromDB = async (query: TGetAnalyticsOverview) => {
 }
 
 export const analyticServices = { getCampaignAnalyticsFromDB }
-
-// {
-//   $lookup: {
-//     from: 'supporters',
-//     localField: 'supporter',
-//     foreignField: '_id',
-//     as: 'supporterDetails',
-//   },
-// },
-// {
-//   $lookup: {
-//     from: 'paymentbreakdowns',
-//     localField: '_id',
-//     foreignField: 'payment',
-//     as: 'paymentBreakdown',
-//   },
-// },
-// {
-//   $unwind: {
-//     path: '$supporterDetails',
-//     preserveNullAndEmptyArrays: true,
-//   },
-// },
-// {
-//   $unwind: {
-//     path: '$paymentBreakdown',
-//     preserveNullAndEmptyArrays: true,
-//   },
-// },
