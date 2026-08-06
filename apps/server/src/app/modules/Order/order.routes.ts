@@ -31,11 +31,12 @@ router.get(
   orderControllers.getCampaignOrderOverview
 )
 
-// router.get(
-//   '/:id',
-//   validateRequest(orderValidations.getOrderByIdSchema),
-//   orderControllers.getOrderById
-// )
+router.get(
+  '/:id',
+  auth(AuthRoles.ORGANIZER),
+  validateRequest(orderValidations.getOrderByIdSchema),
+  orderControllers.getOrderById
+)
 
 router.delete(
   '/:id',

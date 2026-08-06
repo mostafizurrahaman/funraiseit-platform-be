@@ -216,6 +216,11 @@ const deleteOrderByIdSchema = z.object({
     id: requiredString('ID'),
   }),
 })
+const getOrderByIdSchema = z.object({
+  params: z.object({
+    id: requiredMongooseId('ID'),
+  }),
+})
 
 export const orderValidations = {
   createOrderSchema,
@@ -224,6 +229,7 @@ export const orderValidations = {
   getAllOrderSchema,
   getCampaignOrderOverview,
   deleteOrderByIdSchema,
+  getOrderByIdSchema,
 }
 
 export type TCreateOrderPayloadType = z.infer<typeof createOrderSchema.shape.body>

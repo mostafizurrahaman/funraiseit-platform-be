@@ -53,7 +53,6 @@ const getAllOrder = catchAsync(async (req, res) => {
 const getCampaignOrderOverview = catchAsync(async (req, res) => {
   const campaignId = req.query.campaignId
   const user = await getUserFromRequest(req)
-  console.log({ campaignId })
   const result = await orderServices.getCampaignOrderOverview(user, campaignId as string)
 
   sendResponse(res, {
@@ -65,7 +64,8 @@ const getCampaignOrderOverview = catchAsync(async (req, res) => {
 })
 
 const getOrderById = catchAsync(async (req, res) => {
-  const result = await orderServices.getOrderById(req.params.id as string)
+  const user = await getUserFromRequest(req)
+  const result = await orderServices.getOrderById(user, req.params.id as string)
 
   sendResponse(res, {
     success: true,

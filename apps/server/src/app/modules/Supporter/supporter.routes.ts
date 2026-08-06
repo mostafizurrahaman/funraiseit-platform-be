@@ -2,37 +2,23 @@ import express, { Router } from 'express'
 import { validateRequest } from '@app/middlewares'
 import { supporterControllers } from './supporter.controllers'
 import { supporterValidations } from './supporter.validations'
+import { auth } from '../../middlewares/auth'
+import { AuthRoles } from '@repo/db'
 
-const router : Router = express.Router()
-
-router.post(
-  '/',
-  validateRequest(supporterValidations.createSupporterSchema),
-  supporterControllers.createSupporter
-)
-
-router.patch(
-  '/:id',
-  validateRequest(supporterValidations.updateSupporterSchema),
-  supporterControllers.updateSupporter
-)
+const router: Router = express.Router()
 
 router.get(
   '/all',
+  auth(AuthRoles.ORGANIZER),
   validateRequest(supporterValidations.getAllSupporterSchema),
   supporterControllers.getAllSupporter
 )
 
 router.get(
-  '/:id',
-  validateRequest(supporterValidations.getSupporterByIdSchema),
-  supporterControllers.getSupporterById
-)
-
-router.delete(
-  '/:id',
-  validateRequest(supporterValidations.deleteSupporterByIdSchema),
-  supporterControllers.deleteSupporterById
+  '/overview',
+  auth(AuthRoles.ORGANIZER),
+  validateRequest(supporterValidations.getSupporterOverviewByID),
+  supporterControllers.getSupporterOverviewByCampaignId
 )
 
 export const supporterRoutes = router

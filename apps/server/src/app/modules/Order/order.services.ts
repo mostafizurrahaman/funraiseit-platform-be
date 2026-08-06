@@ -869,14 +869,223 @@ const getAllOrder = async (user: IUser, query: TGetAllOrderQueryParamsType) => {
   }
 }
 
-const getOrderById = async (id: string) => {
-  const result = await Order.findById(id)
+const getOrderById = async (user: IUser, id: string) => {
+  console.log({
+    id,
+  })
+  const pipeline: PipelineStage[] = [
+    {
+      $match: {
+        _id: new Types.ObjectId(id),
+      },
+    },
+  ]
 
-  if (!result) {
-    throw new AppError(httpStatus.NOT_FOUND, 'Order not found')
+  pipeline.push(
+    {
+      $lookup: {
+        from: 'campaigns',
+        localField: 'campaign',
+        foreignField: '_id',
+        as: 'campaignDetails',
+      },
+    },
+    {
+      $lookup: {
+        from: 'supporters',
+        localField: 'supporter',
+        foreignField: '_id',
+        as: 'supporterDetails',
+      },
+    },
+    {
+      $lookup: {
+        from: 'orderaddresses',
+        localField: '_id',
+        foreignField: 'order',
+        as: 'shippingAddress',
+      },
+    },
+    {
+      $lookup: {
+        from: 'orderitems',
+        localField: '_id',
+        foreignField: 'order',
+        as: 'orderItems',
+        pipeline: [
+          {
+            $lookup: {
+              from: 'products',
+              localField: 'product',
+              foreignField: '_id',
+              as: 'productDetails',
+            },
+          },
+          {
+            $unwind: {
+              path: '$productDetails',
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+
+          {
+            $project: {
+              orderItemId: '$_id',
+              purchasedQuantity: '$quantity',
+              purchasedUnitPrice: '$unitPrice',
+              orderItemStatus: '$status',
+
+              // Product Info:
+              productId: '$product',
+              productName: '$productDetails.name',
+              productImage: '$productDetails.productImage',
+              productType: '$productDetails.productType',
+              productSku: '$productDetails.sku',
+
+              createdAt: '$createdAt',
+              updatedAt: '$updatedAt',
+            },
+          },
+        ],
+      },
+    },
+    {
+      $lookup: {
+        from: 'payments',
+        localField: '_id',
+        foreignField: 'order',
+        as: 'paymentDetails',
+        pipeline: [
+          {
+            $sort: {
+              createdAt: -1,
+            },
+          },
+          {
+            $lookup: {
+              from: 'paymentbreakdowns',
+              localField: '_id',
+              foreignField: 'payment',
+              as: 'paymentBreakingDown',
+              pipeline: [
+                {
+                  $sort: {
+                    createdAt: -1,
+                  },
+                },
+                {
+                  $limit: 1,
+                },
+              ],
+            },
+          },
+          {
+            $unwind: {
+              path: '$paymentBreakingDown',
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+        ],
+      },
+    },
+    {
+      $unwind: {
+        path: '$supporterDetails',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $unwind: {
+        path: '$campaignDetails',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $unwind: {
+        path: '$shippingAddress',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $addFields: {
+        paymentDetails: {
+          $arrayElemAt: ['$paymentDetails', 0],
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        orderId: '$_id',
+        campaignId: '$campaign',
+        supporterId: '$supporter',
+        organizerId: '$campaignDetails.organizer',
+
+        // Order Provided supporter Name:
+        customerName: '$customerName',
+        customerPhone: '$customerPhone',
+        shippingType: '$shippingType',
+
+        // Supporter Info:
+        supporterName: '$supporterDetails.name',
+        supporterEmail: '$supporterDetails.email',
+        supporterPhone: '$supporterDetails.phoneNumber',
+
+        // Payment Info:
+        paymentId: { $ifNull: ['$paymentDetails._id', null] },
+        paymentBreakDownId: { $ifNull: ['$paymentDetails.paymentBreakingDown._id', null] },
+
+        paidAt: {
+          $ifNull: ['$paymentDetails.paidAt', null],
+        },
+
+        // Fees:
+        stripeTransactionFeePercentage: '$stripeFeePercentage',
+        platformFeePercentage: '$platformFeePercentage',
+
+        // Amounts
+        subTotal: {
+          $ifNull: ['$paymentDetails.paymentBreakingDown.subTotal', '$subTotal', 0],
+        },
+        shippingAmount: {
+          $ifNull: ['$paymentDetails.paymentBreakingDown.shippingFee', '$shippingAmount', 0],
+        },
+        totalAmount: {
+          $ifNull: ['$paymentDetails.paymentBreakingDown.totalAmount', '$totalAmount', 0],
+        },
+        stripeFeeAmount: {
+          $ifNull: ['$paymentDetails.paymentBreakingDown.stripeFee', null],
+        },
+        platformFeeAmount: {
+          $ifNull: ['$paymentDetails.paymentBreakingDown.platformFee', null],
+        },
+        organizerAmountWithoutShipping: {
+          $ifNull: ['$paymentDetails.paymentBreakingDown.organizerAmount', null],
+        },
+        organizerNetAmount: {
+          $ifNull: ['$paymentDetails.paymentBreakingDown.organizerAmount', null],
+        },
+        paymentStatus: {
+          $ifNull: ['$paymentDetails.status', null],
+        },
+        orderStatus: '$status',
+        shippingAddress: '$shippingAddress',
+        orderItems: '$orderItems',
+      },
+    }
+  )
+
+  const order = await Order?.aggregate(pipeline)
+
+  if (!order?.[0]) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Order not found!')
   }
 
-  return result
+  if (order?.[0]?.organizerId?.toString() !== user?._id?.toString()) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'This order is not belongs to your organization.')
+  }
+
+  return order[0]
 }
 
 const getCampaignOrderOverview = async (user: IUser, campaignId: string) => {
