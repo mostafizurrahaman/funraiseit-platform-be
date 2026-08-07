@@ -35,6 +35,7 @@ import { generateCampaignCode } from './campaign.utils'
 import mongoose, { Types } from 'mongoose'
 import { stripeCheckoutSession } from '@app/libs/stripe'
 import { logger } from '@app/libs/logger'
+import { enhanceCampaignStory } from '@app/libs/generate-story'
 
 const createCampaign = async (
   user: IUser,
@@ -1179,6 +1180,20 @@ const cronJobToGetPayoutReadyCampaign = async () => {
   }
 }
 
+const generateCampaignStory = async (story: string) => {
+  if (!story || !story?.trim()) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'story is required')
+  }
+
+  const result = await enhanceCampaignStory(story)
+
+  if (!result) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Failed to enhance story.')
+  }
+
+  return result
+}
+
 export const campaignServices = {
   createCampaign,
   updateCampaign,
@@ -1193,4 +1208,5 @@ export const campaignServices = {
   // CORN JOBS:
   cronJobToCompleteCampaign,
   cronJobToGetPayoutReadyCampaign,
+  generateCampaignStory,
 }

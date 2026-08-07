@@ -119,6 +119,20 @@ const launchCampaignByID = catchAsync(async (req, res) => {
     data: result,
   })
 })
+
+const generateCampaignStory = catchAsync(async (req, res) => {
+  const story = req.body.story
+
+  const result = await campaignServices.generateCampaignStory(story)
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: 'Story generated successfully for your campaign',
+    data: result,
+  })
+})
+
 export const campaignControllers = {
   createCampaign,
   updateCampaign,
@@ -129,4 +143,5 @@ export const campaignControllers = {
   launchCampaignByID,
   getCampaignPreview,
   getAllActiveCampaign,
+  generateCampaignStory,
 }

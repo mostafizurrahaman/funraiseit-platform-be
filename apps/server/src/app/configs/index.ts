@@ -66,6 +66,7 @@ const envSchema = z.object({
     .regex(usaPhoneRegex, { error: 'Provide a valid usa number!' }),
   OTP_EXPIRES_IN: z.string().transform(Number).default(5),
   OTP_DIGITS: z.string().transform(Number).default(6),
+  OPEN_API_KEY: z.string(),
 })
 
 // 3. Validate process.env
@@ -86,6 +87,7 @@ const configs = {
   corsOrigins: env.CORS_ORIGINS,
   databaseUrl: env.DATABASE_URL,
   passwordSaltRound: env.PASSWORD_SALT_ROUND,
+  openAiApiKey: env.OPEN_API_KEY,
 
   site: {
     name: env.SITE_NAME,
