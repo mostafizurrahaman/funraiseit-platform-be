@@ -1144,22 +1144,22 @@ const getAllActiveCampaign = async (query: TGetAllActiveCampaignQuery) => {
 
 // ?? Complete the campaign which are in active and reached to end date:
 const cronJobToCompleteCampaign = async () => {
-  const now = new Date()
-
-  const result = await Campaign.updateMany(
-    {
-      status: CampaignStatus.ACTIVE,
-      endDate: { $lte: now },
-    },
-    {
-      $set: {
-        status: CampaignStatus.COMPLETED,
-        endedAt: now,
-      },
-    }
-  )
-
-  logger.info(`✅✅✅✅✅ Completed ${result.modifiedCount} campaigns. ${now?.toISOString()}`)
+  try {
+    const now = moment().utc()
+    const result = await Campaign.updateMany(
+      { status: CampaignStatus.ACTIVE, endDate: { $lte: now.toDate() } },
+      {
+        $set: {
+          status: CampaignStatus.COMPLETED,
+          endedAt: now.toDate(),
+          expectedPayoutDate: now.clone().add(2, 'days').toDate(),
+        },
+      }
+    )
+    logger.info(`Completed ${result.modifiedCount} campaigns at ${now.toISOString()}`)
+  } catch (error) {
+    logger.error('Failed to complete campaigns', error)
+  }
 }
 
 export const campaignServices = {

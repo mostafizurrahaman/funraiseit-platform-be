@@ -12,7 +12,14 @@ import {
   requiredEmail,
   usaPhoneRegex,
 } from '@repo/shared'
-import { orderSortableFields, productType, productTypeValues, shippingTypesValues } from '@repo/db'
+import {
+  orderSortableFields,
+  OrderStatusValues,
+  paymentStatusValues,
+  productType,
+  productTypeValues,
+  shippingTypesValues,
+} from '@repo/db'
 
 const orderItemSchema = z.object({
   product: requiredMongooseId('Product ID'),
@@ -179,19 +186,28 @@ const updateOrderSchema = z.object({
 
 const getAllOrderSchema = z.object({
   query: z.object({
+    campaignId: requiredMongooseId('Campaign ID'),
     page: optionalNumber('Page'),
     limit: optionalNumber('Limit'),
     searchTerm: optionalString('Search term'),
     sortOrder: optionalEnumString(sortingOrderValues, 'Sort order'),
     sortBy: optionalEnumString(orderSortableFields, 'Sort by'),
+    orderStatus: optionalEnumString(OrderStatusValues, 'Order Status'),
+    paymentStatus: optionalEnumString(paymentStatusValues, 'Payment Status'),
+    skipPagination: z.coerce
+      .boolean({
+        error: 'skip pagination should be boolean',
+      })
+      .default(false)
+      .optional(),
     fromDate: optionalDate('From date'),
     toDate: optionalDate('To date'),
   }),
 })
 
-const getOrderByIdSchema = z.object({
-  params: z.object({
-    id: requiredString('ID'),
+const getCampaignOrderOverview = z.object({
+  query: z.object({
+    campaignId: requiredMongooseId('ID'),
   }),
 })
 
@@ -200,19 +216,27 @@ const deleteOrderByIdSchema = z.object({
     id: requiredString('ID'),
   }),
 })
+const getOrderByIdSchema = z.object({
+  params: z.object({
+    id: requiredMongooseId('ID'),
+  }),
+})
 
 export const orderValidations = {
   createOrderSchema,
   previewOrderSchema,
   updateOrderSchema,
   getAllOrderSchema,
-  getOrderByIdSchema,
+  getCampaignOrderOverview,
   deleteOrderByIdSchema,
+  getOrderByIdSchema,
 }
 
 export type TCreateOrderPayloadType = z.infer<typeof createOrderSchema.shape.body>
 export type TPreviewOrderPayloadType = z.infer<typeof previewOrderSchema.shape.body>
 export type TUpdateOrderPayloadType = z.infer<typeof updateOrderSchema.shape.body>
 export type TGetAllOrderQueryParamsType = z.infer<typeof getAllOrderSchema.shape.query>
-export type TGetOrderByIdParamsType = z.infer<typeof getOrderByIdSchema.shape.params>
+export type TGetCampaignOrderOverviewQueryType = z.infer<
+  typeof getCampaignOrderOverview.shape.query
+>
 export type TDeleteOrderByIdParamsType = z.infer<typeof deleteOrderByIdSchema.shape.params>

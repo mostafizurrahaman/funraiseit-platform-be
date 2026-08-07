@@ -11,7 +11,7 @@ import {
   requiredMongooseId,
   positiveNumber,
 } from '@repo/shared'
-import { donationSortableFields } from 'packages/db/src'
+import { donationSortableFields, donationStatusValues, paymentStatusValues } from 'packages/db/src'
 
 const createDonationSchema = z.object({
   body: z.object({
@@ -27,20 +27,22 @@ const createDonationSchema = z.object({
   }),
 })
 
-const updateDonationSchema = z.object({
-  params: z.object({
-    id: requiredString('ID'),
-  }),
-  body: z.object({}),
-})
-
 const getAllDonationSchema = z.object({
   query: z.object({
+    campaignId: requiredMongooseId('Campaign ID'),
     page: optionalNumber('Page'),
     limit: optionalNumber('Limit'),
     searchTerm: optionalString('Search term'),
     sortOrder: optionalEnumString(sortingOrderValues, 'Sort order'),
     sortBy: optionalEnumString(donationSortableFields, 'Sort by'),
+    donationStatus: optionalEnumString(donationStatusValues, 'Donation Status'),
+    paymentStatus: optionalEnumString(paymentStatusValues, 'Payment Status'),
+    skipPagination: z.coerce
+      .boolean({
+        error: 'skip pagination should be boolean',
+      })
+      .default(false)
+      .optional(),
     fromDate: optionalDate('From date'),
     toDate: optionalDate('To date'),
   }),
@@ -52,6 +54,12 @@ const getDonationByIdSchema = z.object({
   }),
 })
 
+const getDonationOverviewByCampaignIdSchema = z.object({
+  query: z.object({
+    campaignId: requiredMongooseId('ID'),
+  }),
+})
+
 const deleteDonationByIdSchema = z.object({
   params: z.object({
     id: requiredString('ID'),
@@ -60,14 +68,16 @@ const deleteDonationByIdSchema = z.object({
 
 export const donationValidations = {
   createDonationSchema,
-  updateDonationSchema,
+  getDonationOverviewByCampaignIdSchema,
   getAllDonationSchema,
   getDonationByIdSchema,
   deleteDonationByIdSchema,
 }
 
 export type TCreateDonationPayloadType = z.infer<typeof createDonationSchema.shape.body>
-export type TUpdateDonationPayloadType = z.infer<typeof updateDonationSchema.shape.body>
 export type TGetAllDonationQueryParamsType = z.infer<typeof getAllDonationSchema.shape.query>
 export type TGetDonationByIdParamsType = z.infer<typeof getDonationByIdSchema.shape.params>
 export type TDeleteDonationByIdParamsType = z.infer<typeof deleteDonationByIdSchema.shape.params>
+export type TGetDonationOverviewByCampaignIdParamsType = z.infer<
+  typeof getDonationOverviewByCampaignIdSchema.shape.query
+>

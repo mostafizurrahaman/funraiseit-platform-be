@@ -2,6 +2,8 @@ import express, { Router } from 'express'
 import { validateRequest } from '@app/middlewares'
 import { donationControllers } from './donation.controllers'
 import { donationValidations } from './donation.validations'
+import { AuthRoles } from '@repo/db'
+import { auth } from '../../middlewares/auth'
 
 const router: Router = express.Router()
 
@@ -11,16 +13,18 @@ router.post(
   donationControllers.createDonation
 )
 
-router.patch(
-  '/:id',
-  validateRequest(donationValidations.updateDonationSchema),
-  donationControllers.updateDonation
+router.get(
+  '/all',
+  auth(AuthRoles.ORGANIZER),
+  validateRequest(donationValidations.getAllDonationSchema),
+  donationControllers.getAllDonation
 )
 
 router.get(
-  '/all',
-  validateRequest(donationValidations.getAllDonationSchema),
-  donationControllers.getAllDonation
+  '/overview',
+  auth(AuthRoles.ORGANIZER),
+  validateRequest(donationValidations.getDonationOverviewByCampaignIdSchema),
+  donationControllers.getDonationOverviewByCampaignId
 )
 
 router.get(

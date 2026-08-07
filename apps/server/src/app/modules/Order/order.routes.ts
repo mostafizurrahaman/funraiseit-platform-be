@@ -2,6 +2,8 @@ import express, { Router } from 'express'
 import { validateRequest } from '@app/middlewares'
 import { orderControllers } from './order.controllers'
 import { orderValidations } from './order.validations'
+import { AuthRoles } from '@repo/db'
+import { auth } from '../../middlewares/auth'
 
 const router: Router = express.Router()
 
@@ -17,12 +19,21 @@ router.patch(
 
 router.get(
   '/all',
+  auth(AuthRoles.ORGANIZER),
   validateRequest(orderValidations.getAllOrderSchema),
   orderControllers.getAllOrder
 )
 
 router.get(
+  '/overview',
+  auth(AuthRoles.ORGANIZER),
+  validateRequest(orderValidations.getCampaignOrderOverview),
+  orderControllers.getCampaignOrderOverview
+)
+
+router.get(
   '/:id',
+  auth(AuthRoles.ORGANIZER),
   validateRequest(orderValidations.getOrderByIdSchema),
   orderControllers.getOrderById
 )

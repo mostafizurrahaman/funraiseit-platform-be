@@ -7,11 +7,14 @@ import {
   Donation,
   DonationPayment,
   donationSearchableFields,
+  DonationStatus,
+  Payment,
   paymentStatus,
   paymentType,
   SiteInfo,
   Supporter,
   User,
+  type IUser,
 } from '@repo/db'
 import httpStatus from 'http-status'
 import { AppError } from '@repo/shared'
@@ -19,12 +22,12 @@ import type { PipelineStage } from 'mongoose'
 
 import type {
   TCreateDonationPayloadType,
-  TUpdateDonationPayloadType,
   TGetAllDonationQueryParamsType,
 } from './donation.validations'
-import mongoose from 'mongoose'
+import mongoose, { Types } from 'mongoose'
 import { calculatePaymentBreakdown } from '@app/libs/get-stripe-fee-breakdown'
 import { stripeCheckoutSessionWithApplicationFee } from '@app/libs/stripe'
+import { formatRelativeTime } from '../../libs/format-relative-time'
 const MIN_DONATION = 0.5
 
 const createDonation = async (payload: TCreateDonationPayloadType) => {
@@ -221,29 +224,50 @@ const createDonation = async (payload: TCreateDonationPayloadType) => {
   }
 }
 
-const updateDonation = async (id: string, payload: TUpdateDonationPayloadType) => {
-  const result = await Donation.findOneAndUpdate({ _id: id }, { $set: payload }, { new: true })
-
-  if (!result) {
-    throw new AppError(httpStatus.NOT_FOUND, 'Donation not found')
-  }
-
-  return result
-}
-
-const getAllDonation = async (query: TGetAllDonationQueryParamsType) => {
+const getAllDonation = async (user: IUser, query: TGetAllDonationQueryParamsType) => {
   const {
-    page = 1,
-    limit = 10,
+    page: currentPage = 1,
+    limit: currentLimit = 10,
     searchTerm,
+    campaignId,
     sortOrder = 'desc',
     sortBy = 'createdAt',
+    donationStatus,
+    paymentStatus,
+    skipPagination = false,
     fromDate,
     toDate,
   } = query
 
+  const limit = Number(currentLimit) || 1
+  const page = Number(currentPage) || 10
+
   const skip = (page - 1) * limit
   const pipeline: PipelineStage[] = []
+
+  // ?? Campaign not found:
+  const campaign = await Campaign?.findOne({
+    organizer: user?._id,
+    _id: new Types.ObjectId(campaignId),
+  })
+
+  if (!campaign) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Campaign not found.')
+  }
+  if (campaignId) {
+    pipeline.push({
+      $match: {
+        campaign: new Types.ObjectId(campaignId),
+      },
+    })
+  }
+  if (donationStatus) {
+    pipeline.push({
+      $match: {
+        status: donationStatus,
+      },
+    })
+  }
 
   if (fromDate || toDate) {
     const dateFilter: Record<string, unknown> = {}
@@ -251,6 +275,127 @@ const getAllDonation = async (query: TGetAllDonationQueryParamsType) => {
     if (toDate) dateFilter.$lte = new Date(toDate)
 
     pipeline.push({ $match: { createdAt: dateFilter } })
+  }
+
+  pipeline.push(
+    {
+      $lookup: {
+        from: 'supporters',
+        localField: 'supporter',
+        foreignField: '_id',
+        as: 'supporterDetails',
+      },
+    },
+    {
+      $lookup: {
+        from: 'payments',
+        localField: '_id',
+        foreignField: 'donation',
+        as: 'paymentDetails',
+        pipeline: [
+          {
+            $sort: {
+              createdAt: -1,
+            },
+          },
+          {
+            $lookup: {
+              from: 'paymentbreakdowns',
+              localField: '_id',
+              foreignField: 'payment',
+              as: 'paymentBreakingDown',
+              pipeline: [
+                {
+                  $sort: {
+                    createdAt: -1,
+                  },
+                },
+                {
+                  $limit: 1,
+                },
+              ],
+            },
+          },
+          {
+            $unwind: {
+              path: '$paymentBreakingDown',
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+        ],
+      },
+    },
+    {
+      $unwind: {
+        path: '$supporterDetails',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $addFields: {
+        paymentDetails: {
+          $arrayElemAt: ['$paymentDetails', 0],
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        donationId: '$_id',
+        campaignId: '$campaign',
+        supporterId: '$supporter',
+
+        // Order Provided supporter Name:
+        customerName: '$customerName',
+        customerPhone: '$customerPhone',
+
+        // Supporter Info:
+        supporterName: '$supporterDetails.name',
+        supporterEmail: '$supporterDetails.email',
+        supporterPhone: '$supporterDetails.phoneNumber',
+
+        // Payment Info:
+        paymentId: { $ifNull: ['$paymentDetails._id', null] },
+        paymentBreakDownId: { $ifNull: ['$paymentDetails.paymentBreakingDown._id', null] },
+
+        paidAt: {
+          $ifNull: ['$paymentDetails.paidAt', null],
+        },
+
+        // Fees:
+        stripeTransactionFeePercentage: '$stripeFeePercentage',
+        platformFeePercentage: '$platformFeePercentage',
+
+        // Amounts
+        subTotal: {
+          $ifNull: ['$paymentDetails.paymentBreakingDown.subTotal', '$subTotal', 0],
+        },
+        totalAmount: {
+          $ifNull: ['$paymentDetails.paymentBreakingDown.totalAmount', '$totalAmount', 0],
+        },
+        stripeFeeAmount: {
+          $ifNull: ['$paymentDetails.paymentBreakingDown.stripeFee', null],
+        },
+        platformFeeAmount: {
+          $ifNull: ['$paymentDetails.paymentBreakingDown.platformFee', null],
+        },
+        organizerNetAmount: {
+          $ifNull: ['$paymentDetails.paymentBreakingDown.organizerAmount', null],
+        },
+        paymentStatus: {
+          $ifNull: ['$paymentDetails.status', null],
+        },
+        donationStatus: '$status',
+      },
+    }
+  )
+
+  if (paymentStatus) {
+    pipeline.push({
+      $match: {
+        paymentStatus,
+      },
+    })
   }
 
   if (searchTerm) {
@@ -265,9 +410,19 @@ const getAllDonation = async (query: TGetAllDonationQueryParamsType) => {
 
   pipeline.push({ $sort: { [sortBy]: sortOrder === 'asc' ? 1 : -1 } })
 
+  const PaginationStages: PipelineStage.FacetPipelineStage[] = [
+    {
+      $match: {},
+    },
+  ]
+
+  if (!skipPagination || (typeof skipPagination === 'string' && skipPagination !== 'true')) {
+    PaginationStages.push({ $skip: skip }, { $limit: limit })
+  }
+
   pipeline.push({
     $facet: {
-      data: [{ $skip: skip }, { $limit: limit }],
+      data: PaginationStages,
       meta: [{ $count: 'total' }],
     },
   })
@@ -280,10 +435,10 @@ const getAllDonation = async (query: TGetAllDonationQueryParamsType) => {
   return {
     data,
     meta: {
-      page,
-      limit,
+      page: skipPagination ? 1 : page,
+      limit: skipPagination ? total : limit,
       total,
-      totalPages: Math.ceil(total / limit) || 1,
+      totalPages: skipPagination ? 1 : Math.ceil(total / limit) || 1,
     },
   }
 }
@@ -308,10 +463,233 @@ const deleteDonationById = async (id: string) => {
   return result
 }
 
+const getDonationOverviewByCampaignId = async (user: IUser, campaignId: string) => {
+  const campaign = await Campaign?.findOne({
+    organizer: user?._id,
+    _id: campaignId,
+  })
+
+  if (!campaign) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Campaign not found!')
+  }
+
+  const [totalDonationRecords, totalCalculations, recentDonations, topSupporters] =
+    await Promise.all([
+      // ?? Donation Counts :
+      await DonationPayment.aggregate([
+        {
+          $match: {
+            campaign: new Types.ObjectId(campaignId),
+            status: paymentStatus.PAID,
+          },
+        },
+        {
+          $count: 'total',
+        },
+      ]),
+
+      // ?? Total Donation amounts:
+      await DonationPayment.aggregate([
+        {
+          $match: {
+            campaign: new Types.ObjectId(campaignId),
+            status: paymentStatus.PAID,
+            paymentType: {
+              $in: [paymentType.DONATION],
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: 'paymentbreakdowns',
+            localField: '_id',
+            foreignField: 'payment',
+            as: 'paymentDetails',
+          },
+        },
+
+        {
+          $unwind: {
+            path: '$paymentDetails',
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $project: {
+            paymentId: '6a6af4435366f1fe89efc79c',
+            paymentBreakdownId: '$paymentDetails._id',
+            subtotal: '$paymentDetails.subtotal',
+            shippingFee: '$paymentDetails.shippingFee',
+            totalAmount: '$paymentDetails.totalAmount',
+            stripeFee: '$paymentDetails.stripeFee',
+            platformFee: '$paymentDetails.platformFee',
+            organizerAmount: '$paymentDetails.organizerAmount',
+            organizerAmountWithoutShipping: '$paymentDetails.organizerAmountWithoutShipping',
+            discountAmount: '$paymentDetails.discountAmount',
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            subTotal: {
+              $sum: '$subtotal',
+            },
+            shippingFee: {
+              $sum: '$shippingFee',
+            },
+            totalAmount: {
+              $sum: '$totalAmount',
+            },
+            stripeFee: {
+              $sum: '$stripeFee',
+            },
+            platformFee: {
+              $sum: '$platformFee',
+            },
+            organizerAmount: {
+              $sum: '$organizerAmount',
+            },
+            organizerAmountWithoutShipping: {
+              $sum: '$organizerAmountWithoutShipping',
+            },
+          },
+        },
+      ]),
+
+      // ?? Recent donations :
+      await DonationPayment.aggregate([
+        {
+          $match: {
+            campaign: campaign?._id,
+            status: paymentStatus.PAID,
+            paymentType: {
+              $in: [paymentType.DONATION],
+            },
+          },
+        },
+        {
+          $sort: {
+            createdAt: -1,
+          },
+        },
+        {
+          $limit: 10,
+        },
+        {
+          $lookup: {
+            from: 'supporters',
+            localField: 'supporter',
+            foreignField: '_id',
+            as: 'supporterDetails',
+          },
+        },
+        {
+          $lookup: {
+            from: 'donations',
+            localField: 'donation',
+            foreignField: '_id',
+            as: 'donationDetails',
+          },
+        },
+        {
+          $unwind: {
+            path: '$donationDetails',
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $unwind: {
+            path: '$supporterDetails',
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            paymentId: '$_id',
+            donationId: '$donation',
+            name: '$supporterDetails.name',
+            message: { $ifNull: ['$donationDetails.message', null] },
+            amount: 1,
+            paidAt: 1,
+          },
+        },
+      ]),
+
+      // ?? Top Supporters:
+      await DonationPayment.aggregate([
+        {
+          $match: {
+            campaign: new Types.ObjectId(campaignId),
+            status: paymentStatus.PAID,
+          },
+        },
+        {
+          $group: {
+            _id: '$supporter',
+            amount: { $sum: '$amount' },
+          },
+        },
+        {
+          $lookup: {
+            from: 'supporters',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'supporterDetails',
+          },
+        },
+        {
+          $unwind: {
+            path: '$supporterDetails',
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            supporterId: '$supporterDetails._id',
+            supporterName: '$supporterDetails.name',
+            supporterEmail: '$supporterDetails.email',
+            amount: '$amount',
+          },
+        },
+      ]),
+    ])
+
+  const totalDonations = totalDonationRecords?.[0]?.total ?? 0
+
+  const financialBreakdown = totalCalculations?.[0] ?? {
+    _id: null,
+    subTotal: 0,
+    shippingFee: 0,
+    totalAmount: 0,
+    stripeFee: 0,
+    platformFee: 0,
+    organizerAmount: 0,
+    organizerAmountWithoutShipping: 0,
+  }
+
+  return {
+    totalDonations,
+    financialBreakdown,
+    recentDonations: recentDonations?.map((d) => ({
+      ...d,
+      paidAt: formatRelativeTime(d.paidAt),
+    })),
+    recentActivities: recentDonations?.map((d) => ({
+      text: `${d.name} donated ${d.amount}$`,
+      paidAt: formatRelativeTime(d.paidAt),
+    })),
+    messageFromSupporters: recentDonations?.map((d) => d.message),
+    topSupporters,
+  }
+}
+
 export const donationServices = {
   createDonation,
-  updateDonation,
+
   getAllDonation,
   getDonationById,
   deleteDonationById,
+  getDonationOverviewByCampaignId,
 }
