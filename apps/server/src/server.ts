@@ -3,11 +3,11 @@ import { Server } from 'http'
 import configs from './app/configs'
 import app from './app'
 import { logger } from '@app/libs/logger'
-import dns from 'node:dns/promises'
+// import dns from 'node:dns/promises'
 import { seedSuperAdmin } from '@app/libs/seed-super-admin'
 import { startCronJobs } from '@app/modules/corns'
 
-dns.setServers(['1.1.1.1'])
+// dns.setServers(['1.1.1.1'])
 
 let server: Server
 //  boostrap function :
