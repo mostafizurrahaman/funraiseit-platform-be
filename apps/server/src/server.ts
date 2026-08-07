@@ -14,7 +14,7 @@ let server: Server
 const boostrap = async () => {
   try {
     await connectDB(configs.databaseUrl)
-    logger.info('✅ Database connected  successfully!')
+    
 
     await seedSuperAdmin()
 
