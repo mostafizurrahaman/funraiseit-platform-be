@@ -58,13 +58,14 @@ jobs:
             npm -v
             pnpm -v
             pm2 -v
+
+            npm install -g pnpm
             cd ${{ secrets.PROJECT_FOLDER }}/apps/server
 
             echo '${{ secrets.ENV_FILE }}' > .env.development
             echo '${{ secrets.ENV_FILE }}' > .env
             echo '${{ secrets.ENV_FILE }}' > .env.local
             cd /home/${{secrets.EC2_USER}}/${{ secrets.PROJECT_FOLDER }}
-            npm install -g pnpm
             export CI=true
             pnpm install --frozen-lockfile
             pm2 restart ecosystem.config.js
