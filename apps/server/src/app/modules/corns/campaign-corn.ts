@@ -12,4 +12,14 @@ export const startCampaignCron = () => {
       logger.error('Campaign complete corn error', error)
     }
   })
+
+  // Runs every minute
+  cron.schedule('* * * * *', async () => {
+    logger.info('Campaign For Payout..........')
+    try {
+      await campaignServices.cronJobToGetPayoutReadyCampaign()
+    } catch (error) {
+      logger.error('Campaign complete corn error', error)
+    }
+  })
 }
