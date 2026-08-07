@@ -1162,6 +1162,23 @@ const cronJobToCompleteCampaign = async () => {
   }
 }
 
+// ?? Find out the payout ready campaigns:
+const cronJobToGetPayoutReadyCampaign = async () => {
+  try {
+    const now = moment().utc()
+    const result = await Campaign.find({
+      status: CampaignStatus.COMPLETED,
+      expectedPayoutDate: {
+        $lte: now?.toDate(),
+      },
+    })
+    logger.info('Campaigns', result)
+    logger.info(`Completed ${result.length} campaigns at ${now.toISOString()}`)
+  } catch (error) {
+    logger.error('Failed to complete campaigns', error)
+  }
+}
+
 export const campaignServices = {
   createCampaign,
   updateCampaign,
@@ -1175,4 +1192,5 @@ export const campaignServices = {
 
   // CORN JOBS:
   cronJobToCompleteCampaign,
+  cronJobToGetPayoutReadyCampaign,
 }
