@@ -20,6 +20,7 @@ export interface ICampaign {
   // Amounts:
   goalAmount: number
   raisedAmount: number
+  raisedAmountWithShipping: number
 
   shippingFee: number
 

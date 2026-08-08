@@ -176,3 +176,24 @@ export const stripeCheckoutSessionWithApplicationFee = async ({
 
   return session
 }
+
+// ?? Create Stripe Payout for connected accounts
+export const createStripePayout = async (
+  amount: number,
+  currency: string,
+  stripeAccountId: string,
+  metadata: Stripe.MetadataParam,
+  idempotencyKey: string
+) => {
+  return stripe.payouts.create(
+    {
+      amount: Math.round(amount * 100),
+      currency,
+      metadata,
+    },
+    {
+      stripeAccount: stripeAccountId,
+      idempotencyKey,
+    }
+  )
+}

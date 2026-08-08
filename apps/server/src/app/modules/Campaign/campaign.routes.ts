@@ -21,7 +21,7 @@ router.post(
 
 router.post('/story', campaignControllers.generateCampaignStory)
 
-router.get(
+router.post(
   '/:id/preview',
   auth(AuthRoles.ORGANIZER),
   validateRequest(campaignValidations.getCampaignPreviewByID),

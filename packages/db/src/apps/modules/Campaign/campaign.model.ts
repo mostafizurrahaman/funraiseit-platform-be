@@ -61,6 +61,12 @@ const campaignSchema = new Schema<ICampaignDoc>(
       default: 0,
       min: 0,
     },
+    raisedAmountWithShipping: {
+      type: Number,
+      required: true,
+      default: 0,
+      min: 0,
+    },
     shippingFee: {
       type: Number,
     },
