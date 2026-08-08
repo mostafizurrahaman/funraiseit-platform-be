@@ -1,114 +1,196 @@
-import { Payout, payoutSearchableFields  } from "@repo/db"
-import httpStatus from "http-status"
-import { AppError } from "@repo/shared"
-import type { PipelineStage } from "mongoose"
+import {
+  Account,
+  accountStatus,
+  AuthStatus,
+  Campaign,
+  DonationPayment,
+  OrderPayment,
+  Payment,
+  paymentStatus,
+  paymentType,
+  type IUser,
+} from '@repo/db'
+import type { TGetPayoutOverviewForCampaignQuery } from './payout.validations'
+import { AppError } from 'packages/shared/src'
+import httpStatus from 'http-status'
+import { stripe } from '@app/libs/stripe'
+import moment from 'moment'
 
-import type {
-  TCreatePayoutPayloadType,
-  TUpdatePayoutPayloadType,
-  TGetAllPayoutQueryParamsType
-} from "./payout.validations"
-
-const createPayout = async (payload: TCreatePayoutPayloadType) => {
-  const result = await Payout.create(payload)
-  return result
-}
-
-const updatePayout = async (id: string, payload: TUpdatePayoutPayloadType) => {
-  const result = await Payout.findOneAndUpdate(
-    { _id: id },
-    { $set: payload },
-    { new: true }
-  )
-
-  if (!result) {
-    throw new AppError(httpStatus.NOT_FOUND, "Payout not found")
+const getPayoutOverviewForCampaign = async (
+  user: IUser,
+  campaignId: string,
+  query: TGetPayoutOverviewForCampaignQuery
+) => {
+  // ?? Check is campaign exists ?:
+  const campaign = await Campaign.findById(campaignId)
+  if (!campaign) {
+    throw new AppError(httpStatus.NOT_FOUND, "Campaign doesn't exists.")
   }
 
-  return result
-}
-
-const getAllPayout = async (query: TGetAllPayoutQueryParamsType) => {
-  const {
-    page = 1,
-    limit = 10,
-    searchTerm,
-    sortOrder = 'desc',
-    sortBy = 'createdAt',
-    fromDate,
-    toDate
-  } = query
-
-  const skip = (page - 1) * limit
-  const pipeline: PipelineStage[] = []
-
-  if (fromDate || toDate) {
-    const dateFilter : Record<string,unknown> = {}
-    if (fromDate) dateFilter.$gte = new Date(fromDate)
-    if (toDate) dateFilter.$lte = new Date(toDate)
-
-    pipeline.push({ $match: { createdAt: dateFilter } })
+  if (campaign?.organizer?.toString() !== user?._id?.toString()) {
+    throw new AppError(httpStatus.BAD_REQUEST, "This campaign doesn't belongs to your account.")
   }
 
-  if (searchTerm) {
-    pipeline.push({
-      $match: {
-        $or: payoutSearchableFields.map(field => ({
-          [field]: { $regex: searchTerm, $options: 'i' }
-        }))
-      }
-    })
-  }
-
-  pipeline.push({ $sort: { [sortBy]: sortOrder === 'asc' ? 1 : -1 } })
-
-  pipeline.push({
-    $facet: {
-      data: [{ $skip: skip }, { $limit: limit }],
-      meta: [{ $count: 'total' }]
-    }
+  // ?? Get organization bank account id:
+  const orgAccount = await Account.findOne({
+    user: user?._id,
   })
 
-  const aggregated = await Payout.aggregate(pipeline)
+  // ?? Calculate the payments for the campaign :
+  const payments = await Payment.aggregate([
+    {
+      $match: {
+        campaign: campaign._id,
+        status: paymentStatus.PAID,
+        paymentType: {
+          $in: [paymentType.ORDER, paymentType.DONATION],
+        },
+      },
+    },
+    {
+      $lookup: {
+        from: 'paymentbreakdowns',
+        localField: '_id',
+        foreignField: 'payment',
+        as: 'paymentDetails',
+      },
+    },
+    {
+      $unwind: {
+        path: '$paymentDetails',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $project: {
+        paymentId: '$_id',
+        paymentType: 1,
 
-  const data = aggregated?.[0]?.data || []
-  const total = aggregated?.[0]?.meta?.[0]?.total || 0
+        paymentBreakdownId: '$paymentDetails._id',
+        subtotal: '$paymentDetails.subtotal',
+        shippingFee: '$paymentDetails.shippingFee',
+        totalAmount: '$paymentDetails.totalAmount',
+        stripeFee: '$paymentDetails.stripeFee',
+        platformFee: '$paymentDetails.platformFee',
+        organizerAmount: '$paymentDetails.organizerAmount',
+        organizerAmountWithoutShipping: '$paymentDetails.organizerAmountWithoutShipping',
+        discountAmount: '$paymentDetails.discountAmount',
+      },
+    },
+    {
+      $group: {
+        _id: null,
+
+        // ORDER
+        orderAmount: {
+          $sum: {
+            $cond: [{ $eq: ['$paymentType', paymentType.ORDER] }, '$totalAmount', 0],
+          },
+        },
+
+        // DONATION
+        donationAmount: {
+          $sum: {
+            $cond: [{ $eq: ['$paymentType', paymentType.DONATION] }, '$totalAmount', 0],
+          },
+        },
+
+        // TOTAL
+        totalAmount: {
+          $sum: '$totalAmount',
+        },
+
+        organizerAmount: {
+          $sum: '$organizerAmount',
+        },
+        organizerAmountWithoutShipping: {
+          $sum: '$organizerAmountWithoutShipping',
+        },
+
+        stripeFee: {
+          $sum: '$stripeFee',
+        },
+
+        platformFee: {
+          $sum: '$platformFee',
+        },
+
+        shippingFee: {
+          $sum: '$shippingFee',
+        },
+      },
+    },
+  ])
+
+  // ?? Financial breakdown:
+  const totalOrderAmount = Number(payments?.[0]?.orderAmount?.toFixed(2) ?? 0)
+  const totalDonationAmount = Number(payments?.[0]?.donationAmount?.toFixed(2) ?? 0)
+  const totalAmount = Number(payments?.[0]?.totalAmount?.toFixed(2) ?? 0)
+  const organizerAmount = Number(payments?.[0]?.organizerAmount?.toFixed(2) ?? 0)
+  const organizerAmountWithoutShipping = Number(
+    payments?.[0]?.organizerAmountWithoutShipping?.toFixed(2) ?? 0
+  )
+  const stripeFee = Number(payments?.[0]?.stripeFee?.toFixed(2) ?? 0)
+  const platformFee = Number(payments?.[0]?.platformFee?.toFixed(2) ?? 0)
+  const shippingFee = Number(payments?.[0]?.shippingFee?.toFixed(2) ?? 0)
+
+  // ?? Retrieved stripe  balance :
+  const balance = await stripe.balance.retrieve(
+    {},
+    {
+      stripeAccount: orgAccount?.account as string,
+    }
+  )
+
+  const availableUsd = balance.available.find((item) => item.currency === 'usd')?.amount ?? 0
+  const pendingUsd = balance.pending.find((item) => item.currency === 'usd')?.amount ?? 0
+
+  // ??
+  const endedAt = campaign?.endedAt ? campaign?.endedAt : campaign?.endDate
+  const fundProcessingAt = moment(endedAt).add(1, 'day').toDate()
+  const estimatedDepositFirstDate = campaign?.expectedPayoutDate
+    ? moment(campaign?.expectedPayoutDate).add(2, 'day').toDate()
+    : moment(fundProcessingAt).add(2, 'day').toDate()
+  const estimatedDepositLastDate = campaign?.expectedPayoutDate
+    ? moment(campaign?.expectedPayoutDate).add(3, 'day').toDate()
+    : moment(fundProcessingAt).add(3, 'day').toDate()
 
   return {
-    data,
-    meta: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit) || 1
-    }
+    campaignId: campaign?._id,
+    status: campaign?.status,
+    endedAt,
+    fundProcessingAt: fundProcessingAt,
+    expectedPayoutDate: campaign?.expectedPayoutDate,
+    estimatedDepositFirstDate,
+    estimatedDepositLastDate,
+    raisedAmount: campaign.raisedAmount,
+    raisedAmountWithShipping: campaign.raisedAmountWithShipping,
+
+    // Bank info:
+    bankAccountId: orgAccount?._id ?? null,
+    bankAccount: orgAccount?.account ?? null,
+    bankAccountStatus: orgAccount?.status ?? null,
+    isBankConnected: orgAccount ? true : false,
+    needToTakeActionForBank: orgAccount?.status !== accountStatus.ACTIVE,
+
+    // ?? Order Info:
+    financialBreakdown: {
+      totalOrderAmount,
+      totalDonationAmount,
+      totalAmount,
+      organizerAmount,
+      organizerAmountWithoutShipping,
+      stripeFee,
+      platformFee,
+      shippingFee,
+    },
+    stripeBalance: {
+      available: availableUsd,
+      pending: pendingUsd,
+    },
   }
-}
-
-const getPayoutById = async (id: string) => {
-  const result = await Payout.findById(id)
-
-  if (!result) {
-    throw new AppError(httpStatus.NOT_FOUND, "Payout not found")
-  }
-
-  return result
-}
-
-const deletePayoutById = async (id: string) => {
-  const result = await Payout.findOneAndDelete({ _id: id })
-
-  if (!result) {
-    throw new AppError(httpStatus.NOT_FOUND, "Payout not found")
-  }
-
-  return result
 }
 
 export const payoutServices = {
-  createPayout,
-  updatePayout,
-  getAllPayout,
-  getPayoutById,
-  deletePayoutById
+  getPayoutOverviewForCampaign,
 }
