@@ -10,6 +10,7 @@ import { siteInfoRoutes } from '@app/modules/SiteInfo/site-info.routes'
 import { usersRoutes } from '@app/modules/Users/users.routes'
 import express, { Router } from 'express'
 import { supporterRoutes } from '../modules/Supporter/supporter.routes'
+import { payoutRoutes } from '@app/modules/Payout/payout.routes'
 
 const router: Router = express.Router()
 
@@ -57,6 +58,10 @@ const routes = [
   {
     path: '/supporter',
     route: supporterRoutes,
+  },
+  {
+    path: '/payout',
+    route: payoutRoutes,
   },
 ]
 

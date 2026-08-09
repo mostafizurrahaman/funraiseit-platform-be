@@ -5,6 +5,7 @@ import {
   type IOrderPaymentDoc,
   type IPaymentDoc,
   type ILaunchPaymentDoc,
+  type IPayoutPaymentDoc,
 } from './payment.interfaces'
 import {
   paymentStatus,
@@ -115,6 +116,18 @@ const launchFeeSchema = new Schema<ILaunchPaymentDoc>({
     required: true,
   },
 })
+
+const payoutPaymentSchema = new Schema<IPayoutPaymentDoc>({
+  payoutId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Payout',
+    required: true,
+  },
+  stripePayoutId: {
+    type: String,
+    required: true,
+  },
+})
 // Static method
 // paymentSchema.statics.getById = async function (id: string) {
 //   return this.findById(id)
@@ -174,6 +187,7 @@ export const OrderPayment = Payment.discriminator(paymentType.ORDER, orderPaymen
 
 export const DonationPayment = Payment.discriminator(paymentType.DONATION, donationPaymentSchema)
 export const LaunchPayment = Payment.discriminator(paymentType.LAUNCH_FEE, launchFeeSchema)
+export const PayoutPayment = Payment.discriminator(paymentType.PAYOUT, payoutPaymentSchema)
 
 export const PaymentBreakDown = model<IPaymentBreakdownDoc>(
   'PaymentBreakdown',

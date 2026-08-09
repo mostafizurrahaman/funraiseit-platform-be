@@ -17,8 +17,10 @@ import {
   PaymentBreakDown,
   paymentStatus,
   paymentType,
+  Payout,
+  PayoutPayment,
+  PayoutStatus,
   PhysicalProduct,
-  Product,
   productType,
   PromoCode,
   PromoCodeUsage,
@@ -500,6 +502,7 @@ export const handleDonationCheckoutPaymentSuccess = async (
       {
         $inc: {
           raisedAmount: organizerNetAmount,
+          raisedAmountWithShipping: organizerNetAmount,
         },
       },
       {
@@ -869,6 +872,7 @@ export const handleOrderCheckoutPaymentSuccess = async (
       {
         $inc: {
           raisedAmount: organizerAmountWithoutShipping,
+          raisedAmountWithShipping: organizerNetAmount,
         },
       },
       {
@@ -1060,5 +1064,136 @@ export const handleOrderPaymentFailed = async (paymentIntent: Stripe.PaymentInte
     throw error
   } finally {
     await mongoSession.endSession()
+  }
+}
+
+export const handlePayoutPaid = async (payout: Stripe.Payout) => {
+  const payoutId = payout.id
+  const session = await mongoose.startSession()
+
+  try {
+    session.startTransaction()
+
+    const dbPayout = await Payout.findOneAndUpdate(
+      { stripePayoutId: payoutId },
+      { status: PayoutStatus.PAID, paidAt: new Date() },
+      { new: true, session }
+    )
+
+    if (!dbPayout) {
+      await session.abortTransaction()
+      return
+    }
+
+    await PayoutPayment.findOneAndUpdate(
+      { stripePayoutId: payoutId },
+      { status: paymentStatus.PAID, paidAt: new Date() },
+      { session }
+    )
+
+    await Campaign.findByIdAndUpdate(
+      dbPayout.campaign,
+      {
+        status: CampaignStatus.PAID_OUT,
+        paidOutAt: new Date(),
+      },
+      { session }
+    )
+
+    await session.commitTransaction()
+  } catch (error) {
+    await session.abortTransaction()
+    throw error
+  } finally {
+    await session.endSession()
+  }
+}
+
+export const handlePayoutFailed = async (payout: Stripe.Payout) => {
+  const payoutId = payout.id
+  const session = await mongoose.startSession()
+
+  try {
+    session.startTransaction()
+
+    const dbPayout = await Payout.findOneAndUpdate(
+      { stripePayoutId: payoutId },
+      {
+        status: PayoutStatus.FAILED,
+        failedAt: new Date(),
+        failureCode: payout.failure_code ?? 'unknown',
+        failureMessage: payout.failure_message ?? 'Payout failed',
+      },
+      { new: true, session }
+    )
+
+    if (!dbPayout) {
+      await session.abortTransaction()
+      return
+    }
+
+    await PayoutPayment.findOneAndUpdate(
+      { stripePayoutId: payoutId },
+      { status: paymentStatus.FAILED, failedAt: new Date() },
+      { session }
+    )
+
+    await Campaign.findByIdAndUpdate(
+      dbPayout.campaign,
+      {
+        status: CampaignStatus.COMPLETED,
+        expectedPayoutDate: moment().add(1, 'days').toDate(),
+      },
+      { session }
+    )
+
+    await session.commitTransaction()
+  } catch (error) {
+    await session.abortTransaction()
+    throw error
+  } finally {
+    await session.endSession()
+  }
+}
+
+export const handlePayoutCanceled = async (payout: Stripe.Payout) => {
+  const payoutId = payout.id
+  const session = await mongoose.startSession()
+
+  try {
+    session.startTransaction()
+
+    const dbPayout = await Payout.findOneAndUpdate(
+      { stripePayoutId: payoutId },
+      { status: PayoutStatus.CANCELED, canceledAt: new Date() },
+      { new: true, session }
+    )
+
+    if (!dbPayout) {
+      await session.abortTransaction()
+      return
+    }
+
+    await PayoutPayment.findOneAndUpdate(
+      { stripePayoutId: payoutId },
+      { status: paymentStatus.CANCELLED },
+      { session }
+    )
+
+    await Campaign.findByIdAndUpdate(
+      dbPayout.campaign,
+      {
+        status: CampaignStatus.COMPLETED,
+        expectedPayoutDate: moment().add(1, 'days').toDate(),
+      },
+      { session }
+    )
+
+    await session.commitTransaction()
+  } catch (error) {
+    await session.abortTransaction()
+    throw error
+  } finally {
+    await session.endSession()
   }
 }

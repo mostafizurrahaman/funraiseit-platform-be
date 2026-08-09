@@ -34,25 +34,10 @@ export interface ILaunchPayment extends IPayment {
   organizer: Types.ObjectId
 }
 
-// Table PaymentBreakdown {
-//   id string [pk]
-
-//   payment string [ref: > Payment.id, unique]
-
-//   subtotal decimal(12,2)
-//   shippingFee decimal(12,2)
-
-//   totalAmount decimal(12,2)
-
-//   stripeFee decimal(12,2)
-//   platformFee decimal(12,2)
-
-//   organizerAmount decimal(12,2)
-//   organizerAmountWithoutShipping decimal(12,2)
-
-//   createdAt date
-//   updatedAt date
-// }
+export interface IPayoutPayment extends IPayment {
+  payoutId: Types.ObjectId
+  stripePayoutId: Types.ObjectId
+}
 
 export interface IPaymentBreakdown {
   payment: Types.ObjectId
@@ -72,6 +57,7 @@ export interface IDonationPaymentDoc extends IDonationPayment, Document {}
 
 export interface IOrderPaymentDoc extends IOrderPayment, Document {}
 export interface ILaunchPaymentDoc extends ILaunchPayment, Document {}
+export interface IPayoutPaymentDoc extends IPayoutPayment, Document {}
 
 // export interface IPaymentModel extends Model<IPaymentDoc> {
 //   getById(id: string): Promise<IPayment | null>

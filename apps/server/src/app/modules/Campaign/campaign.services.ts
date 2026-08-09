@@ -14,6 +14,9 @@ import {
   PaymentBreakDown,
   paymentStatus,
   paymentType,
+  Payout,
+  PayoutPayment,
+  PayoutStatus,
   Product,
   PromoCode,
   PromoCodeUsage,
@@ -33,7 +36,7 @@ import type {
 import { uploadSingleFileToS3, type IMulterFile } from 'packages/media-hub/src'
 import { generateCampaignCode } from './campaign.utils'
 import mongoose, { Types } from 'mongoose'
-import { stripeCheckoutSession } from '@app/libs/stripe'
+import { createStripePayout, stripe, stripeCheckoutSession } from '@app/libs/stripe'
 import { logger } from '@app/libs/logger'
 import { enhanceCampaignStory } from '@app/libs/generate-story'
 
@@ -1163,23 +1166,6 @@ const cronJobToCompleteCampaign = async () => {
   }
 }
 
-// ?? Find out the payout ready campaigns:
-const cronJobToGetPayoutReadyCampaign = async () => {
-  try {
-    const now = moment().utc()
-    const result = await Campaign.find({
-      status: CampaignStatus.COMPLETED,
-      expectedPayoutDate: {
-        $lte: now?.toDate(),
-      },
-    })
-    logger.info('Campaigns', result)
-    logger.info(`Completed ${result.length} campaigns at ${now.toISOString()}`)
-  } catch (error) {
-    logger.error('Failed to complete campaigns', error)
-  }
-}
-
 const generateCampaignStory = async (story: string) => {
   if (!story || !story?.trim()) {
     throw new AppError(httpStatus.BAD_REQUEST, 'story is required')
@@ -1192,6 +1178,164 @@ const generateCampaignStory = async (story: string) => {
   }
 
   return result
+}
+// ?? Find out the payout ready campaigns:
+const cronJobToGetPayoutReadyCampaign = async () => {
+  try {
+    const now = moment().utc()
+    const result = await Campaign.find({
+      status: CampaignStatus.COMPLETED,
+      expectedPayoutDate: {
+        $lte: now.toDate(),
+      },
+      raisedAmount: {
+        $gt: 0,
+      },
+    })
+
+    for (const campaign of result) {
+      const orgAccount = await Account.findOne({ user: campaign.organizer })
+
+      if (!orgAccount || orgAccount.status !== accountStatus.ACTIVE) {
+        logger.warn(`Campaign ${campaign._id} payout skipped (Account issue).`)
+        continue
+      }
+
+      const balance = await stripe.balance.retrieve(
+        {},
+        {
+          stripeAccount: orgAccount.account,
+        }
+      )
+
+      const availableUsd = balance.available.find((item) => item.currency === 'usd')?.amount ?? 0
+
+      const pendingUsd = balance.pending.find((item) => item.currency === 'usd')?.amount ?? 0
+
+      if (availableUsd < campaign?.raisedAmountWithShipping) {
+        logger.warn(
+          `Campaign ${campaign._id}: payout is not ready. ` +
+            `Required: $${campaign?.raisedAmountWithShipping}, ` +
+            `Available: $${availableUsd / 100}, ` +
+            `Pending: $${pendingUsd / 100}`
+        )
+
+        continue
+      }
+
+      // ==========================================
+      // STEP 1: DB First (Locking the Campaign)
+      // ==========================================
+      const session = await mongoose.startSession()
+      let localPayoutId: string
+
+      try {
+        session.startTransaction()
+
+        // Create payout record before sending stripe:
+        const [payout] = await Payout.create(
+          [
+            {
+              organizer: campaign.organizer,
+              campaign: campaign._id,
+              stripePayoutId: 'pending',
+              stripeAccountId: orgAccount.account,
+              amount: campaign.raisedAmountWithShipping,
+              currency: campaign.currency,
+              status: PayoutStatus.PROCESSING,
+            },
+          ],
+          { session }
+        )
+
+        localPayoutId = payout?._id?.toString() as string
+
+        // Lock Campaign:
+        await Campaign.findByIdAndUpdate(
+          campaign._id,
+          { status: CampaignStatus.PAYOUT_REQUEST },
+          { session }
+        )
+
+        await session.commitTransaction()
+      } catch (error) {
+        await session.abortTransaction()
+        logger.error(`Failed to lock campaign ${campaign._id} for payout`, error)
+        continue
+      } finally {
+        await session.endSession()
+      }
+
+      // ==========================================
+      // STEP 2: Call Stripe API Safely
+      // ==========================================
+      let stripePayout
+      try {
+        stripePayout = await createStripePayout(
+          campaign.raisedAmountWithShipping,
+          'usd',
+          orgAccount.account,
+          {
+            campaignId: campaign._id.toString(),
+            organizerId: campaign.organizer.toString(),
+            payoutId: localPayoutId,
+            raisedAmount: campaign.raisedAmount,
+            raisedAmountWithShipping: campaign.raisedAmountWithShipping,
+          },
+          localPayoutId // idempotency key
+        )
+      } catch (stripeError: any) {
+        //  Failed if stripe has not enough fund:
+        logger.error(`Stripe Payout failed for campaign ${campaign._id}`, stripeError)
+
+        //  Update the payout status to failed
+        await Payout.findByIdAndUpdate(localPayoutId, {
+          status: PayoutStatus.FAILED,
+          failureMessage: stripeError.message,
+          failedAt: new Date(),
+        })
+        //  Update the campaign status to failed
+        await Campaign.findByIdAndUpdate(campaign._id, {
+          status: CampaignStatus.COMPLETED,
+          expectedPayoutDate: moment().add(1, 'days').toDate(),
+        })
+        continue
+      }
+
+      // ==========================================
+      // STEP 3: Final DB Update (Success)
+      // ==========================================
+      try {
+        // Update actual stripe payoutID
+        await Payout.findByIdAndUpdate(localPayoutId, {
+          stripePayoutId: stripePayout.id,
+          status: PayoutStatus.PENDING,
+        })
+
+        await PayoutPayment.create({
+          organizer: campaign.organizer,
+          campaign: campaign._id,
+          paymentType: paymentType.PAYOUT,
+          status: paymentStatus.PENDING,
+          currency: 'usd',
+          amount: campaign.raisedAmountWithShipping,
+          payoutId: localPayoutId,
+          stripePayoutId: stripePayout.id,
+        })
+
+        logger.info(`Payout initiated for campaign ${campaign._id} successfully!`)
+      } catch (dbError) {
+        logger.error(
+          `CRITICAL: Stripe Payout successful but final DB update failed. Webhook will handle it.`,
+          dbError
+        )
+      }
+    }
+
+    logger.info(`Completed payout checks. Triggered ${result.length} payouts.`)
+  } catch (error) {
+    logger.error('Failed to run cronJobToGetPayoutReadyCampaign', error)
+  }
 }
 
 export const campaignServices = {

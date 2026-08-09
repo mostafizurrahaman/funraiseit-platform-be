@@ -2,37 +2,16 @@ import express, { Router } from 'express'
 import { validateRequest } from '@app/middlewares'
 import { payoutControllers } from './payout.controllers'
 import { payoutValidations } from './payout.validations'
+import { AuthRoles } from 'packages/db/src'
+import { auth } from '@app/middlewares/auth'
 
-const router : Router = express.Router()
-
-router.post(
-  '/',
-  validateRequest(payoutValidations.createPayoutSchema),
-  payoutControllers.createPayout
-)
-
-router.patch(
-  '/:id',
-  validateRequest(payoutValidations.updatePayoutSchema),
-  payoutControllers.updatePayout
-)
+const router: Router = express.Router()
 
 router.get(
-  '/all',
-  validateRequest(payoutValidations.getAllPayoutSchema),
-  payoutControllers.getAllPayout
-)
-
-router.get(
-  '/:id',
-  validateRequest(payoutValidations.getPayoutByIdSchema),
-  payoutControllers.getPayoutById
-)
-
-router.delete(
-  '/:id',
-  validateRequest(payoutValidations.deletePayoutByIdSchema),
-  payoutControllers.deletePayoutById
+  '/:campaignId/overview',
+  auth(AuthRoles.ORGANIZER),
+  validateRequest(payoutValidations.getPayoutOverviewForCampaign),
+  payoutControllers.getPayoutOverviewForCampaign
 )
 
 export const payoutRoutes = router

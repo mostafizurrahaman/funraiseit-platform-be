@@ -16,6 +16,9 @@ import {
   handleDonationPaymentIntentFailed,
   handleOrderPaymentFailed,
   handleOrderCheckoutExpired,
+  handlePayoutPaid,
+  handlePayoutFailed,
+  handlePayoutCanceled,
 } from './stripe.utils'
 
 // Account Updated Event:
@@ -135,6 +138,15 @@ const listenStripeEvents = async (event: Stripe.Event) => {
       break
     case 'payment_intent.payment_failed':
       await handlePaymentIntentFailed(event)
+      break
+    case 'payout.paid':
+      await handlePayoutPaid(event.data.object as Stripe.Payout)
+      break
+    case 'payout.failed':
+      await handlePayoutFailed(event.data.object as Stripe.Payout)
+      break
+    case 'payout.canceled':
+      await handlePayoutCanceled(event.data.object as Stripe.Payout)
       break
     default:
       logger.warn(`Unhandled event type: ${event.type}`)
