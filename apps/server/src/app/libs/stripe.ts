@@ -4,10 +4,9 @@ import Stripe from 'stripe'
 import httpStatus from 'http-status'
 import { AppError } from '@repo/shared'
 import type { Request } from 'express'
-import moment from 'moment'
 // ? Stripe configured:
 export const stripe = new Stripe(configs.stripe.secretKey, {
-  apiVersion: '2026-06-24.dahlia',
+  apiVersion: '2026-07-29.dahlia',
 })
 
 // ? Create a new account :
