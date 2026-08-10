@@ -1,26 +1,21 @@
 import {
   Account,
   accountStatus,
-  AuthStatus,
   Campaign,
-  DonationPayment,
-  OrderPayment,
   Payment,
   paymentStatus,
   paymentType,
+  Payout,
   type IUser,
 } from '@repo/db'
-import type { TGetPayoutOverviewForCampaignQuery } from './payout.validations'
 import { AppError } from 'packages/shared/src'
 import httpStatus from 'http-status'
 import { stripe } from '@app/libs/stripe'
 import moment from 'moment'
+import type { PipelineStage } from 'mongoose'
 
-const getPayoutOverviewForCampaign = async (
-  user: IUser,
-  campaignId: string,
-  query: TGetPayoutOverviewForCampaignQuery
-) => {
+// ?? Overview api:
+const getPayoutOverviewForCampaign = async (user: IUser, campaignId: string) => {
   // ?? Check is campaign exists ?:
   const campaign = await Campaign.findById(campaignId)
   if (!campaign) {
@@ -185,12 +180,48 @@ const getPayoutOverviewForCampaign = async (
       shippingFee,
     },
     stripeBalance: {
-      available: availableUsd,
-      pending: pendingUsd,
+      available: availableUsd / 100,
+      pending: pendingUsd / 100,
     },
   }
 }
 
+// ?? Payout History:
+const getPayoutHistoryForCampaignId = async (user: IUser, campaignId: string) => {
+  // ?? Check is campaign exists ?:
+  const campaign = await Campaign.findById(campaignId)
+  if (!campaign) {
+    throw new AppError(httpStatus.NOT_FOUND, "Campaign doesn't exists.")
+  }
+
+  if (campaign?.organizer?.toString() !== user?._id?.toString()) {
+    throw new AppError(httpStatus.BAD_REQUEST, "This campaign doesn't belongs to your account.")
+  }
+
+  const pipeline: PipelineStage[] = [
+    {
+      $match: {
+        campaign: campaign?._id,
+      },
+    },
+  ]
+
+  pipeline.push({
+    $lookup: {
+      from: 'payments',
+      localField: '_id',
+      foreignField: 'payoutId',
+      as: 'paymentDetails',
+    },
+  })
+
+  // ?? Get Payout History
+  const payoutHistory = await Payout.aggregate(pipeline)
+
+  return payoutHistory
+}
+
 export const payoutServices = {
   getPayoutOverviewForCampaign,
+  getPayoutHistoryForCampaignId,
 }

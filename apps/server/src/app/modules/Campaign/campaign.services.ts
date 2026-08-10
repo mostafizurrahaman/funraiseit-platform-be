@@ -942,7 +942,7 @@ const launchCampaignByID = async (user: IUser, campaignId: string, promoCode?: s
 
     const result = await stripeCheckoutSession({
       name: `${campaign.name} (Campaign Launch fee)`,
-      unit_amount: payableAmount * 100,
+      unit_amount: Math.round(payableAmount * 100),
       expiresAt: stripeExpiresAt,
       metadata: {
         organizerId: user?._id?.toString(),
