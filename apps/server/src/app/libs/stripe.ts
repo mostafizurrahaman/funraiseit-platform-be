@@ -4,8 +4,6 @@ import Stripe from 'stripe'
 import httpStatus from 'http-status'
 import { AppError } from '@repo/shared'
 import type { Request } from 'express'
-import { string, unknown } from 'zod'
-
 // ? Stripe configured:
 export const stripe = new Stripe(configs.stripe.secretKey, {
   apiVersion: '2026-06-24.dahlia',
@@ -76,7 +74,7 @@ export const verifyWebHookSignature = (secretKey: string, req: Request): Stripe.
   }
   const signature = req.headers['stripe-signature'] as string
 
-  const event = stripe.webhooks.constructEvent(req.body, signature, configs.stripe.webhookKey)
+  const event = stripe.webhooks.constructEvent(req.body, signature, secretKey)
 
   return event
 }

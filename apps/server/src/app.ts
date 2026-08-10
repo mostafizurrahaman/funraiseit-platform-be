@@ -32,9 +32,15 @@ app.use(
 app.use(helmet())
 
 app.use(
-  '/api/v1/stripe/webhook',
+  '/api/v1/stripe/platform/webhook',
   express.raw({ type: 'application/json' }),
-  stripeController.handleStripeWebhook
+  stripeController.handleStripeWebhookForPlatform
+)
+
+app.use(
+  '/api/v1/stripe/connected-account/webhook',
+  express.raw({ type: 'application/json' }),
+  stripeController.handleStripeWebhookForConnectedAccount
 )
 
 app.use(express.json())
