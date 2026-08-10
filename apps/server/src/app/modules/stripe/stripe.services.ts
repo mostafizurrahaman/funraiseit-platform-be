@@ -125,11 +125,8 @@ const handlePaymentIntentFailed = async (event: Stripe.Event) => {
   }
 }
 
-const listenStripeEvents = async (event: Stripe.Event) => {
+const listenStripeEventsForPlatformAccount = async (event: Stripe.Event) => {
   switch (event.type) {
-    case 'account.updated':
-      await handleAccountUpdated(event)
-      break
     case 'checkout.session.completed':
       await handleCheckoutSessionSuccess(event)
       break
@@ -138,6 +135,19 @@ const listenStripeEvents = async (event: Stripe.Event) => {
       break
     case 'payment_intent.payment_failed':
       await handlePaymentIntentFailed(event)
+      break
+
+    default:
+      logger.warn(`Unhandled event type: ${event.type}`)
+  }
+
+  return { received: true }
+}
+
+const listenStripeEventsForConnectedAccount = async (event: Stripe.Event) => {
+  switch (event.type) {
+    case 'account.updated':
+      await handleAccountUpdated(event)
       break
     case 'payout.paid':
       await handlePayoutPaid(event.data.object as Stripe.Payout)
@@ -156,5 +166,6 @@ const listenStripeEvents = async (event: Stripe.Event) => {
 }
 
 export const stripeServices = {
-  listenStripeEvents,
+  listenStripeEventsForPlatformAccount,
+  listenStripeEventsForConnectedAccount,
 }
