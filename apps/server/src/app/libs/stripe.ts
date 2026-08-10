@@ -4,6 +4,7 @@ import Stripe from 'stripe'
 import httpStatus from 'http-status'
 import { AppError } from '@repo/shared'
 import type { Request } from 'express'
+import moment from 'moment'
 // ? Stripe configured:
 export const stripe = new Stripe(configs.stripe.secretKey, {
   apiVersion: '2026-06-24.dahlia',
@@ -140,6 +141,7 @@ export const stripeCheckoutSessionWithApplicationFee = async ({
   metadata: Stripe.MetadataParam
   destinationAccountId: string
 }) => {
+  const expiresAtSeconds = Math.floor(Date.now() / 1000) + 30 * 60
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card'],
     mode: 'payment',
@@ -159,6 +161,7 @@ export const stripeCheckoutSessionWithApplicationFee = async ({
     metadata: {
       ...metadata,
     },
+    expires_at: expiresAtSeconds,
     payment_intent_data: {
       metadata: {
         ...metadata,

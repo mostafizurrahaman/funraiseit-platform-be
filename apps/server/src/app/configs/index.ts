@@ -35,7 +35,8 @@ const envSchema = z.object({
   // Stripe
   STRIPE_SECRET_KEY: z.string(),
   STRIPE_PUBLISHABLE_KEY: z.string(),
-  STRIPE_WEBHOOK_KEY: z.string(),
+  STRIPE_WEBHOOK_KEY_PLATFORM: z.string(),
+  STRIPE_WEBHOOK_KEY_CONNECTED_ACCOUNT: z.string(),
   STRIPE_SUCCESS_URL: z.string().url(),
   STRIPE_CANCEL_URL: z.string().url(),
   STRIPE_REFRESH_URL: z.string().url(),
