@@ -1,7 +1,7 @@
 import { logger } from '@app/libs/logger'
 import { Account, accountStatus, paymentType, User, type TAccountStatus } from 'packages/db/src'
 import { AppError } from 'packages/shared/src'
-import type Stripe from 'stripe'
+import Stripe from 'stripe'
 import httpStatus from 'http-status'
 import {
   handleCampaignCheckoutPaymentSuccess,
@@ -146,6 +146,9 @@ const listenStripeEventsForPlatformAccount = async (event: Stripe.Event) => {
 
 const listenStripeEventsForConnectedAccount = async (event: Stripe.Event) => {
   switch (event.type) {
+    case 'v2.core.account[requirements].updated':
+      await handleAccountUpdated(event)
+      break
     case 'account.updated':
       await handleAccountUpdated(event)
       break
