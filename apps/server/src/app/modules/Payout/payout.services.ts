@@ -13,6 +13,7 @@ import httpStatus from 'http-status'
 import { stripe } from '@app/libs/stripe'
 import moment from 'moment'
 import type { PipelineStage } from 'mongoose'
+import type { TGetPayoutHistoriesForCampaign } from './payout.validations'
 
 // ?? Overview api:
 const getPayoutOverviewForCampaign = async (user: IUser, campaignId: string) => {
@@ -187,7 +188,12 @@ const getPayoutOverviewForCampaign = async (user: IUser, campaignId: string) => 
 }
 
 // ?? Payout History:
-const getPayoutHistoryForCampaignId = async (user: IUser, campaignId: string) => {
+const getPayoutHistoryForCampaignId = async (
+  user: IUser,
+  campaignId: string,
+  query: TGetPayoutHistoriesForCampaign
+) => {
+  const { limit, page, searchTerm, fromDate, toDate, sortBy, sortOrder } = query
   // ?? Check is campaign exists ?:
   const campaign = await Campaign.findById(campaignId)
   if (!campaign) {
@@ -206,14 +212,22 @@ const getPayoutHistoryForCampaignId = async (user: IUser, campaignId: string) =>
     },
   ]
 
-  pipeline.push({
-    $lookup: {
-      from: 'payments',
-      localField: '_id',
-      foreignField: 'payoutId',
-      as: 'paymentDetails',
+  pipeline.push(
+    {
+      $lookup: {
+        from: 'payments',
+        localField: '_id',
+        foreignField: 'payoutId',
+        as: 'paymentDetails',
+      },
     },
-  })
+    {
+      $unwind: {
+        path: '$paymentDetails',
+        preserveNullAndEmptyArrays: true,
+      },
+    }
+  )
 
   // ?? Get Payout History
   const payoutHistory = await Payout.aggregate(pipeline)

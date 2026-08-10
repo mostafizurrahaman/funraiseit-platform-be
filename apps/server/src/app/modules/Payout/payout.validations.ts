@@ -1,6 +1,5 @@
 import z from 'zod'
 import {
-  requiredString,
   optionalNumber,
   optionalEnumString,
   optionalString,
@@ -15,25 +14,26 @@ const getPayoutOverviewForCampaign = z.object({
     campaignId: requiredMongooseId('Campaign ID'),
   }),
 })
-// const getPayoutOverviewForCampaign = z.object({
-//   params: z.object({
-//     campaignId: requiredMongooseId('Campaign ID'),
-//   }),
-//   query: z.object({
-//     page: optionalNumber('Page'),
-//     limit: optionalNumber('Limit'),
-//     searchTerm: optionalString('Search term'),
-//     sortOrder: optionalEnumString(sortingOrderValues, 'Sort order'),
-//     sortBy: optionalEnumString(payoutSortableFields, 'Sort by'),
-//     fromDate: optionalDate('From date'),
-//     toDate: optionalDate('To date'),
-//   }),
-// })
+const getPayoutHistoriesForCampaign = z.object({
+  params: z.object({
+    campaignId: requiredMongooseId('Campaign ID'),
+  }),
+  query: z.object({
+    page: optionalNumber('Page'),
+    limit: optionalNumber('Limit'),
+    searchTerm: optionalString('Search term'),
+    sortOrder: optionalEnumString(sortingOrderValues, 'Sort order'),
+    sortBy: optionalEnumString(payoutSortableFields, 'Sort by'),
+    fromDate: optionalDate('From date'),
+    toDate: optionalDate('To date'),
+  }),
+})
 
 export const payoutValidations = {
   getPayoutOverviewForCampaign,
+  getPayoutHistoriesForCampaign,
 }
 
-export type TGetPayoutOverviewForCampaignQuery = z.infer<
-  typeof getPayoutOverviewForCampaign.shape.query
+export type TGetPayoutHistoriesForCampaign = z.infer<
+  typeof getPayoutHistoriesForCampaign.shape.query
 >
