@@ -94,16 +94,6 @@ const getCampaignByCampaignCode = catchAsync(async (req, res) => {
   })
 })
 
-// const deleteCampaignById = catchAsync(async (req, res) => {
-//   const result = await campaignServices.deleteCampaignById(req.params.id as string)
-
-//   sendResponse(res, {
-//     success: true,
-//     statusCode: httpStatus.OK,
-//     message: 'The campaign deleted successfully!',
-//     data: result,
-//   })
-// })
 
 const launchCampaignByID = catchAsync(async (req, res) => {
   const user = await getUserFromRequest(req)

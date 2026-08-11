@@ -6,6 +6,7 @@ import {
   paymentStatus,
   paymentType,
   Payout,
+  payoutSearchableFields,
   type IUser,
 } from '@repo/db'
 import { AppError } from 'packages/shared/src'
@@ -193,7 +194,22 @@ const getPayoutHistoryForCampaignId = async (
   campaignId: string,
   query: TGetPayoutHistoriesForCampaign
 ) => {
-  const { limit, page, searchTerm, fromDate, toDate, sortBy, sortOrder } = query
+  const {
+    limit: currentLimit,
+    page: currentPage,
+    searchTerm,
+    fromDate,
+    toDate,
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+    status,
+    skipPagination,
+  } = query
+
+  const limit = Number(currentLimit) || 10
+  const page = Number(currentPage) || 1
+  const skip = (page - 1) * limit
+
   // ?? Check is campaign exists ?:
   const campaign = await Campaign.findById(campaignId)
   if (!campaign) {
@@ -212,6 +228,31 @@ const getPayoutHistoryForCampaignId = async (
     },
   ]
 
+  if (fromDate || toDate) {
+    const dateFilter: Record<string, unknown> = {}
+
+    if (fromDate) {
+      dateFilter.$gte = moment(fromDate).startOf('day').toDate()
+    }
+    if (toDate) {
+      dateFilter.$lte = moment(fromDate).endOf('day').toDate()
+    }
+
+    pipeline.push({
+      $match: {
+        createdAt: dateFilter,
+      },
+    })
+  }
+
+  if (status) {
+    pipeline.push({
+      $match: {
+        status,
+      },
+    })
+  }
+
   pipeline.push(
     {
       $lookup: {
@@ -219,6 +260,13 @@ const getPayoutHistoryForCampaignId = async (
         localField: '_id',
         foreignField: 'payoutId',
         as: 'paymentDetails',
+        pipeline: [
+          {
+            $match: {
+              status: paymentStatus.PAID,
+            },
+          },
+        ],
       },
     },
     {
@@ -226,13 +274,100 @@ const getPayoutHistoryForCampaignId = async (
         path: '$paymentDetails',
         preserveNullAndEmptyArrays: true,
       },
+    },
+    {
+      $project: {
+        _id: 0,
+        payoutId: '$_id',
+        campaignId: '$campaign',
+        organizerId: '$organizer',
+        stripeAccountId: '$stripeAccountId',
+        stripePayoutId: '$stripePayoutId',
+        paymentId: {
+          $ifNull: ['$paymentDetails._id', null],
+        },
+
+        amount: '$amount',
+        status: '$status',
+        currency: '$currency',
+        failureMessage: '$failedMessage',
+        paidAt: {
+          $ifNull: ['$paymentDetails.paidAt', null],
+        },
+        cancelledAt: {
+          $ifNull: ['$cancelledAt', null],
+        },
+        failedAt: '$failedAt',
+        createdAt: '$createdAt',
+        updatedAt: '$createdAt',
+      },
     }
   )
+
+  if (searchTerm) {
+    pipeline.push({
+      $match: {
+        $or: payoutSearchableFields.map((field) => ({
+          [field]: {
+            $regex: field,
+            $options: 'i',
+          },
+        })),
+      },
+    })
+  }
+
+  pipeline.push({
+    $sort: {
+      [sortBy]: sortOrder === 'desc' ? -1 : 1,
+    },
+  })
+
+  const paginationPipeline: PipelineStage.FacetPipelineStage[] = []
+
+  const isPaginationSkipped =
+    skipPagination !== undefined &&
+    ((typeof skipPagination === 'string' && skipPagination === 'true') || skipPagination === true)
+
+  if (!isPaginationSkipped) {
+    paginationPipeline.push(
+      {
+        $skip: skip,
+      },
+      {
+        $limit: limit,
+      }
+    )
+  }
+
+  pipeline.push({
+    $facet: {
+      data: paginationPipeline,
+      meta: [
+        {
+          $count: 'total',
+        },
+      ],
+    },
+  })
 
   // ?? Get Payout History
   const payoutHistory = await Payout.aggregate(pipeline)
 
-  return payoutHistory
+  // ?? Calculation:
+  const data = payoutHistory?.[0].data
+  const total = payoutHistory?.[0]?.meta?.[0]?.total || 0
+  const totalPages = Math.ceil(total / limit) || 0
+
+  return {
+    data,
+    meta: {
+      page: isPaginationSkipped ? 1 : page,
+      limit: isPaginationSkipped ? total : limit,
+      total: total,
+      totalPages: isPaginationSkipped ? 1 : totalPages,
+    },
+  }
 }
 
 export const payoutServices = {

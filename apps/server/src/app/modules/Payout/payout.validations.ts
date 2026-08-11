@@ -7,7 +7,7 @@ import {
   sortingOrderValues,
   requiredMongooseId,
 } from '@repo/shared'
-import { payoutSortableFields } from '@repo/db'
+import { payoutSortableFields, payoutStatusValues } from '@repo/db'
 
 const getPayoutOverviewForCampaign = z.object({
   params: z.object({
@@ -26,6 +26,8 @@ const getPayoutHistoriesForCampaign = z.object({
     sortBy: optionalEnumString(payoutSortableFields, 'Sort by'),
     fromDate: optionalDate('From date'),
     toDate: optionalDate('To date'),
+    skipPagination: z.coerce.boolean({ error: 'Skip pagination will be boolean' }).optional(),
+    status: optionalEnumString(payoutStatusValues, 'Status'),
   }),
 })
 

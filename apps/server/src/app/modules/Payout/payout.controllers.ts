@@ -33,7 +33,8 @@ const getPayoutHistoriesForCampaign = catchAsync(async (req, res) => {
     success: true,
     statusCode: httpStatus.OK,
     message: 'The payout histories retrieved successfully!',
-    data: result,
+    data: result.data,
+    meta: result.meta,
   })
 })
 

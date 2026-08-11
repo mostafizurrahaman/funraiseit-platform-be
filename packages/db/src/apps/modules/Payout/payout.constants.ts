@@ -6,9 +6,22 @@ export const PayoutStatus = {
   CANCELED: 'canceled',
 } as const
 
-export const payoutSearchableFields = ['name'] as const
+export const payoutSearchableFields = [
+  'amount',
+  'failureMessage',
+  'currency',
+  'campaignId',
+  'payoutId',
+  'organizerId',
+] as const
 
-export const payoutSortableFields = ['createdAt', 'updatedAt'] as const
+export const payoutSortableFields = [
+  'createdAt',
+  'updatedAt',
+  'paidAt',
+  'failedAt',
+  'amount',
+] as const
 
 export const payoutStatusValues = Object.values(PayoutStatus)
 
