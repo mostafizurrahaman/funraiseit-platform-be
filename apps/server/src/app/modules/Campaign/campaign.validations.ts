@@ -131,6 +131,19 @@ const getAllCampaignSchema = z.object({
   }),
 })
 
+const getMyAllCampaignSchema = z.object({
+  query: z.object({
+    page: optionalNumber('Page'),
+    limit: optionalNumber('Limit'),
+    searchTerm: optionalString('Search term'),
+    campaignStatus: optionalEnumString(campaignStatusValues, 'Campaign Status'),
+    sortOrder: optionalEnumString(sortingOrderValues, 'Sort order'),
+    sortBy: optionalEnumString(campaignSortableFields, 'Sort by'),
+    fromDate: optionalDate('From date'),
+    toDate: optionalDate('To date'),
+  }),
+})
+
 const getAllActiveCampaign = z.object({
   query: z.object({
     page: optionalNumber('Page'),
@@ -172,11 +185,13 @@ export const campaignValidations = {
   getCampaignPreviewByID,
   launchCampaignByID,
   getAllActiveCampaign,
+  getMyAllCampaignSchema,
 }
 
 export type TCreateCampaignPayloadType = z.infer<typeof createCampaignSchema.shape.body>
 export type TUpdateCampaignPayloadType = z.infer<typeof updateCampaignSchema.shape.body>
 export type TGetAllCampaignQueryParamsType = z.infer<typeof getAllCampaignSchema.shape.query>
+export type TGetMyAllCampaignQueryParamsType = z.infer<typeof getMyAllCampaignSchema.shape.query>
 export type TGetCampaignByIdParamsType = z.infer<typeof getCampaignByIdSchema.shape.params>
 export type TDeleteCampaignByIdParamsType = z.infer<typeof deleteCampaignByIdSchema.shape.params>
 
