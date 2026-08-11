@@ -32,6 +32,7 @@ import type {
   TUpdateCampaignPayloadType,
   TGetAllCampaignQueryParamsType,
   TGetAllActiveCampaignQuery,
+  TGetMyAllCampaignQueryParamsType,
 } from './campaign.validations'
 import { uploadSingleFileToS3, type IMulterFile } from 'packages/media-hub/src'
 import { generateCampaignCode } from './campaign.utils'
@@ -453,6 +454,22 @@ const getAllCampaign = async (query: TGetAllCampaignQueryParamsType) => {
       },
     },
     {
+      $lookup: {
+        from: 'payments',
+        localField: '_id',
+        foreignField: 'campaign',
+        as: 'payments',
+        pipeline: [
+          {
+            $match: {
+              paymentType: [paymentType.DONATION, paymentType.ORDER],
+              status: paymentStatus.PAID,
+            },
+          },
+        ],
+      },
+    },
+    {
       $unwind: {
         path: '$organizerDetails',
         preserveNullAndEmptyArrays: true,
@@ -498,6 +515,175 @@ const getAllCampaign = async (query: TGetAllCampaignQueryParamsType) => {
       },
     })
   }
+
+  // TODO:  FOR SUPPORTERS: (Has to implement supporter details, like profile, and supporter count, Total orders, Total donations, Total order amount, progress calculation)
+
+  if (searchTerm) {
+    pipeline.push({
+      $match: {
+        $or: campaignSearchableFields.map((field) => ({
+          [field]: { $regex: searchTerm, $options: 'i' },
+        })),
+      },
+    })
+  }
+
+  pipeline.push({ $sort: { [sortBy]: sortOrder === 'asc' ? 1 : -1 } })
+
+  pipeline.push({
+    $facet: {
+      data: [{ $skip: skip }, { $limit: limit }],
+      meta: [{ $count: 'total' }],
+    },
+  })
+
+  const aggregated = await Campaign.aggregate(pipeline)
+
+  const data = aggregated?.[0]?.data || []
+  const total = aggregated?.[0]?.meta?.[0]?.total || 0
+
+  return {
+    data,
+    meta: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit) || 1,
+    },
+  }
+}
+
+const getMyAllCampaign = async (user: IUser, query: TGetMyAllCampaignQueryParamsType) => {
+  const {
+    page: currentPage = 1,
+    limit: currentLimit = 10,
+    searchTerm,
+    campaignStatus,
+    sortOrder = 'desc',
+    sortBy = 'createdAt',
+    fromDate,
+    toDate,
+  } = query
+
+  const page = Math.max(Number(currentPage), 1)
+  const limit = Number(currentLimit) || 10
+  const skip = (page - 1) * limit
+
+  const pipeline: PipelineStage[] = [
+    {
+      $match: {
+        organizer: user?._id,
+      },
+    },
+  ]
+
+  if (fromDate || toDate) {
+    const dateFilter: Record<string, unknown> = {}
+    if (fromDate) dateFilter.$gte = new Date(fromDate)
+    if (toDate) dateFilter.$lte = new Date(toDate)
+
+    pipeline.push({ $match: { createdAt: dateFilter } })
+  }
+
+  if (campaignStatus) {
+    pipeline.push({
+      $match: {
+        status: campaignStatus,
+      },
+    })
+  }
+
+  pipeline.push(
+    {
+      $lookup: {
+        from: 'products',
+        localField: '_id',
+        foreignField: 'campaign',
+        as: 'products',
+        pipeline: [
+          {
+            $count: 'total',
+          },
+        ],
+      },
+    },
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'organizer',
+        foreignField: '_id',
+        as: 'organizerDetails',
+        // pipeline: [
+        //   {
+        //     $count: 'total',
+        //   },
+        // ],
+      },
+    },
+    {
+      $lookup: {
+        from: 'payments',
+        localField: '_id',
+        foreignField: 'campaign',
+        as: 'payments',
+        pipeline: [
+          {
+            $match: {
+              paymentType: {
+                $in: [paymentType.DONATION, paymentType.ORDER],
+              },
+              status: paymentStatus.PAID,
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              supporters: {
+                $addToSet: '$supporter',
+              },
+            },
+          },
+        ],
+      },
+    },
+    {
+      $unwind: {
+        path: '$organizerDetails',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+
+    {
+      $addFields: {
+        totalProducts: { $first: '$products.total' },
+        organizerName: { $ifNull: ['$organizerDetails.name', null] },
+        organizerEmail: { $ifNull: ['$organizerDetails.email', null] },
+        organizerProfileImage: { $ifNull: ['$organizerDetails.profileImage', null] },
+        organizerStatus: { $ifNull: ['$organizerDetails.status', null] },
+        supporters: [
+          {
+            supporterId: '',
+            profileImage: '',
+            email: '',
+            phone: '',
+          },
+        ],
+        remainingDays: '',
+        totalSupporters: 0,
+        totalDonations: 0,
+        totalOrders: 0,
+        orderedAmount: 0,
+        donationAmount: 0,
+        progress: 0,
+      },
+    },
+    {
+      $project: {
+        organizerDetails: 0,
+        products: 0,
+      },
+    }
+  )
 
   // TODO:  FOR SUPPORTERS: (Has to implement supporter details, like profile, and supporter count, Total orders, Total donations, Total order amount, progress calculation)
 
@@ -1414,11 +1600,12 @@ export const campaignServices = {
   launchCampaignByID,
   getCampaignPreview,
   getAllActiveCampaign,
+  getMyAllCampaign,
   getCampaignByCampaignCode,
+  generateCampaignStory,
+  getDraftCampaign,
 
   // CORN JOBS:
   cronJobToCompleteCampaign,
   cronJobToGetPayoutReadyCampaign,
-  generateCampaignStory,
-  getDraftCampaign,
 }

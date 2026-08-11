@@ -55,6 +55,13 @@ router.get(
 )
 
 router.get(
+  '/my',
+  auth(AuthRoles.ORGANIZER),
+  validateRequest(campaignValidations.getAllCampaignSchema),
+  campaignControllers.getMyAllCampaign
+)
+
+router.get(
   '/all/active',
   validateRequest(campaignValidations.getAllActiveCampaign),
   campaignControllers.getAllActiveCampaign
