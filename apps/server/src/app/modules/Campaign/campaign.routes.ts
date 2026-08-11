@@ -19,6 +19,8 @@ router.post(
   campaignControllers.createCampaign
 )
 
+router.get('/draft', auth(AuthRoles.ORGANIZER), campaignControllers.getDraftCampaign)
+
 router.post('/story', campaignControllers.generateCampaignStory)
 
 router.post(

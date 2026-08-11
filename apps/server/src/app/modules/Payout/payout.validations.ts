@@ -1,6 +1,5 @@
 import z from 'zod'
 import {
-  requiredString,
   optionalNumber,
   optionalEnumString,
   optionalString,
@@ -8,32 +7,35 @@ import {
   sortingOrderValues,
   requiredMongooseId,
 } from '@repo/shared'
-import { payoutSortableFields } from '@repo/db'
+import { payoutSortableFields, payoutStatusValues } from '@repo/db'
 
 const getPayoutOverviewForCampaign = z.object({
   params: z.object({
     campaignId: requiredMongooseId('Campaign ID'),
   }),
 })
-// const getPayoutOverviewForCampaign = z.object({
-//   params: z.object({
-//     campaignId: requiredMongooseId('Campaign ID'),
-//   }),
-//   query: z.object({
-//     page: optionalNumber('Page'),
-//     limit: optionalNumber('Limit'),
-//     searchTerm: optionalString('Search term'),
-//     sortOrder: optionalEnumString(sortingOrderValues, 'Sort order'),
-//     sortBy: optionalEnumString(payoutSortableFields, 'Sort by'),
-//     fromDate: optionalDate('From date'),
-//     toDate: optionalDate('To date'),
-//   }),
-// })
+const getPayoutHistoriesForCampaign = z.object({
+  params: z.object({
+    campaignId: requiredMongooseId('Campaign ID'),
+  }),
+  query: z.object({
+    page: optionalNumber('Page'),
+    limit: optionalNumber('Limit'),
+    searchTerm: optionalString('Search term'),
+    sortOrder: optionalEnumString(sortingOrderValues, 'Sort order'),
+    sortBy: optionalEnumString(payoutSortableFields, 'Sort by'),
+    fromDate: optionalDate('From date'),
+    toDate: optionalDate('To date'),
+    skipPagination: z.coerce.boolean({ error: 'Skip pagination will be boolean' }).optional(),
+    status: optionalEnumString(payoutStatusValues, 'Status'),
+  }),
+})
 
 export const payoutValidations = {
   getPayoutOverviewForCampaign,
+  getPayoutHistoriesForCampaign,
 }
 
-export type TGetPayoutOverviewForCampaignQuery = z.infer<
-  typeof getPayoutOverviewForCampaign.shape.query
+export type TGetPayoutHistoriesForCampaign = z.infer<
+  typeof getPayoutHistoriesForCampaign.shape.query
 >

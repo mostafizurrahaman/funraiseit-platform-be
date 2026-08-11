@@ -17,8 +17,8 @@ router.get(
 router.get(
   '/:campaignId',
   auth(AuthRoles.ORGANIZER),
-  validateRequest(payoutValidations.getPayoutOverviewForCampaign),
-  payoutControllers.getPayoutOverviewForCampaign
+  validateRequest(payoutValidations.getPayoutHistoriesForCampaign),
+  payoutControllers.getPayoutHistoriesForCampaign
 )
 
 export const payoutRoutes = router
