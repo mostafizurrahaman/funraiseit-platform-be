@@ -629,8 +629,18 @@ const getMyAllCampaign = async (user: IUser, query: TGetMyAllCampaignQueryParams
         pipeline: [
           {
             $match: {
-              paymentType: [paymentType.DONATION, paymentType.ORDER],
+              paymentType: {
+                $in: [paymentType.DONATION, paymentType.ORDER],
+              },
               status: paymentStatus.PAID,
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              supporters: {
+                $addToSet: '$supporter',
+              },
             },
           },
         ],
@@ -1592,10 +1602,10 @@ export const campaignServices = {
   getAllActiveCampaign,
   getMyAllCampaign,
   getCampaignByCampaignCode,
+  generateCampaignStory,
+  getDraftCampaign,
 
   // CORN JOBS:
   cronJobToCompleteCampaign,
   cronJobToGetPayoutReadyCampaign,
-  generateCampaignStory,
-  getDraftCampaign,
 }
