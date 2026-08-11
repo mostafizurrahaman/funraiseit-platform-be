@@ -276,7 +276,7 @@ const createOrder = async (payload: TCreateOrderPayloadType) => {
       (p) => p.productType === 'physical' && !(p as IPhysicalProduct)?.isUnlimited
     )
 
-    const stockUpdatedPromises = physicalProductsToUpdate.map(async(p) => {
+    const stockUpdatedPromises = physicalProductsToUpdate.map(async (p) => {
       // ?? Customer given quantity:
       const requestQuantity = orderedQuantityMap.get(p._id?.toString()) ?? 0
 
