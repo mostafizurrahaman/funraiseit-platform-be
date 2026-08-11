@@ -112,6 +112,73 @@ const createCampaign = async (
   return newCampaign
 }
 
+const getDraftCampaign = async (user: IUser) => {
+  const pipeline: PipelineStage[] = [
+    // {
+    //   $match: {
+    //     status: CampaignStatus.DRAFT,
+    //   },
+    // },
+  ]
+
+  // ?? Find out draft
+  if (user?._id) {
+    pipeline.push({
+      $match: {
+        organizer: user?._id,
+      },
+    })
+  }
+
+  pipeline.push(
+    {
+      $lookup: {
+        from: 'products',
+        localField: '_id',
+        foreignField: 'campaign',
+        as: 'products',
+      },
+    },
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'organizer',
+        foreignField: '_id',
+        as: 'organizerDetails',
+      },
+    },
+    {
+      $unwind: {
+        path: '$organizerDetails',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+
+    {
+      $addFields: {
+        totalProducts: { $size: '$products' },
+        organizerName: { $ifNull: ['$organizerDetails.name', null] },
+        organizerEmail: { $ifNull: ['$organizerDetails.email', null] },
+        organizerProfileImage: { $ifNull: ['$organizerDetails.profileImage', null] },
+        organizerStatus: { $ifNull: ['$organizerDetails.status', null] },
+      },
+    },
+    {
+      $project: {
+        organizerDetails: 0,
+      },
+    }
+  )
+
+  const [campaign] = await Campaign.aggregate(pipeline)
+
+  if (!campaign) {
+    throw new AppError(httpStatus.NOT_FOUND, 'No Draft campaign exists.')
+  }
+
+  return campaign
+}
+
 const getCampaignPreview = async (user: IUser, campaignId: string, promoCode?: string) => {
   const campaign = await Campaign.findById(campaignId)
 
@@ -1353,4 +1420,5 @@ export const campaignServices = {
   cronJobToCompleteCampaign,
   cronJobToGetPayoutReadyCampaign,
   generateCampaignStory,
+  getDraftCampaign,
 }

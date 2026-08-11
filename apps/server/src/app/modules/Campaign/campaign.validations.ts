@@ -114,24 +114,6 @@ const updateCampaignSchema = z.object({
     allowDonation: requiredStrBoolean('Allow donation').optional(),
     shippingFee: positiveNumber('Shipping fee').optional(),
   }),
-  // .superRefine((data, ctx) => {
-  //   if (!data.allowLocalPickup && !data.allowLocalDelivery && !data.allowShipping) {
-  //     return ctx.addIssue({
-  //       code: z.ZodIssueCode.custom,
-  //       path: ['allowLocalPickup'],
-  //       message:
-  //         'At least one option must be enabled (Local Pickup, Local Delivery, Shipping, or Donation).',
-  //     })
-  //   }
-
-  //   if (!data.allowShipping && (data.shippingFee === undefined || data.shippingFee > 0)) {
-  //     return ctx.addIssue({
-  //       code: z.ZodIssueCode.custom,
-  //       path: ['allowShipping'],
-  //       message: 'Shipping fee cannot be added when shipping is disabled.',
-  //     })
-  //   }
-  // }),
 })
 
 const getAllCampaignSchema = z.object({
@@ -182,7 +164,6 @@ const deleteCampaignByIdSchema = z.object({
 
 export const campaignValidations = {
   createCampaignSchema,
-
   updateCampaignSchema,
   getAllCampaignSchema,
   getCampaignByIdSchema,

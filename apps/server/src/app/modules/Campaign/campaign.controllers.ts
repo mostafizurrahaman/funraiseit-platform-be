@@ -18,6 +18,18 @@ const createCampaign = catchAsync(async (req, res) => {
   })
 })
 
+const getDraftCampaign = catchAsync(async (req, res) => {
+  const user = (await getUserFromRequest(req)) as IUser
+  const result = await campaignServices.getDraftCampaign(user)
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.CREATED,
+    message: 'The draft campaign retrieved successfully!',
+    data: result,
+  })
+})
+
 const getCampaignPreview = catchAsync(async (req, res) => {
   const user = (await getUserFromRequest(req)) as IUser
   const campaignId = req.params.id as string
@@ -94,7 +106,6 @@ const getCampaignByCampaignCode = catchAsync(async (req, res) => {
   })
 })
 
-
 const launchCampaignByID = catchAsync(async (req, res) => {
   const user = await getUserFromRequest(req)
   const campaignId = req.params.id as string
@@ -125,6 +136,7 @@ const generateCampaignStory = catchAsync(async (req, res) => {
 
 export const campaignControllers = {
   createCampaign,
+  getDraftCampaign,
   updateCampaign,
   getAllCampaign,
   getCampaignById,
