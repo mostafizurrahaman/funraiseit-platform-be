@@ -458,12 +458,107 @@ const getAllCampaign = async (query: TGetAllCampaignQueryParamsType) => {
         from: 'payments',
         localField: '_id',
         foreignField: 'campaign',
-        as: 'payments',
+        as: 'campaignDetails',
         pipeline: [
           {
             $match: {
-              paymentType: [paymentType.DONATION, paymentType.ORDER],
+              paymentType: {
+                $in: [paymentType.DONATION, paymentType.ORDER],
+              },
               status: paymentStatus.PAID,
+            },
+          },
+          {
+            $lookup: {
+              from: 'paymentbreakdowns',
+              localField: '_id',
+              foreignField: 'payment',
+              as: 'paymentBreakdown',
+            },
+          },
+          {
+            $unwind: {
+              path: '$paymentBreakdown',
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              supporters: {
+                $addToSet: '$supporter',
+              },
+              totalOrders: {
+                $sum: {
+                  $cond: [{ $eq: ['$paymentType', paymentType.ORDER] }, 1, 0],
+                },
+              },
+              totalDonations: {
+                $sum: {
+                  $cond: [{ $eq: ['$paymentType', paymentType.DONATION] }, 1, 0],
+                },
+              },
+              totalOrderedAmount: {
+                $sum: {
+                  $cond: [
+                    { $eq: ['$paymentType', paymentType.ORDER] },
+                    '$paymentBreakdown.totalAmount',
+                    0,
+                  ],
+                },
+              },
+              totalDonationAmount: {
+                $sum: {
+                  $cond: [
+                    { $eq: ['$paymentType', paymentType.DONATION] },
+                    { $ifNull: ['$paymentBreakdown.totalAmount', 0] },
+                    0,
+                  ],
+                },
+              },
+              subtotal: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.subtotal', 0],
+                },
+              },
+              shippingFee: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.shippingFee', 0],
+                },
+              },
+              totalAmount: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.totalAmount', 0],
+                },
+              },
+              stripeFee: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.stripeFee', 0],
+                },
+              },
+              platformFee: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.platformFee', 0],
+                },
+              },
+              organizerAmount: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.organizerAmount', 0],
+                },
+              },
+              organizerAmountWithoutShipping: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.organizerAmountWithoutShipping', 0],
+                },
+              },
+            },
+          },
+          {
+            $lookup: {
+              from: 'supporters',
+              localField: 'supporters',
+              foreignField: '_id',
+              as: 'supporters',
             },
           },
         ],
@@ -475,6 +570,12 @@ const getAllCampaign = async (query: TGetAllCampaignQueryParamsType) => {
         preserveNullAndEmptyArrays: true,
       },
     },
+    {
+      $unwind: {
+        path: '$campaignDetails',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
 
     {
       $addFields: {
@@ -483,27 +584,65 @@ const getAllCampaign = async (query: TGetAllCampaignQueryParamsType) => {
         organizerEmail: { $ifNull: ['$organizerDetails.email', null] },
         organizerProfileImage: { $ifNull: ['$organizerDetails.profileImage', null] },
         organizerStatus: { $ifNull: ['$organizerDetails.status', null] },
-        supporters: [
-          {
-            supporterId: '',
-            profileImage: '',
-            email: '',
-            phone: '',
-          },
-        ],
-        remainingDays: '',
-        totalSupporters: 0,
-        totalDonations: 0,
-        totalOrders: 0,
-        orderedAmount: 0,
-        donationAmount: 0,
-        progress: 0,
+        supporters: '$campaignDetails.supporters',
+        remainingDays: {
+          $cond: [
+            {
+              $in: [
+                '$status',
+                [CampaignStatus.ACTIVE, CampaignStatus.DRAFT, CampaignStatus.PENDING],
+              ],
+            },
+            {
+              $max: [
+                0,
+                {
+                  $dateDiff: {
+                    startDate: new Date(),
+                    endDate: '$endAt',
+                    unit: 'day',
+                  },
+                },
+              ],
+            },
+            0,
+          ],
+        },
+
+        totalSupporters: { $size: { $ifNull: ['$campaignDetails.supporters', []] } },
+        totalDonations: '$campaignDetails.totalDonations',
+        totalOrders: '$campaignDetails.totalOrders',
+        orderedAmount: '$campaignDetails.totalOrderedAmount',
+        donationAmount: '$campaignDetails.totalDonationAmount',
+        subtotal: '$campaignDetails.subtotal',
+        shippingFee: '$campaignDetails.shippingFee',
+        totalAmount: '$campaignDetails.totalAmount',
+        stripeFee: '$campaignDetails.stripeFee',
+        platformFee: '$campaignDetails.platformFee',
+        organizerAmount: '$campaignDetails.organizerAmount',
+        organizerAmountWithoutShipping: '$campaignDetails.organizerAmountWithoutShipping',
+        progress: {
+          $divide: [
+            {
+              $multiply: [
+                {
+                  $ifNull: ['$campaignDetails.organizerAmount', 0],
+                },
+                100,
+              ],
+            },
+            {
+              $ifNull: ['$goalAmount', 0],
+            },
+          ],
+        },
       },
     },
     {
       $project: {
         organizerDetails: 0,
         products: 0,
+        campaignDetails: 0,
       },
     }
   )
@@ -515,8 +654,6 @@ const getAllCampaign = async (query: TGetAllCampaignQueryParamsType) => {
       },
     })
   }
-
-  // TODO:  FOR SUPPORTERS: (Has to implement supporter details, like profile, and supporter count, Total orders, Total donations, Total order amount, progress calculation)
 
   if (searchTerm) {
     pipeline.push({
@@ -541,9 +678,24 @@ const getAllCampaign = async (query: TGetAllCampaignQueryParamsType) => {
 
   const data = aggregated?.[0]?.data || []
   const total = aggregated?.[0]?.meta?.[0]?.total || 0
-
+  const formattedData = data.map((campaign: any) => ({
+    ...campaign,
+    raisedAmountWithShipping: Number(campaign.raisedAmountWithShipping?.toFixed(2) ?? 0),
+    raisedAmount: Number(campaign.raisedAmount?.toFixed(2) ?? 0),
+    orderedAmount: Number(campaign.orderedAmount?.toFixed(2) ?? 0),
+    donationAmount: Number(campaign.donationAmount?.toFixed(2) ?? 0),
+    subtotal: Number(campaign.subtotal?.toFixed(2) ?? 0),
+    totalAmount: Number(campaign.totalAmount?.toFixed(2) ?? 0),
+    stripeFee: Number(campaign.stripeFee?.toFixed(2) ?? 0),
+    platformFee: Number(campaign.platformFee?.toFixed(2) ?? 0),
+    organizerAmount: Number(campaign.organizerAmount?.toFixed(2) ?? 0),
+    organizerAmountWithoutShipping: Number(
+      campaign.organizerAmountWithoutShipping?.toFixed(2) ?? 0
+    ),
+    progress: Number(campaign.progress?.toFixed(2) ?? 0),
+  }))
   return {
-    data,
+    data: formattedData,
     meta: {
       page,
       limit,
@@ -625,7 +777,7 @@ const getMyAllCampaign = async (user: IUser, query: TGetMyAllCampaignQueryParams
         from: 'payments',
         localField: '_id',
         foreignField: 'campaign',
-        as: 'payments',
+        as: 'campaignDetails',
         pipeline: [
           {
             $match: {
@@ -636,11 +788,96 @@ const getMyAllCampaign = async (user: IUser, query: TGetMyAllCampaignQueryParams
             },
           },
           {
+            $lookup: {
+              from: 'paymentbreakdowns',
+              localField: '_id',
+              foreignField: 'payment',
+              as: 'paymentBreakdown',
+            },
+          },
+          {
+            $unwind: {
+              path: '$paymentBreakdown',
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+          {
             $group: {
               _id: null,
               supporters: {
                 $addToSet: '$supporter',
               },
+              totalOrders: {
+                $sum: {
+                  $cond: [{ $eq: ['$paymentType', paymentType.ORDER] }, 1, 0],
+                },
+              },
+              totalDonations: {
+                $sum: {
+                  $cond: [{ $eq: ['$paymentType', paymentType.DONATION] }, 1, 0],
+                },
+              },
+              totalOrderedAmount: {
+                $sum: {
+                  $cond: [
+                    { $eq: ['$paymentType', paymentType.ORDER] },
+                    '$paymentBreakdown.totalAmount',
+                    0,
+                  ],
+                },
+              },
+              totalDonationAmount: {
+                $sum: {
+                  $cond: [
+                    { $eq: ['$paymentType', paymentType.DONATION] },
+                    { $ifNull: ['$paymentBreakdown.totalAmount', 0] },
+                    0,
+                  ],
+                },
+              },
+              subtotal: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.subtotal', 0],
+                },
+              },
+              shippingFee: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.shippingFee', 0],
+                },
+              },
+              totalAmount: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.totalAmount', 0],
+                },
+              },
+              stripeFee: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.stripeFee', 0],
+                },
+              },
+              platformFee: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.platformFee', 0],
+                },
+              },
+              organizerAmount: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.organizerAmount', 0],
+                },
+              },
+              organizerAmountWithoutShipping: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.organizerAmountWithoutShipping', 0],
+                },
+              },
+            },
+          },
+          {
+            $lookup: {
+              from: 'supporters',
+              localField: 'supporters',
+              foreignField: '_id',
+              as: 'supporters',
             },
           },
         ],
@@ -652,6 +889,12 @@ const getMyAllCampaign = async (user: IUser, query: TGetMyAllCampaignQueryParams
         preserveNullAndEmptyArrays: true,
       },
     },
+    {
+      $unwind: {
+        path: '$campaignDetails',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
 
     {
       $addFields: {
@@ -660,32 +903,68 @@ const getMyAllCampaign = async (user: IUser, query: TGetMyAllCampaignQueryParams
         organizerEmail: { $ifNull: ['$organizerDetails.email', null] },
         organizerProfileImage: { $ifNull: ['$organizerDetails.profileImage', null] },
         organizerStatus: { $ifNull: ['$organizerDetails.status', null] },
-        supporters: [
-          {
-            supporterId: '',
-            profileImage: '',
-            email: '',
-            phone: '',
-          },
-        ],
-        remainingDays: '',
-        totalSupporters: 0,
-        totalDonations: 0,
-        totalOrders: 0,
-        orderedAmount: 0,
-        donationAmount: 0,
-        progress: 0,
+        supporters: '$campaignDetails.supporters',
+        remainingDays: {
+          $cond: [
+            {
+              $in: [
+                '$status',
+                [CampaignStatus.ACTIVE, CampaignStatus.DRAFT, CampaignStatus.PENDING],
+              ],
+            },
+            {
+              $max: [
+                0,
+                {
+                  $dateDiff: {
+                    startDate: new Date(),
+                    endDate: '$endAt',
+                    unit: 'day',
+                  },
+                },
+              ],
+            },
+            0,
+          ],
+        },
+
+        totalSupporters: { $size: { $ifNull: ['$campaignDetails.supporters', []] } },
+        totalDonations: '$campaignDetails.totalDonations',
+        totalOrders: '$campaignDetails.totalOrders',
+        orderedAmount: '$campaignDetails.totalOrderedAmount',
+        donationAmount: '$campaignDetails.totalDonationAmount',
+        subtotal: '$campaignDetails.subtotal',
+        shippingFee: '$campaignDetails.shippingFee',
+        totalAmount: '$campaignDetails.totalAmount',
+        stripeFee: '$campaignDetails.stripeFee',
+        platformFee: '$campaignDetails.platformFee',
+        organizerAmount: '$campaignDetails.organizerAmount',
+        organizerAmountWithoutShipping: '$campaignDetails.organizerAmountWithoutShipping',
+        progress: {
+          $divide: [
+            {
+              $multiply: [
+                {
+                  $ifNull: ['$campaignDetails.organizerAmount', 0],
+                },
+                100,
+              ],
+            },
+            {
+              $ifNull: ['$goalAmount', 0],
+            },
+          ],
+        },
       },
     },
     {
       $project: {
         organizerDetails: 0,
         products: 0,
+        campaignDetails: 0,
       },
     }
   )
-
-  // TODO:  FOR SUPPORTERS: (Has to implement supporter details, like profile, and supporter count, Total orders, Total donations, Total order amount, progress calculation)
 
   if (searchTerm) {
     pipeline.push({
@@ -711,8 +990,25 @@ const getMyAllCampaign = async (user: IUser, query: TGetMyAllCampaignQueryParams
   const data = aggregated?.[0]?.data || []
   const total = aggregated?.[0]?.meta?.[0]?.total || 0
 
+  const formattedData = data.map((campaign: any) => ({
+    ...campaign,
+    raisedAmountWithShipping: Number(campaign.raisedAmountWithShipping?.toFixed(2) ?? 0),
+    raisedAmount: Number(campaign.raisedAmount?.toFixed(2) ?? 0),
+    orderedAmount: Number(campaign.orderedAmount?.toFixed(2) ?? 0),
+    donationAmount: Number(campaign.donationAmount?.toFixed(2) ?? 0),
+    subtotal: Number(campaign.subtotal?.toFixed(2) ?? 0),
+    totalAmount: Number(campaign.totalAmount?.toFixed(2) ?? 0),
+    stripeFee: Number(campaign.stripeFee?.toFixed(2) ?? 0),
+    platformFee: Number(campaign.platformFee?.toFixed(2) ?? 0),
+    organizerAmount: Number(campaign.organizerAmount?.toFixed(2) ?? 0),
+    organizerAmountWithoutShipping: Number(
+      campaign.organizerAmountWithoutShipping?.toFixed(2) ?? 0
+    ),
+    progress: Number(campaign.progress?.toFixed(2) ?? 0),
+  }))
+
   return {
-    data,
+    data: formattedData,
     meta: {
       page,
       limit,
@@ -753,8 +1049,125 @@ const getCampaignById = async (id: string) => {
       },
     },
     {
+      $lookup: {
+        from: 'payments',
+        localField: '_id',
+        foreignField: 'campaign',
+        as: 'campaignDetails',
+        pipeline: [
+          {
+            $match: {
+              paymentType: {
+                $in: [paymentType.DONATION, paymentType.ORDER],
+              },
+              status: paymentStatus.PAID,
+            },
+          },
+          {
+            $lookup: {
+              from: 'paymentbreakdowns',
+              localField: '_id',
+              foreignField: 'payment',
+              as: 'paymentBreakdown',
+            },
+          },
+          {
+            $unwind: {
+              path: '$paymentBreakdown',
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              supporters: {
+                $addToSet: '$supporter',
+              },
+              totalOrders: {
+                $sum: {
+                  $cond: [{ $eq: ['$paymentType', paymentType.ORDER] }, 1, 0],
+                },
+              },
+              totalDonations: {
+                $sum: {
+                  $cond: [{ $eq: ['$paymentType', paymentType.DONATION] }, 1, 0],
+                },
+              },
+              totalOrderedAmount: {
+                $sum: {
+                  $cond: [
+                    { $eq: ['$paymentType', paymentType.ORDER] },
+                    '$paymentBreakdown.totalAmount',
+                    0,
+                  ],
+                },
+              },
+              totalDonationAmount: {
+                $sum: {
+                  $cond: [
+                    { $eq: ['$paymentType', paymentType.DONATION] },
+                    { $ifNull: ['$paymentBreakdown.totalAmount', 0] },
+                    0,
+                  ],
+                },
+              },
+              subtotal: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.subtotal', 0],
+                },
+              },
+              shippingFee: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.shippingFee', 0],
+                },
+              },
+              totalAmount: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.totalAmount', 0],
+                },
+              },
+              stripeFee: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.stripeFee', 0],
+                },
+              },
+              platformFee: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.platformFee', 0],
+                },
+              },
+              organizerAmount: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.organizerAmount', 0],
+                },
+              },
+              organizerAmountWithoutShipping: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.organizerAmountWithoutShipping', 0],
+                },
+              },
+            },
+          },
+          {
+            $lookup: {
+              from: 'supporters',
+              localField: 'supporters',
+              foreignField: '_id',
+              as: 'supporters',
+            },
+          },
+        ],
+      },
+    },
+    {
       $unwind: {
         path: '$organizerDetails',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $unwind: {
+        path: '$campaignDetails',
         preserveNullAndEmptyArrays: true,
       },
     },
@@ -766,31 +1179,67 @@ const getCampaignById = async (id: string) => {
         organizerEmail: { $ifNull: ['$organizerDetails.email', null] },
         organizerProfileImage: { $ifNull: ['$organizerDetails.profileImage', null] },
         organizerStatus: { $ifNull: ['$organizerDetails.status', null] },
-        supporters: [
-          {
-            supporterId: '',
-            profileImage: '',
-            email: '',
-            phone: '',
-          },
-        ],
-        remainingDays: '',
-        totalSupporters: 0,
-        totalDonations: 0,
-        totalOrders: 0,
-        orderedAmount: 0,
-        donationAmount: 0,
-        progress: 0,
+        supporters: '$campaignDetails.supporters',
+        remainingDays: {
+          $cond: [
+            {
+              $in: [
+                '$status',
+                [CampaignStatus.ACTIVE, CampaignStatus.DRAFT, CampaignStatus.PENDING],
+              ],
+            },
+            {
+              $max: [
+                0,
+                {
+                  $dateDiff: {
+                    startDate: new Date(),
+                    endDate: '$endAt',
+                    unit: 'day',
+                  },
+                },
+              ],
+            },
+            0,
+          ],
+        },
+
+        totalSupporters: { $size: { $ifNull: ['$campaignDetails.supporters', []] } },
+        totalDonations: '$campaignDetails.totalDonations',
+        totalOrders: '$campaignDetails.totalOrders',
+        orderedAmount: '$campaignDetails.totalOrderedAmount',
+        donationAmount: '$campaignDetails.totalDonationAmount',
+        subtotal: '$campaignDetails.subtotal',
+        shippingFee: '$campaignDetails.shippingFee',
+        totalAmount: '$campaignDetails.totalAmount',
+        stripeFee: '$campaignDetails.stripeFee',
+        platformFee: '$campaignDetails.platformFee',
+        organizerAmount: '$campaignDetails.organizerAmount',
+        organizerAmountWithoutShipping: '$campaignDetails.organizerAmountWithoutShipping',
+        progress: {
+          $divide: [
+            {
+              $multiply: [
+                {
+                  $ifNull: ['$campaignDetails.organizerAmount', 0],
+                },
+                100,
+              ],
+            },
+            {
+              $ifNull: ['$goalAmount', 0],
+            },
+          ],
+        },
       },
     },
     {
       $project: {
         organizerDetails: 0,
+        campaignDetails: 0,
       },
     }
   )
-
-  // TODO:  FOR SUPPORTERS: (Has to implement supporter details, like profile, and supporter count)
 
   const [campaign] = await Campaign.aggregate(pipeline)
 
@@ -798,7 +1247,22 @@ const getCampaignById = async (id: string) => {
     throw new AppError(httpStatus.BAD_REQUEST, 'Campaign not found.')
   }
 
-  return campaign
+  return {
+    ...campaign,
+    raisedAmountWithShipping: Number(campaign.raisedAmountWithShipping?.toFixed(2) ?? 0),
+    raisedAmount: Number(campaign.raisedAmount?.toFixed(2) ?? 0),
+    orderedAmount: Number(campaign.orderedAmount?.toFixed(2) ?? 0),
+    donationAmount: Number(campaign.donationAmount?.toFixed(2) ?? 0),
+    subtotal: Number(campaign.subtotal?.toFixed(2) ?? 0),
+    totalAmount: Number(campaign.totalAmount?.toFixed(2) ?? 0),
+    stripeFee: Number(campaign.stripeFee?.toFixed(2) ?? 0),
+    platformFee: Number(campaign.platformFee?.toFixed(2) ?? 0),
+    organizerAmount: Number(campaign.organizerAmount?.toFixed(2) ?? 0),
+    organizerAmountWithoutShipping: Number(
+      campaign.organizerAmountWithoutShipping?.toFixed(2) ?? 0
+    ),
+    progress: Number(campaign.progress?.toFixed(2) ?? 0),
+  }
 }
 
 const getCampaignByCampaignCode = async (code: string) => {
@@ -860,6 +1324,123 @@ const getCampaignByCampaignCode = async (code: string) => {
       },
     },
     {
+      $lookup: {
+        from: 'payments',
+        localField: '_id',
+        foreignField: 'campaign',
+        as: 'campaignDetails',
+        pipeline: [
+          {
+            $match: {
+              paymentType: {
+                $in: [paymentType.DONATION, paymentType.ORDER],
+              },
+              status: paymentStatus.PAID,
+            },
+          },
+          {
+            $lookup: {
+              from: 'paymentbreakdowns',
+              localField: '_id',
+              foreignField: 'payment',
+              as: 'paymentBreakdown',
+            },
+          },
+          {
+            $unwind: {
+              path: '$paymentBreakdown',
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              supporters: {
+                $addToSet: '$supporter',
+              },
+              totalOrders: {
+                $sum: {
+                  $cond: [{ $eq: ['$paymentType', paymentType.ORDER] }, 1, 0],
+                },
+              },
+              totalDonations: {
+                $sum: {
+                  $cond: [{ $eq: ['$paymentType', paymentType.DONATION] }, 1, 0],
+                },
+              },
+              totalOrderedAmount: {
+                $sum: {
+                  $cond: [
+                    { $eq: ['$paymentType', paymentType.ORDER] },
+                    '$paymentBreakdown.totalAmount',
+                    0,
+                  ],
+                },
+              },
+              totalDonationAmount: {
+                $sum: {
+                  $cond: [
+                    { $eq: ['$paymentType', paymentType.DONATION] },
+                    { $ifNull: ['$paymentBreakdown.totalAmount', 0] },
+                    0,
+                  ],
+                },
+              },
+              subtotal: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.subtotal', 0],
+                },
+              },
+              shippingFee: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.shippingFee', 0],
+                },
+              },
+              totalAmount: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.totalAmount', 0],
+                },
+              },
+              stripeFee: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.stripeFee', 0],
+                },
+              },
+              platformFee: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.platformFee', 0],
+                },
+              },
+              organizerAmount: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.organizerAmount', 0],
+                },
+              },
+              organizerAmountWithoutShipping: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.organizerAmountWithoutShipping', 0],
+                },
+              },
+            },
+          },
+          {
+            $lookup: {
+              from: 'supporters',
+              localField: 'supporters',
+              foreignField: '_id',
+              as: 'supporters',
+            },
+          },
+        ],
+      },
+    },
+    {
+      $unwind: {
+        path: '$campaignDetails',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
       $addFields: {
         totalProducts: {
           $ifNull: [{ $size: '$products' }, 0],
@@ -871,24 +1452,67 @@ const getCampaignByCampaignCode = async (code: string) => {
         organizerStatus: '$organizerDetails.status',
 
         // Placeholder values (replace with real lookups later)
-        supporters: [],
-        remainingDays: null,
-        totalSupporters: 0,
-        totalDonations: 0,
-        totalOrders: 0,
-        orderedAmount: 0,
-        donationAmount: 0,
-        progress: 0,
+        supporters: '$campaignDetails.supporters',
+        remainingDays: {
+          $cond: [
+            {
+              $in: [
+                '$status',
+                [CampaignStatus.ACTIVE, CampaignStatus.DRAFT, CampaignStatus.PENDING],
+              ],
+            },
+            {
+              $max: [
+                0,
+                {
+                  $dateDiff: {
+                    startDate: new Date(),
+                    endDate: '$endAt',
+                    unit: 'day',
+                  },
+                },
+              ],
+            },
+            0,
+          ],
+        },
+
+        totalSupporters: { $size: { $ifNull: ['$campaignDetails.supporters', []] } },
+        totalDonations: '$campaignDetails.totalDonations',
+        totalOrders: '$campaignDetails.totalOrders',
+        orderedAmount: '$campaignDetails.totalOrderedAmount',
+        donationAmount: '$campaignDetails.totalDonationAmount',
+        subtotal: '$campaignDetails.subtotal',
+        shippingFee: '$campaignDetails.shippingFee',
+        totalAmount: '$campaignDetails.totalAmount',
+        stripeFee: '$campaignDetails.stripeFee',
+        platformFee: '$campaignDetails.platformFee',
+        organizerAmount: '$campaignDetails.organizerAmount',
+        organizerAmountWithoutShipping: '$campaignDetails.organizerAmountWithoutShipping',
+        progress: {
+          $divide: [
+            {
+              $multiply: [
+                {
+                  $ifNull: ['$campaignDetails.organizerAmount', 0],
+                },
+                100,
+              ],
+            },
+            {
+              $ifNull: ['$goalAmount', 0],
+            },
+          ],
+        },
       },
     },
     {
       $project: {
         organizerDetails: 0,
+        campaignDetails: 0,
       },
     },
   ]
-
-  // TODO:  FOR SUPPORTERS: (Has to implement supporter details, like profile, and supporter count)
 
   const [campaign] = await Campaign.aggregate(pipeline)
 
@@ -904,7 +1528,22 @@ const getCampaignByCampaignCode = async (code: string) => {
     throw new AppError(httpStatus.BAD_REQUEST, 'The campaign organizer is not active.')
   }
 
-  return campaign
+  return {
+    ...campaign,
+    raisedAmountWithShipping: Number(campaign.raisedAmountWithShipping?.toFixed(2) ?? 0),
+    raisedAmount: Number(campaign.raisedAmount?.toFixed(2) ?? 0),
+    orderedAmount: Number(campaign.orderedAmount?.toFixed(2) ?? 0),
+    donationAmount: Number(campaign.donationAmount?.toFixed(2) ?? 0),
+    subtotal: Number(campaign.subtotal?.toFixed(2) ?? 0),
+    totalAmount: Number(campaign.totalAmount?.toFixed(2) ?? 0),
+    stripeFee: Number(campaign.stripeFee?.toFixed(2) ?? 0),
+    platformFee: Number(campaign.platformFee?.toFixed(2) ?? 0),
+    organizerAmount: Number(campaign.organizerAmount?.toFixed(2) ?? 0),
+    organizerAmountWithoutShipping: Number(
+      campaign.organizerAmountWithoutShipping?.toFixed(2) ?? 0
+    ),
+    progress: Number(campaign.progress?.toFixed(2) ?? 0),
+  }
 }
 
 // const deleteCampaignById = async (id: string) => {
@@ -1334,19 +1973,182 @@ const getAllActiveCampaign = async (query: TGetAllActiveCampaignQuery) => {
     },
 
     {
+      $lookup: {
+        from: 'payments',
+        localField: '_id',
+        foreignField: 'campaign',
+        as: 'campaignDetails',
+        pipeline: [
+          {
+            $match: {
+              paymentType: {
+                $in: [paymentType.DONATION, paymentType.ORDER],
+              },
+              status: paymentStatus.PAID,
+            },
+          },
+          {
+            $lookup: {
+              from: 'paymentbreakdowns',
+              localField: '_id',
+              foreignField: 'payment',
+              as: 'paymentBreakdown',
+            },
+          },
+          {
+            $unwind: {
+              path: '$paymentBreakdown',
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              supporters: {
+                $addToSet: '$supporter',
+              },
+              totalOrders: {
+                $sum: {
+                  $cond: [{ $eq: ['$paymentType', paymentType.ORDER] }, 1, 0],
+                },
+              },
+              totalDonations: {
+                $sum: {
+                  $cond: [{ $eq: ['$paymentType', paymentType.DONATION] }, 1, 0],
+                },
+              },
+              totalOrderedAmount: {
+                $sum: {
+                  $cond: [
+                    { $eq: ['$paymentType', paymentType.ORDER] },
+                    '$paymentBreakdown.totalAmount',
+                    0,
+                  ],
+                },
+              },
+              totalDonationAmount: {
+                $sum: {
+                  $cond: [
+                    { $eq: ['$paymentType', paymentType.DONATION] },
+                    { $ifNull: ['$paymentBreakdown.totalAmount', 0] },
+                    0,
+                  ],
+                },
+              },
+              subtotal: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.subtotal', 0],
+                },
+              },
+              shippingFee: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.shippingFee', 0],
+                },
+              },
+              totalAmount: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.totalAmount', 0],
+                },
+              },
+              stripeFee: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.stripeFee', 0],
+                },
+              },
+              platformFee: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.platformFee', 0],
+                },
+              },
+              organizerAmount: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.organizerAmount', 0],
+                },
+              },
+              organizerAmountWithoutShipping: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.organizerAmountWithoutShipping', 0],
+                },
+              },
+            },
+          },
+          {
+            $lookup: {
+              from: 'supporters',
+              localField: 'supporters',
+              foreignField: '_id',
+              as: 'supporters',
+            },
+          },
+        ],
+      },
+    },
+    {
+      $unwind: {
+        path: '$campaignDetails',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+
+    {
       $addFields: {
         totalProducts: { $first: '$products.total' },
         organizerName: { $ifNull: ['$organizerDetails.name', null] },
         organizerEmail: { $ifNull: ['$organizerDetails.email', null] },
         organizerProfileImage: { $ifNull: ['$organizerDetails.profileImage', null] },
         organizerStatus: { $ifNull: ['$organizerDetails.status', null] },
-        remainingDays: '',
-        totalSupporters: 0,
-        totalDonations: 0,
-        totalOrders: 0,
-        orderedAmount: 0,
-        donationAmount: 0,
-        progress: 0,
+        supporters: '$campaignDetails.supporters',
+        remainingDays: {
+          $cond: [
+            {
+              $in: [
+                '$status',
+                [CampaignStatus.ACTIVE, CampaignStatus.DRAFT, CampaignStatus.PENDING],
+              ],
+            },
+            {
+              $max: [
+                0,
+                {
+                  $dateDiff: {
+                    startDate: new Date(),
+                    endDate: '$endAt',
+                    unit: 'day',
+                  },
+                },
+              ],
+            },
+            0,
+          ],
+        },
+
+        totalSupporters: { $size: { $ifNull: ['$campaignDetails.supporters', []] } },
+        totalDonations: '$campaignDetails.totalDonations',
+        totalOrders: '$campaignDetails.totalOrders',
+        orderedAmount: '$campaignDetails.totalOrderedAmount',
+        donationAmount: '$campaignDetails.totalDonationAmount',
+        subtotal: '$campaignDetails.subtotal',
+        shippingFee: '$campaignDetails.shippingFee',
+        totalAmount: '$campaignDetails.totalAmount',
+        stripeFee: '$campaignDetails.stripeFee',
+        platformFee: '$campaignDetails.platformFee',
+        organizerAmount: '$campaignDetails.organizerAmount',
+        organizerAmountWithoutShipping: '$campaignDetails.organizerAmountWithoutShipping',
+        progress: {
+          $divide: [
+            {
+              $multiply: [
+                {
+                  $ifNull: ['$campaignDetails.organizerAmount', 0],
+                },
+                100,
+              ],
+            },
+            {
+              $ifNull: ['$goalAmount', 0],
+            },
+          ],
+        },
       },
     },
     {
@@ -1361,8 +2163,6 @@ const getAllActiveCampaign = async (query: TGetAllActiveCampaignQuery) => {
       },
     }
   )
-
-  // TODO:  FOR SUPPORTERS: (Has to implement supporter details, like profile, and supporter count)
 
   if (searchTerm) {
     pipeline.push({
@@ -1387,9 +2187,25 @@ const getAllActiveCampaign = async (query: TGetAllActiveCampaignQuery) => {
 
   const data = aggregated?.[0]?.data || []
   const total = aggregated?.[0]?.meta?.[0]?.total || 0
+  const formattedData = data.map((campaign: any) => ({
+    ...campaign,
+    raisedAmountWithShipping: Number(campaign.raisedAmountWithShipping?.toFixed(2) ?? 0),
+    raisedAmount: Number(campaign.raisedAmount?.toFixed(2) ?? 0),
+    orderedAmount: Number(campaign.orderedAmount?.toFixed(2) ?? 0),
+    donationAmount: Number(campaign.donationAmount?.toFixed(2) ?? 0),
+    subtotal: Number(campaign.subtotal?.toFixed(2) ?? 0),
+    totalAmount: Number(campaign.totalAmount?.toFixed(2) ?? 0),
+    stripeFee: Number(campaign.stripeFee?.toFixed(2) ?? 0),
+    platformFee: Number(campaign.platformFee?.toFixed(2) ?? 0),
+    organizerAmount: Number(campaign.organizerAmount?.toFixed(2) ?? 0),
+    organizerAmountWithoutShipping: Number(
+      campaign.organizerAmountWithoutShipping?.toFixed(2) ?? 0
+    ),
+    progress: Number(campaign.progress?.toFixed(2) ?? 0),
+  }))
 
   return {
-    data,
+    data: formattedData,
     meta: {
       page,
       limit,
