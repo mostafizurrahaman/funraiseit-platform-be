@@ -119,6 +119,71 @@ const getPayoutOverviewForCampaign = async (user: IUser, campaignId: string) => 
     },
   ])
 
+  // ?? Payout History :
+  const payoutHistory = await Payout.aggregate([
+    {
+      $match: {
+        campaign: campaign?._id,
+      },
+    },
+    {
+      $lookup: {
+        from: 'payments',
+        localField: '_id',
+        foreignField: 'payoutId',
+        as: 'paymentDetails',
+        pipeline: [
+          {
+            $match: {
+              status: paymentStatus.PAID,
+            },
+          },
+        ],
+      },
+    },
+    {
+      $unwind: {
+        path: '$paymentDetails',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        payoutId: '$_id',
+        campaignId: '$campaign',
+        organizerId: '$organizer',
+        stripeAccountId: '$stripeAccountId',
+        stripePayoutId: '$stripePayoutId',
+        paymentId: {
+          $ifNull: ['$paymentDetails._id', null],
+        },
+
+        amount: '$amount',
+        status: '$status',
+        currency: '$currency',
+        failureMessage: '$failedMessage',
+        paidAt: {
+          $ifNull: ['$paymentDetails.paidAt', null],
+        },
+        cancelledAt: {
+          $ifNull: ['$cancelledAt', null],
+        },
+        failedAt: '$failedAt',
+        createdAt: '$createdAt',
+        updatedAt: '$createdAt',
+      },
+    },
+    {
+      $sort: {
+        createdAt: -1,
+      },
+    },
+    {
+      $limit: 3,
+    },
+  ])
+
   // ?? Financial breakdown:
   const totalOrderAmount = Number(payments?.[0]?.orderAmount?.toFixed(2) ?? 0)
   const totalDonationAmount = Number(payments?.[0]?.donationAmount?.toFixed(2) ?? 0)
@@ -185,6 +250,7 @@ const getPayoutOverviewForCampaign = async (user: IUser, campaignId: string) => 
       available: availableUsd / 100,
       pending: pendingUsd / 100,
     },
+    payoutHistory,
   }
 }
 
