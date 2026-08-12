@@ -1,5 +1,6 @@
 import {
   Campaign,
+  CampaignStatus,
   DonationPayment,
   OrderPayment,
   Payment,
@@ -13,7 +14,13 @@ import httpStatus from 'http-status'
 import { AppError } from '@repo/shared'
 import { Types, type PipelineStage } from 'mongoose'
 
-import type { TGetAllSupporterQueryParamsType } from './supporter.validations'
+import type {
+  TGetAllSupporterQueryParamsType,
+  TSendEmailToSupporterPayload,
+} from './supporter.validations'
+import { renderEmail, SupporterUpdateEmail } from 'packages/email-templates/src'
+import { sendEmail } from 'packages/email-sender/src'
+import configs from '@app/configs'
 
 const getAllSupporter = async (user: IUser, query: TGetAllSupporterQueryParamsType) => {
   const {
@@ -223,7 +230,7 @@ const getAllSupporter = async (user: IUser, query: TGetAllSupporterQueryParamsTy
   }
 }
 
-export const getSupporterOverviewByCampaignId = async (user: IUser, campaignId: string) => {
+const getSupporterOverviewByCampaignId = async (user: IUser, campaignId: string) => {
   // ?? Check if campaign exists
   const campaign = await Campaign.findOne({
     _id: campaignId,
@@ -636,7 +643,118 @@ export const getSupporterOverviewByCampaignId = async (user: IUser, campaignId: 
   }
 }
 
+const sendEmailToCampaignSupporters = async (
+  user: IUser,
+  payload: TSendEmailToSupporterPayload
+) => {
+  const { campaignId, subject, message } = payload
+
+  const campaign = await Campaign.findOne({
+    _id: campaignId,
+    organizer: user?._id,
+  })
+
+  if (!campaign) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Campaign not found!')
+  }
+
+  if (campaign?.organizer?.toString() !== user?._id?.toString()) {
+    throw new AppError(httpStatus.NOT_FOUND, `This campaign doesn't belong to your organization.`)
+  }
+
+  if (
+    [
+      CampaignStatus.DRAFT,
+      CampaignStatus.PENDING,
+      CampaignStatus.CANCELLED,
+      CampaignStatus.REJECTED,
+    ].includes(campaign.status as 'draft' | 'pending' | 'rejected' | 'cancelled')
+  ) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      `You cannot send a message when the campaign status is ${campaign.status}`
+    )
+  }
+
+  // Filter all the supporters email for this campaign:
+  const supporters = await Payment.aggregate([
+    {
+      $match: {
+        campaign: campaign?._id,
+        status: paymentStatus.PAID,
+        paymentType: { $in: [paymentType.DONATION, paymentType.ORDER] },
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        supporters: {
+          $addToSet: '$supporter',
+        },
+      },
+    },
+    {
+      $lookup: {
+        from: 'supporters',
+        localField: 'supporters',
+        foreignField: '_id',
+        as: 'supporterDetails',
+      },
+    },
+    {
+      $unwind: {
+        path: '$supporterDetails',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $project: {
+        supporterId: '$supporterDetails._id',
+        supporterName: '$supporterDetails.name',
+        supporterEmail: '$supporterDetails.email',
+        supporterPhone: '$supporterDetails.phoneNumber',
+      },
+    },
+  ])
+
+  if (!supporters || supporters.length === 0) {
+    throw new AppError(httpStatus.NOT_FOUND, 'No supporters found for this campaign.')
+  }
+
+  // Generate and send emails concurrently
+  const emailPromises = supporters.map(async (supporter) => {
+    if (!supporter.supporterEmail) return
+
+    // 1. Render the React Component into an HTML string
+    const emailHtml = await renderEmail(
+      SupporterUpdateEmail({
+        supporterName: supporter.supporterName || 'Awesome Supporter',
+        campaignTitle: campaign.name || 'Campaign Update',
+        message: message,
+        logoUrl: configs.site.logo!,
+      })
+    )
+
+    // 2. Send the email using your preferred email provider (Nodemailer, Resend, etc.)
+    return sendEmail({
+      to: supporter.supporterEmail,
+      subject: subject,
+      html: emailHtml.html as string,
+    })
+  })
+
+  // Execute all email promises
+  await Promise.all(emailPromises)
+
+  return {
+    success: true,
+    message: `Email successfully sent to ${supporters.length} supporters.`,
+    supporterCount: supporters.length,
+  }
+}
+
 export const supporterServices = {
   getAllSupporter,
   getSupporterOverviewByCampaignId,
+  sendEmailToCampaignSupporters,
 }

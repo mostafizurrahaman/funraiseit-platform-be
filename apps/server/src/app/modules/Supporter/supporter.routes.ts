@@ -21,4 +21,12 @@ router.get(
   supporterControllers.getSupporterOverviewByCampaignId
 )
 
+router.post(
+  '/send-email',
+  auth(AuthRoles.ORGANIZER),
+  validateRequest(supporterValidations.sendEmailToSupporterSchema),
+  supporterControllers.sendEmailToSupporters
+)
+router.post('/send-email-test', auth(AuthRoles.ORGANIZER), supporterControllers.testEmail)
+
 export const supporterRoutes = router

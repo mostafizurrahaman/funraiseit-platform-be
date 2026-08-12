@@ -115,11 +115,11 @@ const createCampaign = async (
 
 const getDraftCampaign = async (user: IUser) => {
   const pipeline: PipelineStage[] = [
-    // {
-    //   $match: {
-    //     status: CampaignStatus.DRAFT,
-    //   },
-    // },
+    {
+      $match: {
+        status: CampaignStatus.DRAFT,
+      },
+    },
   ]
 
   // ?? Find out draft

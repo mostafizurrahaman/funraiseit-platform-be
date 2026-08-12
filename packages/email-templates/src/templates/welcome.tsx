@@ -1,18 +1,14 @@
 import * as React from 'react'
 import {
-  Body,
   Button,
-  Container,
-  Head,
   Heading,
   Hr,
-  Html,
   Img,
   Link,
-  Preview,
   Section,
   Text,
 } from '@react-email/components'
+import { EmailLayout } from '../layouts/email-layout' // Adjust path based on your folder structure
 
 interface WelcomeEmailProps {
   firstName: string
@@ -22,208 +18,118 @@ interface WelcomeEmailProps {
   actionUrl: string
   signatureImgSrc?: string
   logoSrc?: string
-  accentColor?: string
   greeting?: string
   supportEmail?: string
   footer?: React.ReactNode
 }
 
 export const WelcomeEmail: React.FC<WelcomeEmailProps> = ({
-  firstName,
-  companyName,
-  password,
-  productName = companyName,
-  actionUrl,
+  firstName = 'User',
+  companyName = 'Your Company',
+  password = 'temp-password',
+  productName,
+  actionUrl = 'https://example.com/login',
   signatureImgSrc,
-  logoSrc,
-  accentColor = '#5F51E8',
+  logoSrc = 'https://via.placeholder.com/120x40/03AFA8/ffffff?text=LOGO',
   greeting = 'Welcome aboard!',
   supportEmail = 'support@example.com',
   footer,
-}: WelcomeEmailProps) => {
-  const previewText = `Welcome to ${productName}, ${firstName}!`
+}) => {
+  const finalProductName = productName || companyName
+  const previewText = `Welcome to ${finalProductName}, ${firstName}!`
 
   return (
-    <Html>
-      <Head />
-      <Preview>{previewText}</Preview>
-
-      <Body style={bodyStyle}>
-        <Container style={containerStyle}>
-          {logoSrc && (
-            <Section style={{ textAlign: 'center', marginBottom: '20px' }}>
-              <Img src={logoSrc} alt={companyName} width="120" height="auto" />
-            </Section>
-          )}
-
-          <Heading style={{ ...headingStyle, color: accentColor }}>
-            {greeting}
-          </Heading>
-
-          <Text style={textStyle}>Hi {firstName},</Text>
-
-          <Text style={textStyle}>
-            Welcome to <strong>{productName}</strong>! Your account has been
-            successfully created by an administrator.
-          </Text>
-
-          <Text style={textStyle}>
-            Please use the temporary password below to sign in to your account.
-          </Text>
-
-          <Section
-            style={{
-              backgroundColor: '#f8f9fa',
-              border: '1px solid #e6ebf1',
-              borderRadius: '8px',
-              padding: '18px',
-              margin: '24px 0',
-              textAlign: 'center',
-            }}
-          >
-            <Text
-              style={{
-                fontSize: '16px',
-                fontWeight: 'bold',
-                color: '#000',
-                margin: 0,
-              }}
-            >
-              Temporary Password
-            </Text>
-
-            <Text
-              style={{
-                fontSize: '22px',
-                fontWeight: 'bold',
-                color: accentColor,
-                letterSpacing: '1px',
-                margin: '12px 0 0',
-              }}
-            >
-              {password}
-            </Text>
-          </Section>
-
-          <Text style={textStyle}>
-            For your security, please change your password immediately after
-            logging in for the first time.
-          </Text>
-
-          <Section style={buttonContainerStyle}>
-            <Button
-              href={actionUrl}
-              style={{
-                ...buttonStyle,
-                backgroundColor: accentColor,
-              }}
-            >
-              Login to Your Account
-            </Button>
-          </Section>
-
-          <Text style={textStyle}>
-            If you have any questions, feel free to contact our support team at{' '}
-            <Link href={`mailto:${supportEmail}`} style={{ color: accentColor }}>
-              {supportEmail}
-            </Link>
-            .
-          </Text>
-
-          <Text style={textStyle}>
-            Best regards,
-            <br />
-            The {companyName} Team
-          </Text>
-
-          {signatureImgSrc && (
+    <EmailLayout previewText={previewText}>
+      {/* Header */}
+      <Section className="px-8 pt-10 pb-6 text-center">
+        {logoSrc && (
+          <div className="bg-white inline-block p-3 rounded-xl shadow-md border border-slate-100 mb-5">
             <Img
-              src={signatureImgSrc}
-              alt="Signature"
-              width="120"
-              height="auto"
-              style={{ marginTop: '10px' }}
+              src={logoSrc}
+              width="180"
+              height="60"
+              alt={companyName}
+              className="mx-auto object-contain rounded-md "
             />
-          )}
+          </div>
+        )}
 
-          <Hr style={hrStyle} />
+        <Heading className="text-2xl font-bold text-[#03AFA8] m-0 tracking-tight">
+          {greeting}
+        </Heading>
+      </Section>
 
-          <Section style={footerStyle}>
-            {footer || (
-              <Text style={footerTextStyle}>
-                © {new Date().getFullYear()} {companyName}. All rights reserved.
-              </Text>
-            )}
-          </Section>
-        </Container>
-      </Body>
-    </Html>
+      {/* Main Content */}
+      <Section className="px-8 pb-8">
+        <Text className="text-slate-800 text-base font-semibold mb-4 m-0">
+          Hi {firstName},
+        </Text>
+
+        <Text className="text-slate-600 text-base leading-relaxed m-0 mb-4">
+          Welcome to <strong className="text-slate-800">{finalProductName}</strong>! Your account has been successfully created by an administrator.
+        </Text>
+
+        <Text className="text-slate-600 text-base leading-relaxed m-0">
+          Please use the temporary password below to sign in to your account.
+        </Text>
+
+        {/* Temporary Password Box */}
+        <Section className="bg-[#f6f9fc] rounded-xl border-2 border-dashed border-[#03AFA8]/50 my-8 p-6 text-center">
+          <Text className="text-xs uppercase tracking-widest text-[#FE7B01] font-bold mb-3 m-0">
+            Temporary Password
+          </Text>
+          <Text className="text-2xl font-mono font-bold tracking-[2px] text-[#03AFA8] m-0 bg-white inline-block px-4 py-2 rounded-lg shadow-sm">
+            {password}
+          </Text>
+        </Section>
+
+        <Text className="text-slate-600 text-base leading-relaxed m-0 mb-8">
+          For your security, please change your password immediately after logging in for the first time.
+        </Text>
+
+        {/* CTA Button */}
+        <Button
+          href={actionUrl}
+          className="bg-[#03AFA8] w-full text-white text-base font-semibold py-4 rounded-lg text-center shadow-sm mb-8"
+        >
+          Login to Your Account
+        </Button>
+
+        <Text className="text-slate-600 text-sm leading-relaxed m-0 mb-6">
+          If you have any questions, feel free to contact our support team at{' '}
+          <Link href={`mailto:${supportEmail}`} className="text-[#03AFA8] font-semibold underline">
+            {supportEmail}
+          </Link>.
+        </Text>
+
+        <Text className="text-slate-600 text-sm leading-relaxed m-0">
+          Best regards,<br />
+          <span className="font-semibold text-slate-800">The {companyName} Team</span>
+        </Text>
+
+        {signatureImgSrc && (
+          <Img
+            src={signatureImgSrc}
+            alt="Signature"
+            width="120"
+            height="auto"
+            className="mt-4"
+          />
+        )}
+      </Section>
+
+      <Hr className="border-slate-100 m-0" />
+
+      {/* Footer */}
+      <Section className="px-8 py-6 bg-slate-50 text-center">
+        {footer ? (
+          footer
+        ) : (
+          <Text className="text-slate-400 text-xs m-0">
+            © {new Date().getFullYear()} {companyName}. All rights reserved.
+          </Text>
+        )}
+      </Section>
+    </EmailLayout>
   )
-}
-
-// Styles
-const bodyStyle = {
-  backgroundColor: '#f6f9fc',
-  fontFamily:
-    '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif',
-  WebkitFontSmoothing: 'antialiased' as 'string',
-  margin: '0 auto',
-  padding: '0',
-}
-
-const containerStyle = {
-  backgroundColor: '#ffffff',
-  margin: '0 auto',
-  padding: '40px',
-  maxWidth: '600px',
-  borderRadius: '8px',
-  boxShadow: '0 4px 8px rgba(0, 0, 0, 0.05)',
-  marginTop: '40px',
-  marginBottom: '40px',
-}
-
-const headingStyle = {
-  fontSize: '28px',
-  fontWeight: 'bold',
-  textAlign: 'center' as const,
-  margin: '30px 0',
-}
-
-const textStyle = {
-  fontSize: '16px',
-  lineHeight: '26px',
-  color: '#4c4c4c',
-  margin: '16px 0',
-}
-
-const buttonContainerStyle = {
-  textAlign: 'center' as const,
-  margin: '32px 0',
-}
-
-const buttonStyle = {
-  backgroundColor: '#5F51E8',
-  borderRadius: '6px',
-  color: '#ffffff',
-  fontSize: '16px',
-  fontWeight: 'bold',
-  textDecoration: 'none',
-  textAlign: 'center' as const,
-  display: 'inline-block',
-  padding: '12px 24px',
-  cursor: 'pointer',
-}
-
-const hrStyle = {
-  borderColor: '#e6ebf1',
-  margin: '32px 0',
-}
-
-const footerStyle = {
-  textAlign: 'center' as const,
-}
-
-const footerTextStyle = {
-  fontSize: '14px',
-  color: '#8898aa',
 }
