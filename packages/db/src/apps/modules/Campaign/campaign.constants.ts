@@ -16,11 +16,14 @@ export type TCampaignSearchableField = (typeof campaignSearchableFields)[number]
 export type TCampaignSortableField = (typeof campaignSortableFields)[number]
 
 export const CampaignCategory = {
-  PHYSICAL_PRODUCT: 'physical_product',
-  DIGITAL_PRODUCT: 'digital_product',
-  EVENT_TICKET: 'event_ticket',
-  SERVICE: 'service',
-  FOOD_PRE_ORDER: 'food_pre_order',
+  BUSINESS: 'business',
+  SCHOOL_FUNDRAISER: 'school_fundraiser',
+  CHURCH_CAMPAIGN: 'church_campaign',
+  SPORTS_TEAM: 'sports_team',
+  PRODUCTS_PRE_ORDERS: 'products_pre_orders',
+  EVENTS_TICKETS: 'events_tickets',
+  DIGITAL_PRODUCTS: 'digital_products',
+  COMMUNITY_NONPROFIT: 'community_nonprofit',
 } as const
 
 export const campaignCategoryValues = Object.values(CampaignCategory)
