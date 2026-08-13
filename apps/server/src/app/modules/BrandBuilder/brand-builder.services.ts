@@ -25,7 +25,7 @@ import {
   uploadSingleFileToS3,
   type IMulterFile,
 } from 'packages/media-hub/src'
-import mongoose from 'mongoose'
+import mongoose, { Types } from 'mongoose'
 import { stripeCheckoutSession } from '@app/libs/stripe'
 import moment from 'moment'
 
@@ -171,6 +171,8 @@ const getAllBrandBuilder = async (query: TGetAllBrandBuilderQueryParamsType) => 
     limit = 10,
     searchTerm,
     sortOrder = 'desc',
+    organizerId,
+    status,
     sortBy = 'createdAt',
     fromDate,
     toDate,
@@ -179,13 +181,21 @@ const getAllBrandBuilder = async (query: TGetAllBrandBuilderQueryParamsType) => 
   const skip = (page - 1) * limit
   const pipeline: PipelineStage[] = []
 
-  pipeline.push({
-    $match: { 
-      
-    }
-  })
+  if (organizerId) {
+    pipeline.push({
+      $match: {
+        organizer: new Types.ObjectId(organizerId),
+      },
+    })
+  }
 
-
+  if (status) {
+    pipeline.push({
+      $match: {
+        status,
+      },
+    })
+  }
 
   if (fromDate || toDate) {
     const dateFilter: Record<string, unknown> = {}
@@ -194,6 +204,31 @@ const getAllBrandBuilder = async (query: TGetAllBrandBuilderQueryParamsType) => 
 
     pipeline.push({ $match: { createdAt: dateFilter } })
   }
+
+  pipeline.push(
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'organizer',
+        foreignField: '_id',
+        as: 'organizerDetails',
+      },
+    },
+    {
+      $unwind: {
+        path: '$organizerDetails',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $addFields: {
+        organizerName: '$organizerDetails.name',
+        organizerEmail: '$organizerDetails.email',
+        organizerPhoneNumber: { $ifNull: ['$organizerDetails.phoneNumber', null] },
+        organizerProfileImage: { $ifNull: ['$organizerDetails.profileImage', null] },
+      },
+    }
+  )
 
   if (searchTerm) {
     pipeline.push({
@@ -205,6 +240,11 @@ const getAllBrandBuilder = async (query: TGetAllBrandBuilderQueryParamsType) => 
     })
   }
 
+  pipeline.push({
+    $project: {
+      organizerDetails: 0,
+    },
+  })
   pipeline.push({ $sort: { [sortBy]: sortOrder === 'asc' ? 1 : -1 } })
 
   pipeline.push({

@@ -7,7 +7,13 @@ export const brandBuilderStatus = {
 
 export const brandBuilderStatusValues = Object.values(brandBuilderStatus)
 
-export const brandBuilderSearchableFields = ['name'] as const
+export const brandBuilderSearchableFields = [
+  'name',
+  'sellingItem',
+  'businessName',
+  'organizerName',
+  'phoneNumber',
+] as const
 
 export const brandBuilderSortableFields = ['createdAt', 'updatedAt'] as const
 
