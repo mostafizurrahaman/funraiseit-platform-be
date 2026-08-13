@@ -19,6 +19,9 @@ import {
   handlePayoutPaid,
   handlePayoutFailed,
   handlePayoutCanceled,
+  handleBrandBuilderCheckoutPaymentSuccess,
+  handleBrandBuilderPaymentIntentFailed,
+  handleBrandBuilderCheckoutExpired,
 } from './stripe.utils'
 
 // Account Updated Event:
@@ -97,6 +100,10 @@ const handleCheckoutSessionSuccess = async (event: Stripe.Event) => {
   if (checkoutSession?.metadata?.paymentType === paymentType.ORDER) {
     await handleOrderCheckoutPaymentSuccess(checkoutSession)
   }
+
+  if (checkoutSession?.metadata?.paymentType === paymentType.BRAND_BUILDER) {
+    await handleBrandBuilderCheckoutPaymentSuccess(checkoutSession)
+  }
 }
 
 const handleCheckoutSessionExpired = async (event: Stripe.Event) => {
@@ -108,8 +115,11 @@ const handleCheckoutSessionExpired = async (event: Stripe.Event) => {
   if (checkoutSession?.metadata?.paymentType === paymentType.DONATION) {
     await handleDonationCheckoutPaymentFailed(checkoutSession)
   }
-  if (checkoutSession?.metadata?.paymentType === paymentType.DONATION) {
+  if (checkoutSession?.metadata?.paymentType === paymentType.ORDER) {
     await handleOrderCheckoutExpired(checkoutSession)
+  }
+  if (checkoutSession?.metadata?.paymentType === paymentType.BRAND_BUILDER) {
+    await handleBrandBuilderCheckoutExpired(checkoutSession)
   }
 }
 
@@ -122,6 +132,10 @@ const handlePaymentIntentFailed = async (event: Stripe.Event) => {
 
   if (paymentIntent?.metadata?.paymentType === paymentType.ORDER) {
     await handleOrderPaymentFailed(paymentIntent)
+  }
+
+  if (paymentIntent?.metadata?.paymentType === paymentType.BRAND_BUILDER) {
+    await handleBrandBuilderPaymentIntentFailed(paymentIntent)
   }
 }
 

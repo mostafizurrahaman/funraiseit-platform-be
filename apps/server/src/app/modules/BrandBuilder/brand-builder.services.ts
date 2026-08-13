@@ -20,7 +20,11 @@ import type {
   TUpdateBrandBuilderPayloadType,
   TGetAllBrandBuilderQueryParamsType,
 } from './brand-builder.validations'
-import { uploadSingleFileToS3, type IMulterFile } from 'packages/media-hub/src'
+import {
+  deleteSingleFileFromS3,
+  uploadSingleFileToS3,
+  type IMulterFile,
+} from 'packages/media-hub/src'
 import mongoose from 'mongoose'
 import { stripeCheckoutSession } from '@app/libs/stripe'
 import moment from 'moment'
@@ -39,6 +43,7 @@ const createBrandBuilder = async (
 
   // ?? Check is this user has any campaign which is completed, paid out, or payout_requested
   const existingCampaign = await Campaign.findOne({
+    organizer: user?._id,
     status: {
       $in: [CampaignStatus.COMPLETED, CampaignStatus.PAID_OUT, CampaignStatus.PAYOUT_REQUEST],
     },
@@ -60,7 +65,7 @@ const createBrandBuilder = async (
   }
 
   const { url: brandImage } = await uploadSingleFileToS3(brandImageFile, 'brandBuilder/brandImage')
-  const { url: brandLogo } = await uploadSingleFileToS3(brandImageFile, 'brandBuilder/brandLogo')
+  const { url: brandLogo } = await uploadSingleFileToS3(brandLogoFile, 'brandBuilder/brandLogo')
 
   // ?? Site Config:
   const siteConfig = await SiteInfo.findOne({})
@@ -90,7 +95,7 @@ const createBrandBuilder = async (
       budget,
       brandBuilderFee,
       paidAmount: 0,
-      status: 'pending',
+      status: brandBuilderStatus.PENDING,
     }
 
     const [brandBuilder] = await BrandBuilder.create([brandBuilders], {
@@ -104,7 +109,7 @@ const createBrandBuilder = async (
     // ?? Prepare Payment:
     const result = await stripeCheckoutSession({
       name: `Brand Builder Payment for ${businessName}`,
-      unit_amount: Math.round(brandBuilderFee),
+      unit_amount: Math.round(brandBuilderFee * 100),
       expiresAt: stripeExpiresAt,
       metadata: {
         brandBuilderId: brandBuilder?._id?.toString() as string,
@@ -136,6 +141,9 @@ const createBrandBuilder = async (
       throw new AppError(httpStatus.BAD_REQUEST, 'Failed to initiate payment.')
     }
 
+    // ?? 
+
+    await mongoSession.commitTransaction()
     return {
       url: result.url,
       expiresAt,
@@ -143,13 +151,17 @@ const createBrandBuilder = async (
   } catch (error) {
     await mongoSession.abortTransaction()
 
+    if (brandImage) {
+      await deleteSingleFileFromS3(brandImage)
+    }
+    if (brandLogo) {
+      await deleteSingleFileFromS3(brandLogo)
+    }
+
     throw error
   } finally {
     await mongoSession.endSession()
   }
-
-  // const result = await BrandBuilder.create(payload)
-  // return result
 }
 
 const updateBrandBuilder = async (id: string, payload: TUpdateBrandBuilderPayloadType) => {

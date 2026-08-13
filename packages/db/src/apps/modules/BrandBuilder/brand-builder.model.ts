@@ -32,7 +32,7 @@ const brandBuilderSchema = new Schema<IBrandBuilderDoc>(
       type: [String],
       required: true,
     },
-    brandStyles: {
+    brandStyle: {
       type: String,
       required: true,
     },
