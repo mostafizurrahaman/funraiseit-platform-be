@@ -255,7 +255,7 @@ export const handleBrandBuilderCheckoutPaymentSuccess = async (
 
   const balanceTx = await stripe.balanceTransactions.retrieve(charge.balance_transaction as string)
 
-  const totalAmount = balanceTx.amount / 100
+  const amount = balanceTx.amount / 100
   const stripeOriginalAmount = balanceTx.net / 100
   const stripeFee = balanceTx.fee / 100
 
@@ -285,7 +285,7 @@ export const handleBrandBuilderCheckoutPaymentSuccess = async (
       {
         $set: {
           status: paymentStatus.PAID,
-          amount: totalAmount,
+          amount: amount,
           stripePaymentIntentId: paymentIntentId,
           stripeChargeId: charge.id,
           stripeBalanceTransactionId: balanceTx.id,
@@ -314,8 +314,8 @@ export const handleBrandBuilderCheckoutPaymentSuccess = async (
         [
           {
             payment: payment._id,
-            subtotal: totalAmount,
-            totalAmount: totalAmount,
+            subtotal: amount,
+            totalAmount: stripeOriginalAmount,
             stripeFee,
           },
         ],
