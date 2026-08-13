@@ -331,7 +331,7 @@ export const handleBrandBuilderCheckoutPaymentSuccess = async (
       },
       {
         $set: {
-          paidAmount: stripeOriginalAmount,
+          paidAmount: amount,
           status: brandBuilderStatus.PAID,
           paidAt: new Date(),
         },
