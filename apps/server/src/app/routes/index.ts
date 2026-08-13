@@ -12,6 +12,7 @@ import express, { Router } from 'express'
 import { supporterRoutes } from '../modules/Supporter/supporter.routes'
 import { payoutRoutes } from '@app/modules/Payout/payout.routes'
 import { contentRoutes } from '@app/modules/Content/content.routes'
+import { brandBuilderRoutes } from '@app/modules/BrandBuilder/brand-builder.routes'
 
 const router: Router = express.Router()
 
@@ -67,6 +68,10 @@ const routes = [
   {
     path: '/content',
     route: contentRoutes,
+  },
+  {
+    path: '/brand',
+    route: brandBuilderRoutes,
   },
 ]
 

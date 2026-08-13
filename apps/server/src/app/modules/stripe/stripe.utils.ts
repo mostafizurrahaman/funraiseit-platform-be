@@ -3,6 +3,9 @@ import httpStatus from 'http-status'
 import moment from 'moment'
 import mongoose from 'mongoose'
 import {
+  BrandBuilder,
+  BrandBuilderPayment,
+  brandBuilderStatus,
   Campaign,
   campaignLunchPaymentStatus,
   CampaignStatus,
@@ -25,8 +28,8 @@ import {
   PromoCode,
   PromoCodeUsage,
   type TPaymentType,
-} from 'packages/db/src'
-import { AppError } from 'packages/shared/src'
+} from '@repo/db'
+import { AppError } from '@repo/shared'
 import type Stripe from 'stripe'
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -65,6 +68,12 @@ interface TOrderPaymentMetaData {
   organizerNetAmount: number
 }
 
+interface IBrandBuilderMeta {
+  brandBuilderFee: number
+  organizerId: string
+  brandBuilderId: string
+}
+
 export const handleCampaignCheckoutPaymentSuccess = async (session: Stripe.Checkout.Session) => {
   if (session.payment_status !== 'paid') {
     throw new AppError(httpStatus.BAD_REQUEST, 'Payment not paid yet.')
@@ -101,17 +110,6 @@ export const handleCampaignCheckoutPaymentSuccess = async (session: Stripe.Check
 
   const stripeOriginalAmount = balanceTx.net / 100
   const stripeFee = balanceTx.fee / 100
-
-  console.log({
-    payableAmount,
-    paymentIntent: paymentIntent.id,
-    chargeId: charge.id,
-    transactionId: balanceTx.id,
-    sessionId: sessionId,
-    stripeOriginalAmount,
-    stripeFee,
-    meta: metadata,
-  })
 
   //  ??  Check any campaign exists with this id and organization
   const campaign = await Campaign.findOne({
@@ -218,8 +216,135 @@ export const handleCampaignCheckoutPaymentSuccess = async (session: Stripe.Check
       await session.endSession()
     }
   }
+}
 
-  //    const
+export const handleBrandBuilderCheckoutPaymentSuccess = async (
+  session: Stripe.Checkout.Session
+) => {
+  if (session.payment_status !== 'paid') {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Payment not paid yet.')
+  }
+  const { metadata } = session
+
+  const { brandBuilderId } = metadata as unknown as IBrandBuilderMeta
+
+  const paymentIntentId = session.payment_intent
+  const sessionId = session.id
+
+  const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId as string)
+
+  let charge = await stripe.charges.retrieve(paymentIntent.latest_charge as string)
+
+  let retry = 5
+
+  while (!charge.balance_transaction && retry > 0) {
+    //console.log("Waiting for balance transaction...");
+
+    await sleep(1000)
+
+    charge = await stripe.charges.retrieve(charge.id)
+
+    retry--
+  }
+
+  if (!charge.balance_transaction) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Balance transaction is not available yet.')
+  }
+
+  const balanceTx = await stripe.balanceTransactions.retrieve(charge.balance_transaction as string)
+
+  const stripeOriginalAmount = balanceTx.net / 100
+  const stripeFee = balanceTx.fee / 100
+
+  const mongoSession = await mongoose.startSession()
+
+  try {
+    mongoSession.startTransaction()
+
+    // Prevent duplicate webhook processing
+    const existingPayment = await BrandBuilderPayment.findOne({
+      stripeCheckoutSessionId: sessionId,
+      status: paymentStatus.PAID,
+    }).session(mongoSession)
+
+    if (existingPayment) {
+      await mongoSession.commitTransaction()
+      return existingPayment
+    }
+
+    const payment = await BrandBuilderPayment.findOneAndUpdate(
+      {
+        stripeCheckoutSessionId: sessionId,
+        status: {
+          $ne: paymentStatus.PAID,
+        },
+      },
+      {
+        $set: {
+          status: paymentStatus.PAID,
+          amount: stripeOriginalAmount,
+          stripePaymentIntentId: paymentIntentId,
+          stripeChargeId: charge.id,
+          stripeBalanceTransactionId: balanceTx.id,
+          paidAt: new Date(),
+        },
+      },
+      {
+        sort: {
+          createdAt: -1,
+        },
+        new: true,
+        session: mongoSession,
+      }
+    )
+
+    if (!payment) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'Payment not found.')
+    }
+
+    const paymentBreakdownExists = await PaymentBreakDown.findOne({
+      payment: payment._id,
+    }).session(mongoSession)
+
+    if (!paymentBreakdownExists) {
+      await PaymentBreakDown.create(
+        [
+          {
+            payment: payment._id,
+            subtotal: stripeOriginalAmount,
+            totalAmount: stripeOriginalAmount,
+            stripeFee,
+          },
+        ],
+        {
+          session: mongoSession,
+        }
+      )
+    }
+
+    await BrandBuilder.findOneAndUpdate(
+      {
+        _id: brandBuilderId,
+      },
+      {
+        $set: {
+          paidAmount: stripeOriginalAmount,
+          status: brandBuilderStatus.PAID,
+          paidAt: new Date(),
+        },
+      },
+      {
+        session: mongoSession,
+      }
+    )
+
+    await mongoSession.commitTransaction()
+  } catch (error) {
+    await mongoSession.abortTransaction()
+    console.log(error)
+  } finally {
+    await mongoSession.endSession()
+  }
 }
 
 export const handleCampaignCheckoutSessionExpired = async (
@@ -688,6 +813,89 @@ export const handleDonationPaymentIntentFailed = async (paymentIntent: Stripe.Pa
     await mongoSession.endSession()
   }
 }
+export const handleBrandBuilderPaymentIntentFailed = async (
+  paymentIntent: Stripe.PaymentIntent
+) => {
+  const { metadata } = paymentIntent
+
+  const { brandBuilderId } = metadata as unknown as IBrandBuilderMeta
+
+  const paymentIntentId = paymentIntent.id
+
+  const mongoSession = await mongoose.startSession()
+
+  try {
+    mongoSession.startTransaction()
+
+    // Find payment
+    const payment = await BrandBuilderPayment.findOne({
+      stripePaymentIntentId: paymentIntentId,
+    }).session(mongoSession)
+
+    if (!payment) {
+      throw new AppError(httpStatus.NOT_FOUND, 'Payment not found.')
+    }
+
+    // Already paid, don't update as failed
+    if (payment.status === paymentStatus.PAID) {
+      await mongoSession.commitTransaction()
+      return payment
+    }
+
+    const updatedPayment = await BrandBuilderPayment.findOneAndUpdate(
+      {
+        stripePaymentIntentId: paymentIntentId,
+      },
+      {
+        $set: {
+          status: paymentStatus.FAILED,
+        },
+      },
+      {
+        session: mongoSession,
+        new: true,
+      }
+    )
+
+    if (!updatedPayment) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'Payment failed update.')
+    }
+
+    // Update donation
+    if (brandBuilderId) {
+      const brandBuilder = await BrandBuilder.findOneAndUpdate(
+        {
+          _id: brandBuilderId,
+        },
+        {
+          $set: {
+            status: brandBuilderStatus.PAYMEMT_FAILED,
+            failedAt: new Date(),
+            failedReason: paymentIntent.last_payment_error,
+          },
+        },
+        {
+          session: mongoSession,
+          new: true,
+        }
+      )
+
+      if (!brandBuilder) {
+        throw new AppError(httpStatus.BAD_REQUEST, 'Brand builder failed to update.')
+      }
+    }
+
+    await mongoSession.commitTransaction()
+
+    return updatedPayment
+  } catch (error) {
+    await mongoSession.abortTransaction()
+
+    throw error
+  } finally {
+    await mongoSession.endSession()
+  }
+}
 
 export const handleOrderCheckoutPaymentSuccess = async (
   checkoutSession: Stripe.Checkout.Session
@@ -1056,6 +1264,62 @@ export const handleOrderPaymentFailed = async (paymentIntent: Stripe.PaymentInte
     })
 
     await Promise.all(restockPromises)
+
+    await mongoSession.commitTransaction()
+    return payment
+  } catch (error) {
+    await mongoSession.abortTransaction()
+    throw error
+  } finally {
+    await mongoSession.endSession()
+  }
+}
+
+export const handleBrandBuilderCheckoutExpired = async (
+  checkoutSession: Stripe.Checkout.Session
+) => {
+  const mongoSession = await mongoose.startSession()
+
+  try {
+    mongoSession.startTransaction()
+    const payment = await BrandBuilderPayment.findOneAndUpdate(
+      {
+        stripeCheckoutSessionId: checkoutSession.id,
+        status: paymentStatus.PENDING,
+      },
+      {
+        $set: {
+          status: paymentStatus.FAILED,
+          expiredAt: new Date(),
+        },
+      },
+      {
+        returnDocument: 'after',
+        session: mongoSession,
+      }
+    )
+
+    if (!payment) {
+      await mongoSession.abortTransaction()
+      return null
+    }
+
+    const brandBuilder = await BrandBuilder.findByIdAndUpdate(
+      payment.brandBuilderId,
+      {
+        $set: {
+          status: brandBuilderStatus.PAYMEMT_FAILED,
+        },
+      },
+      {
+        returnDocument: 'after',
+        session: mongoSession,
+      }
+    )
+
+    if (!brandBuilder) {
+      throw new AppError(httpStatus.NOT_FOUND, 'Failed to update order.')
+    }
 
     await mongoSession.commitTransaction()
     return payment

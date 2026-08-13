@@ -9,7 +9,7 @@ export interface IBrandBuilder {
   brandImage: string
   brandLogo: string
   colors: string[]
-  brandStyles: string
+  brandStyle: string
   budget: string
   brandBuilderFee: number
   paidAmount: number
