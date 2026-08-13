@@ -165,16 +165,6 @@ const createBrandBuilder = async (
   }
 }
 
-const updateBrandBuilder = async (id: string, payload: TUpdateBrandBuilderPayloadType) => {
-  const result = await BrandBuilder.findOneAndUpdate({ _id: id }, { $set: payload }, { new: true })
-
-  if (!result) {
-    throw new AppError(httpStatus.NOT_FOUND, 'BrandBuilder not found')
-  }
-
-  return result
-}
-
 const getAllBrandBuilder = async (query: TGetAllBrandBuilderQueryParamsType) => {
   const {
     page = 1,
@@ -188,6 +178,14 @@ const getAllBrandBuilder = async (query: TGetAllBrandBuilderQueryParamsType) => 
 
   const skip = (page - 1) * limit
   const pipeline: PipelineStage[] = []
+
+  pipeline.push({
+    $match: { 
+      
+    }
+  })
+
+
 
   if (fromDate || toDate) {
     const dateFilter: Record<string, unknown> = {}
@@ -232,30 +230,8 @@ const getAllBrandBuilder = async (query: TGetAllBrandBuilderQueryParamsType) => 
   }
 }
 
-const getBrandBuilderById = async (id: string) => {
-  const result = await BrandBuilder.findById(id)
-
-  if (!result) {
-    throw new AppError(httpStatus.NOT_FOUND, 'BrandBuilder not found')
-  }
-
-  return result
-}
-
-const deleteBrandBuilderById = async (id: string) => {
-  const result = await BrandBuilder.findOneAndDelete({ _id: id })
-
-  if (!result) {
-    throw new AppError(httpStatus.NOT_FOUND, 'BrandBuilder not found')
-  }
-
-  return result
-}
-
 export const brandBuilderServices = {
   createBrandBuilder,
-  updateBrandBuilder,
+
   getAllBrandBuilder,
-  getBrandBuilderById,
-  deleteBrandBuilderById,
 }

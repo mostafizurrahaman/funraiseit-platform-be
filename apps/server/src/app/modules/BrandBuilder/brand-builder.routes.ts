@@ -28,28 +28,10 @@ router.post(
   brandBuilderControllers.createBrandBuilder
 )
 
-router.patch(
-  '/:id',
-  validateRequest(brandBuilderValidations.updateBrandBuilderSchema),
-  brandBuilderControllers.updateBrandBuilder
-)
-
 router.get(
   '/all',
   validateRequest(brandBuilderValidations.getAllBrandBuilderSchema),
   brandBuilderControllers.getAllBrandBuilder
-)
-
-router.get(
-  '/:id',
-  validateRequest(brandBuilderValidations.getBrandBuilderByIdSchema),
-  brandBuilderControllers.getBrandBuilderById
-)
-
-router.delete(
-  '/:id',
-  validateRequest(brandBuilderValidations.deleteBrandBuilderByIdSchema),
-  brandBuilderControllers.deleteBrandBuilderById
 )
 
 export const brandBuilderRoutes = router

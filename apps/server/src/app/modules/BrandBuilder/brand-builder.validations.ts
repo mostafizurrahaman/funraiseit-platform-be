@@ -6,6 +6,7 @@ import {
   optionalString,
   optionalDate,
   sortingOrderValues,
+  requiredMongooseId,
 } from '@repo/shared'
 import { brandBuilderSortableFields } from '@repo/db'
 
@@ -46,6 +47,7 @@ const getAllBrandBuilderSchema = z.object({
   query: z.object({
     page: optionalNumber('Page'),
     limit: optionalNumber('Limit'),
+    organizerId: requiredMongooseId('Organizer ID').optional(),
     searchTerm: optionalString('Search term'),
     sortOrder: optionalEnumString(sortingOrderValues, 'Sort order'),
     sortBy: optionalEnumString(brandBuilderSortableFields, 'Sort by'),

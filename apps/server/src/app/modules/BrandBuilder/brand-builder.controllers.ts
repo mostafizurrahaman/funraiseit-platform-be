@@ -22,17 +22,6 @@ const createBrandBuilder = catchAsync(async (req, res) => {
   })
 })
 
-const updateBrandBuilder = catchAsync(async (req, res) => {
-  const result = await brandBuilderServices.updateBrandBuilder(req.params.id as string, req.body)
-
-  sendResponse(res, {
-    success: true,
-    statusCode: httpStatus.OK,
-    message: 'The brand builder updated successfully!',
-    data: result,
-  })
-})
-
 const getAllBrandBuilder = catchAsync(async (req, res) => {
   const result = await brandBuilderServices.getAllBrandBuilder(req.query)
 
@@ -45,32 +34,8 @@ const getAllBrandBuilder = catchAsync(async (req, res) => {
   })
 })
 
-const getBrandBuilderById = catchAsync(async (req, res) => {
-  const result = await brandBuilderServices.getBrandBuilderById(req.params.id as string)
-
-  sendResponse(res, {
-    success: true,
-    statusCode: httpStatus.OK,
-    message: 'The brand builder retrieved successfully!',
-    data: result,
-  })
-})
-
-const deleteBrandBuilderById = catchAsync(async (req, res) => {
-  const result = await brandBuilderServices.deleteBrandBuilderById(req.params.id as string)
-
-  sendResponse(res, {
-    success: true,
-    statusCode: httpStatus.OK,
-    message: 'The brand builder deleted successfully!',
-    data: result,
-  })
-})
-
 export const brandBuilderControllers = {
   createBrandBuilder,
-  updateBrandBuilder,
+
   getAllBrandBuilder,
-  getBrandBuilderById,
-  deleteBrandBuilderById,
 }
