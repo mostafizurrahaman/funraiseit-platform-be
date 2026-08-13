@@ -115,6 +115,7 @@ const createBrandBuilder = async (
         brandBuilderId: brandBuilder?._id?.toString() as string,
         organizerId: user?._id?.toString(),
         brandBuilderFee,
+        paymentType: paymentType.BRAND_BUILDER,
       },
     })
 
@@ -141,7 +142,7 @@ const createBrandBuilder = async (
       throw new AppError(httpStatus.BAD_REQUEST, 'Failed to initiate payment.')
     }
 
-    // ?? 
+    // ??
 
     await mongoSession.commitTransaction()
     return {
