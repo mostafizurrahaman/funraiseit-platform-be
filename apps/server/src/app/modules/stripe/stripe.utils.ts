@@ -255,7 +255,7 @@ export const handleBrandBuilderCheckoutPaymentSuccess = async (
 
   const balanceTx = await stripe.balanceTransactions.retrieve(charge.balance_transaction as string)
 
-  const totalAmount = balanceTx.amount
+  const totalAmount = balanceTx.amount / 100
   const stripeOriginalAmount = balanceTx.net / 100
   const stripeFee = balanceTx.fee / 100
 
