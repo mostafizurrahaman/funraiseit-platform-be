@@ -224,6 +224,8 @@ export const handleBrandBuilderCheckoutPaymentSuccess = async (
   if (session.payment_status !== 'paid') {
     throw new AppError(httpStatus.BAD_REQUEST, 'Payment not paid yet.')
   }
+
+  console.log(session)
   const { metadata } = session
 
   const { brandBuilderId } = metadata as unknown as IBrandBuilderMeta
@@ -253,6 +255,7 @@ export const handleBrandBuilderCheckoutPaymentSuccess = async (
 
   const balanceTx = await stripe.balanceTransactions.retrieve(charge.balance_transaction as string)
 
+  const totalAmount = balanceTx.amount / 100
   const stripeOriginalAmount = balanceTx.net / 100
   const stripeFee = balanceTx.fee / 100
 
@@ -282,7 +285,7 @@ export const handleBrandBuilderCheckoutPaymentSuccess = async (
       {
         $set: {
           status: paymentStatus.PAID,
-          amount: stripeOriginalAmount,
+          amount: totalAmount,
           stripePaymentIntentId: paymentIntentId,
           stripeChargeId: charge.id,
           stripeBalanceTransactionId: balanceTx.id,
@@ -311,8 +314,8 @@ export const handleBrandBuilderCheckoutPaymentSuccess = async (
         [
           {
             payment: payment._id,
-            subtotal: stripeOriginalAmount,
-            totalAmount: stripeOriginalAmount,
+            subtotal: totalAmount,
+            totalAmount: totalAmount,
             stripeFee,
           },
         ],
