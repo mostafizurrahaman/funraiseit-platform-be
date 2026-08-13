@@ -115,11 +115,11 @@ const createCampaign = async (
 
 const getDraftCampaign = async (user: IUser) => {
   const pipeline: PipelineStage[] = [
-    // {
-    //   $match: {
-    //     status: CampaignStatus.DRAFT,
-    //   },
-    // },
+    {
+      $match: {
+        status: CampaignStatus.DRAFT,
+      },
+    },
   ]
 
   // ?? Find out draft
@@ -390,6 +390,7 @@ const getAllCampaign = async (query: TGetAllCampaignQueryParamsType) => {
     organizerId,
     organizerStatus,
     campaignStatus,
+    campaignCategory,
     sortOrder = 'desc',
     sortBy = 'createdAt',
     fromDate,
@@ -422,6 +423,14 @@ const getAllCampaign = async (query: TGetAllCampaignQueryParamsType) => {
     pipeline.push({
       $match: {
         organizer: new Types.ObjectId(organizerId),
+      },
+    })
+  }
+
+  if (campaignCategory) {
+    pipeline.push({
+      $match: {
+        campaignCategory,
       },
     })
   }
@@ -711,6 +720,7 @@ const getMyAllCampaign = async (user: IUser, query: TGetMyAllCampaignQueryParams
     limit: currentLimit = 10,
     searchTerm,
     campaignStatus,
+    campaignCategory,
     sortOrder = 'desc',
     sortBy = 'createdAt',
     fromDate,
@@ -728,6 +738,14 @@ const getMyAllCampaign = async (user: IUser, query: TGetMyAllCampaignQueryParams
       },
     },
   ]
+
+  if (campaignCategory) {
+    pipeline.push({
+      $match: {
+        campaignCategory,
+      },
+    })
+  }
 
   if (fromDate || toDate) {
     const dateFilter: Record<string, unknown> = {}
@@ -1904,6 +1922,7 @@ const getAllActiveCampaign = async (query: TGetAllActiveCampaignQuery) => {
     limit: currentLimit = 10,
     searchTerm,
     organizerId,
+    campaignCategory,
     sortOrder = 'desc',
     sortBy = 'createdAt',
     fromDate,
@@ -1921,6 +1940,14 @@ const getAllActiveCampaign = async (query: TGetAllActiveCampaignQuery) => {
       },
     },
   ]
+
+  if (campaignCategory) {
+    pipeline.push({
+      $match: {
+        campaignCategory,
+      },
+    })
+  }
 
   if (fromDate || toDate) {
     const dateFilter: Record<string, unknown> = {}

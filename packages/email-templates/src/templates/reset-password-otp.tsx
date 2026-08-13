@@ -1,20 +1,16 @@
-// reset-password-otp-email.tsx
 import {
-  Body,
   Button,
-  Container,
-  Head,
-  Heading,
-  Hr,
-  Html,
   Img,
   Link,
-  Preview,
   Section,
   Text,
-  Font,
+  Heading,
+  Hr,
+  Row,
+  Column,
 } from '@react-email/components'
 import * as React from 'react'
+import { EmailLayout } from '../layouts/email-layout' // Adjust path if necessary
 
 interface ResetPasswordOTPEmailProps {
   userFirstName?: string
@@ -31,230 +27,105 @@ export const ResetPasswordOTPEmail = ({
   userEmail = 'user@example.com',
   expirationMinutes = 15,
   companyName = 'Your Company',
-  companyLogo = 'https://via.placeholder.com/120x40/5850EC/ffffff?text=LOGO',
+  companyLogo = 'https://via.placeholder.com/120x40/03AFA8/ffffff?text=LOGO',
 }: ResetPasswordOTPEmailProps) => {
-  const previewText = `Your password reset code is ${otpCode}`
-
-  // Simplified color scheme
-  const colors = {
-    primary: '#5850EC',
-    primaryLight: '#F4F3FF',
-    dark: '#1F2937',
-    gray: '#6B7280',
-    lightGray: '#F9FAFB',
-    white: '#FFFFFF',
-    border: '#E5E7EB',
-    success: '#10B981',
-    warning: '#F59E0B',
-  }
-
-  // Styles
-  const main = {
-    backgroundColor: colors.lightGray,
-    fontFamily:
-      '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif',
-  }
-
-  const container = {
-    margin: '0 auto',
-    padding: '40px 20px',
-    maxWidth: '560px',
-  }
-
-  const card = {
-    backgroundColor: colors.white,
-    borderRadius: '12px',
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-    overflow: 'hidden',
-  }
-
-  const header = {
-    backgroundColor: colors.primary,
-    padding: '32px',
-    textAlign: 'center' as const,
-  }
-
-  const content = {
-    padding: '32px',
-  }
-
-  const heading = {
-    color: colors.dark,
-    fontSize: '24px',
-    fontWeight: '600',
-    lineHeight: '32px',
-    margin: '0 0 16px',
-  }
-
-  const paragraph = {
-    color: colors.gray,
-    fontSize: '16px',
-    lineHeight: '24px',
-    margin: '0 0 16px',
-  }
-
-  const otpContainer = {
-    backgroundColor: colors.primaryLight,
-    borderRadius: '8px',
-    margin: '32px 0',
-    padding: '24px',
-    textAlign: 'center' as const,
-  }
-
-  const otpCodeStyle = {
-    color: colors.primary,
-    fontSize: '36px',
-    fontWeight: '700',
-    letterSpacing: '8px',
-    lineHeight: '48px',
-    margin: '0',
-  }
-
-  const button = {
-    backgroundColor: colors.primary,
-    borderRadius: '8px',
-    color: colors.white,
-    display: 'inline-block',
-    fontSize: '16px',
-    fontWeight: '600',
-    lineHeight: '48px',
-    padding: '0 24px',
-    textAlign: 'center' as const,
-    textDecoration: 'none',
-  }
-
-  const alert = {
-    backgroundColor: '#FEF3C7',
-    border: '1px solid #FCD34D',
-    borderRadius: '8px',
-    padding: '12px 16px',
-    margin: '24px 0',
-  }
-
-  const alertText = {
-    color: '#92400E',
-    fontSize: '14px',
-    lineHeight: '20px',
-    margin: '0',
-  }
-
-  const footer = {
-    padding: '24px 32px',
-    backgroundColor: colors.lightGray,
-    borderTop: `1px solid ${colors.border}`,
-  }
-
-  const footerText = {
-    color: colors.gray,
-    fontSize: '14px',
-    lineHeight: '20px',
-    margin: '0',
-    textAlign: 'center' as const,
-  }
-
-  const link = {
-    color: colors.primary,
-    textDecoration: 'underline',
-  }
-
   return (
-    <Html>
-      <Head>
-        <Font
-          fontFamily="Inter"
-          fallbackFontFamily="Helvetica"
-          webFont={{
-            url: 'https://fonts.gstatic.com/s/inter/v12/UcC73FwrK3iLTeHuS_fvQtMwCp50KnMa1ZL7.woff2',
-            format: 'woff2',
-          }}
-          fontWeight={400}
-          fontStyle="normal"
-        />
-      </Head>
-      <Preview>{previewText}</Preview>
-      <Body style={main}>
-        <Container style={container}>
-          <Section style={card}>
-            {/* Header */}
-            <Container style={header}>
-              <Img
-                src={companyLogo}
-                width="120"
-                height="40"
-                alt={companyName}
-                style={{ margin: '0 auto' }}
-              />
-            </Container>
+    <EmailLayout previewText={`Your password reset code is ${otpCode}`}>
+      {/* Header */}
+      <Section className="px-8 pt-10 pb-6 text-center">
+        {/* Modern Logo Wrapper (Same styling to preserve aspect ratio) */}
+        <div className="bg-white inline-block p-3 rounded-xl shadow-md border border-slate-100 mb-5">
+          <Img
+            src={companyLogo}
+            width="180"
+            height="60"
+            alt={companyName}
+            className="mx-auto object-contain rounded-md"
+          />
+        </div>
 
-            {/* Main Content */}
-            <Container style={content}>
-              <Heading style={heading}>Reset Your Password</Heading>
+        {/* Primary Color Heading */}
+        <Heading className="text-2xl font-bold text-[#03AFA8] m-0 tracking-tight">
+          Reset Your Password
+        </Heading>
+      </Section>
 
-              <Text style={paragraph}>Hi {userFirstName},</Text>
+      {/* Main Content */}
+      <Section className="px-8 pb-8">
+        <Text className="text-slate-800 text-base font-semibold mb-4 m-0">
+          Hi {userFirstName},
+        </Text>
 
-              <Text style={paragraph}>
-                We received a request to reset your password for your account associated with{' '}
-                {userEmail}.
-              </Text>
+        <Text className="text-slate-600 text-base leading-relaxed m-0 mb-4">
+          We received a request to reset your password for your account associated with{' '}
+          <strong className="text-slate-800">{userEmail}</strong>.
+        </Text>
 
-              <Text style={paragraph}>Use the verification code below to reset your password:</Text>
+        <Text className="text-slate-600 text-base leading-relaxed m-0">
+          Use the verification code below to reset your password:
+        </Text>
 
-              {/* OTP Code */}
-              <Container style={otpContainer}>
-                <Text style={otpCodeStyle}>{otpCode}</Text>
-                <Text
-                  style={{ ...paragraph, fontSize: '14px', marginTop: '8px', marginBottom: '0' }}
-                >
-                  Valid for {expirationMinutes} minutes
-                </Text>
-              </Container>
+        {/* OTP Box */}
+        {/* Using Primary Color for border and text */}
+        <Section className="bg-[#f6f9fc] rounded-xl border-2 border-dashed border-[#03AFA8]/50 my-8 p-6 text-center">
+          <Text className="text-xs uppercase tracking-widest text-[#03AFA8] font-bold mb-3 m-0">
+            Verification Code
+          </Text>
+          <Text className="text-4xl font-mono font-bold tracking-[8px] text-[#03AFA8] m-0">
+            {otpCode}
+          </Text>
+          <Text className="text-slate-500 text-sm mt-3 mb-0 font-medium">
+            Valid for {expirationMinutes} minutes
+          </Text>
+        </Section>
 
-              {/* CTA Button */}
-              <Section style={{ textAlign: 'center', margin: '32px 0' }}>
-                <Button href="https://example.com/reset-password" style={button}>
-                  Reset Password
-                </Button>
-              </Section>
+        {/* CTA Button */}
+        <Button
+          href="https://example.com/reset-password"
+          className="bg-[#03AFA8] w-full text-white text-base font-semibold py-4 rounded-lg text-center shadow-sm mb-8"
+        >
+          Reset Password
+        </Button>
 
-              {/* Warning Alert */}
-              <Container style={alert}>
-                <Text style={alertText}>
-                  <strong>⚠️ Didn't request this?</strong>
-                  <br />
-                  If you didn't request a password reset, you can safely ignore this email. Your
-                  password won't be changed.
-                </Text>
-              </Container>
+        {/* Warning Alert - Using Secondary Color (#FE7B01) */}
+        <Section className="bg-[#FE7B01]/10 border border-[#FE7B01]/30 rounded-lg p-4 mb-8">
+          <Text className="text-[#FE7B01] font-semibold text-sm m-0 mb-1">
+            ⚠️ Didn't request this?
+          </Text>
+          <Text className="text-slate-700 text-sm m-0 leading-relaxed">
+            If you didn't request a password reset, you can safely ignore this email. Your password
+            won't be changed.
+          </Text>
+        </Section>
 
-              {/* Security Tips */}
-              <Text style={{ ...paragraph, fontSize: '14px', marginTop: '24px' }}>
-                <strong>Security Tips:</strong>
-              </Text>
-              <Text style={{ ...paragraph, fontSize: '14px', marginLeft: '16px' }}>
-                • Never share this code with anyone
-                <br />
-                • Our team will never ask for your password
-                <br />• Make sure you're on our official website
-              </Text>
-            </Container>
+        {/* Security Tips */}
+        <Section>
+          <Text className="text-slate-800 text-sm font-semibold m-0 mb-2">
+            Security Tips:
+          </Text>
+          <Text className="text-slate-600 text-sm leading-relaxed m-0 ml-1">
+            • Never share this code with anyone<br />
+            • Our team will never ask for your password<br />
+            • Make sure you're on our official website
+          </Text>
+        </Section>
+      </Section>
 
-            {/* Footer */}
-            <Container style={footer}>
-              <Text style={footerText}>
-                Need help?{' '}
-                <Link href="mailto:support@example.com" style={link}>
-                  Contact Support
-                </Link>
-              </Text>
-              <Text style={{ ...footerText, fontSize: '12px', marginTop: '16px' }}>
-                © {new Date().getFullYear()} {companyName}. All rights reserved.
-              </Text>
-            </Container>
-          </Section>
-        </Container>
-      </Body>
-    </Html>
+      <Hr className="border-slate-100 m-0" />
+
+      {/* Footer */}
+      <Section className="px-8 py-6 bg-slate-50 text-center">
+        <Text className="text-slate-500 text-sm m-0 mb-4">
+          Need help?{' '}
+          <Link href="mailto:support@example.com" className="text-[#03AFA8] font-semibold underline">
+            Contact Support
+          </Link>
+        </Text>
+        
+        <Text className="text-slate-400 text-xs m-0">
+          © {new Date().getFullYear()} {companyName}. All rights reserved.
+        </Text>
+      </Section>
+    </EmailLayout>
   )
 }
-
-

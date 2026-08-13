@@ -28,9 +28,22 @@ const getSupporterOverviewByID = z.object({
   }),
 })
 
+const sendEmailToSupporterSchema = z.object({
+  body: z.object({
+    campaignId: requiredMongooseId('Campaign ID'),
+    subject: z.string({
+      error: 'Subject is required.',
+    }),
+    message: z.string({
+      error: 'Email message is required.',
+    }),
+  }),
+})
+
 export const supporterValidations = {
   getAllSupporterSchema,
   getSupporterOverviewByID,
+  sendEmailToSupporterSchema,
 }
 
 export type TGetAllSupporterQueryParamsType = z.infer<typeof getAllSupporterSchema.shape.query>
@@ -38,3 +51,5 @@ export type TGetAllSupporterQueryParamsType = z.infer<typeof getAllSupporterSche
 export type TGetSupporterOverviewByCampaignIdQuery = z.infer<
   typeof getSupporterOverviewByID.shape.query
 >
+
+export type TSendEmailToSupporterPayload = z.infer<typeof sendEmailToSupporterSchema.shape.body>

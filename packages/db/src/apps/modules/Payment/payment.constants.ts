@@ -24,6 +24,7 @@ export const paymentType = {
   DONATION: 'donation',
   LAUNCH_FEE: 'launch_fee',
   PAYOUT: 'payout',
+  BRAND_BUILDER: 'brand_builder',
 } as const
 
 export const paymentTypeValues = Object.values(paymentType)

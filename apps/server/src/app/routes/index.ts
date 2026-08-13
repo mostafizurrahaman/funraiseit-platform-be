@@ -11,6 +11,7 @@ import { usersRoutes } from '@app/modules/Users/users.routes'
 import express, { Router } from 'express'
 import { supporterRoutes } from '../modules/Supporter/supporter.routes'
 import { payoutRoutes } from '@app/modules/Payout/payout.routes'
+import { contentRoutes } from '@app/modules/Content/content.routes'
 
 const router: Router = express.Router()
 
@@ -62,6 +63,10 @@ const routes = [
   {
     path: '/payout',
     route: payoutRoutes,
+  },
+  {
+    path: '/content',
+    route: contentRoutes,
   },
 ]
 

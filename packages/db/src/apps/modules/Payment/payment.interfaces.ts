@@ -39,6 +39,10 @@ export interface IPayoutPayment extends IPayment {
   stripePayoutId: Types.ObjectId
 }
 
+export interface IBrandBuilderPayment extends IPayment {
+  brandBuilderId: Types.ObjectId
+}
+
 export interface IPaymentBreakdown {
   payment: Types.ObjectId
   subtotal: number
@@ -58,7 +62,7 @@ export interface IDonationPaymentDoc extends IDonationPayment, Document {}
 export interface IOrderPaymentDoc extends IOrderPayment, Document {}
 export interface ILaunchPaymentDoc extends ILaunchPayment, Document {}
 export interface IPayoutPaymentDoc extends IPayoutPayment, Document {}
-
+export interface IBrandBuilderPaymentDoc extends IBrandBuilderPayment, Document {}
 // export interface IPaymentModel extends Model<IPaymentDoc> {
 //   getById(id: string): Promise<IPayment | null>
 // }

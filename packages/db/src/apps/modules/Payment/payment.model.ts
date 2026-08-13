@@ -6,6 +6,7 @@ import {
   type IPaymentDoc,
   type ILaunchPaymentDoc,
   type IPayoutPaymentDoc,
+  type IBrandBuilderPaymentDoc,
 } from './payment.interfaces'
 import {
   paymentStatus,
@@ -26,7 +27,6 @@ const paymentSchema = new Schema<IPaymentDoc>(
     campaign: {
       type: Schema.Types.ObjectId,
       ref: 'Campaign',
-      required: true,
     },
     paymentType: {
       type: String,
@@ -117,6 +117,14 @@ const launchFeeSchema = new Schema<ILaunchPaymentDoc>({
   },
 })
 
+const brandBuilderSchema = new Schema<IBrandBuilderPaymentDoc>({
+  brandBuilderId: {
+    type: Schema.Types.ObjectId,
+    ref: 'BrandBuilder',
+    required: true,
+  },
+})
+
 const payoutPaymentSchema = new Schema<IPayoutPaymentDoc>({
   payoutId: {
     type: Schema.Types.ObjectId,
@@ -188,6 +196,10 @@ export const OrderPayment = Payment.discriminator(paymentType.ORDER, orderPaymen
 export const DonationPayment = Payment.discriminator(paymentType.DONATION, donationPaymentSchema)
 export const LaunchPayment = Payment.discriminator(paymentType.LAUNCH_FEE, launchFeeSchema)
 export const PayoutPayment = Payment.discriminator(paymentType.PAYOUT, payoutPaymentSchema)
+export const BrandBuilderPayment = Payment.discriminator(
+  paymentType.BRAND_BUILDER,
+  brandBuilderSchema
+)
 
 export const PaymentBreakDown = model<IPaymentBreakdownDoc>(
   'PaymentBreakdown',

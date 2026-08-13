@@ -1,3 +1,4 @@
+import { campaignCategoryValues } from './../../../../../../packages/db/src/apps/modules/Campaign/campaign.constants'
 import z from 'zod'
 import {
   requiredString,
@@ -124,6 +125,7 @@ const getAllCampaignSchema = z.object({
     organizerId: requiredMongooseId('Organizer ID').optional(),
     campaignStatus: optionalEnumString(campaignStatusValues, 'Campaign Status'),
     organizerStatus: optionalEnumString(AuthStatusValues, 'Organizer Status'),
+    campaignCategory: optionalEnumString(campaignCategoryValues, 'Campaign category'),
     sortOrder: optionalEnumString(sortingOrderValues, 'Sort order'),
     sortBy: optionalEnumString(campaignSortableFields, 'Sort by'),
     fromDate: optionalDate('From date'),
@@ -137,6 +139,8 @@ const getMyAllCampaignSchema = z.object({
     limit: optionalNumber('Limit'),
     searchTerm: optionalString('Search term'),
     campaignStatus: optionalEnumString(campaignStatusValues, 'Campaign Status'),
+    campaignCategory: optionalEnumString(campaignCategoryValues, 'Campaign category'),
+
     sortOrder: optionalEnumString(sortingOrderValues, 'Sort order'),
     sortBy: optionalEnumString(campaignSortableFields, 'Sort by'),
     fromDate: optionalDate('From date'),
@@ -149,6 +153,7 @@ const getAllActiveCampaign = z.object({
     page: optionalNumber('Page'),
     limit: optionalNumber('Limit'),
     organizerId: requiredMongooseId('Organizer ID').optional(),
+    campaignCategory: optionalEnumString(campaignCategoryValues, 'Campaign category'),
     searchTerm: optionalString('Search term'),
     sortOrder: optionalEnumString(sortingOrderValues, 'Sort order'),
     sortBy: optionalEnumString(campaignSortableFields, 'Sort by'),
