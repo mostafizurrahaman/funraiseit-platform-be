@@ -2,6 +2,7 @@ import {
   AuthPermission,
   AuthRoles,
   AuthStatus,
+  CampaignStatus,
   User,
   usersSearchableFields,
   type IUser,
@@ -314,22 +315,74 @@ const getAllOrganizations = async (query: TGetAllOrganizationsQueryParamsType) =
   }
 
   pipeline.push({
-    $project: {
-      _id: 0,
-      userId: '$_id',
-      name: '$name',
-      email: '$email',
-      phoneNumber: { $ifNull: ['$phoneNumber', null] },
-      profileImage: { $ifNull: ['$profileImage', null] },
-      role: '$role',
-      status: '$status',
-      lastLogin: { $ifNull: ['$lastLogin', null] },
-      lastActivity: { $ifNull: ['$lastActivity', null] },
-      joinedAt: '$createdAt',
-      createdAt: '$createdAt',
-      updatedAt: '$updatedAt',
+    $lookup: {
+      from: 'campaigns',
+      localField: '_id',
+      foreignField: 'organizer',
+      as: 'campaignDetails',
+      pipeline: [
+        {
+          $group: {
+            _id: null,
+            totalCampaign: {
+              $sum: 1,
+            },
+            totalActiveCampaign: {
+              $sum: {
+                $cond: [
+                  {
+                    $ifNull: ['$status', CampaignStatus.ACTIVE],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            cancelledCampaign: {
+              $sum: {
+                $cond: [
+                  {
+                    $ifNull: ['$status', CampaignStatus.CANCELLED],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            rejectedCampaign: {
+              $sum: {
+                $cond: [
+                  {
+                    $ifNull: ['$status', CampaignStatus.REJECTED],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+      ],
     },
   })
+
+  // pipeline.push({
+  //   $project: {
+  //     _id: 0,
+  //     userId: '$_id',
+  //     name: '$name',
+  //     email: '$email',
+  //     phoneNumber: { $ifNull: ['$phoneNumber', null] },
+  //     profileImage: { $ifNull: ['$profileImage', null] },
+  //     role: '$role',
+  //     status: '$status',
+  //     lastLogin: { $ifNull: ['$lastLogin', null] },
+  //     lastActivity: { $ifNull: ['$lastActivity', null] },
+  //     joinedAt: '$createdAt',
+  //     createdAt: '$createdAt',
+  //     updatedAt: '$updatedAt',
+  //   },
+  // })
 
   pipeline.push({ $sort: { [sortBy]: sortOrder === 'asc' ? 1 : -1 } })
 
