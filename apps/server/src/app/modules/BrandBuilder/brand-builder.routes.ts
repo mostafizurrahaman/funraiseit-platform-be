@@ -34,4 +34,11 @@ router.get(
   brandBuilderControllers.getAllBrandBuilder
 )
 
+router.get(
+  '/my',
+  auth(AuthRoles.ORGANIZER),
+  validateRequest(brandBuilderValidations.getAllBrandBuilderSchema),
+  brandBuilderControllers.getCustomerBrandBuilders
+)
+
 export const brandBuilderRoutes = router

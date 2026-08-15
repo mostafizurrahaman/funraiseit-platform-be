@@ -1,7 +1,11 @@
+import { Donation } from './../../../../../../packages/db/src/apps/modules/Donation/donation.model'
+import { Order } from './../../../../../../packages/db/src/apps/modules/Order/order.model'
 import httpStatus from 'http-status'
 import moment from 'moment'
 import type { TGetAnalyticsOverview } from './analytics.validations'
 import {
+  BrandBuilder,
+  brandBuilderStatus,
   Campaign,
   CampaignStatus,
   DonationPayment,
@@ -12,6 +16,7 @@ import {
 } from 'packages/db/src'
 import { AppError } from 'packages/shared/src'
 import { formatRelativeTime } from '@app/libs/format-relative-time'
+import { formatRevenueGraph } from './analytics.utils'
 
 const getCampaignAnalyticsFromDB = async (query: TGetAnalyticsOverview) => {
   const { campaignId } = query
@@ -328,4 +333,684 @@ const getCampaignAnalyticsFromDB = async (query: TGetAnalyticsOverview) => {
   }
 }
 
-export const analyticServices = { getCampaignAnalyticsFromDB }
+interface RawPaymentSummary {
+  _id: string | null
+  transactionFees: number
+  brandBuilderTotal: number
+  brandBuilderTotalExcludingStripeFee: number
+  brandBuilderStripeFee: number
+  launchFeeCollectedTotal: number
+  launchFeeCollectedExcludingAllFees: number
+  failedOrderPayments: number
+  failedDonationPayments: number
+  failedBrandBuilderPayments: number
+  failedCampaignLaunchPayments: number
+  totalFailedPayments: number
+  totalPlatformRevenue: number
+  brandBuilderRevenue: number
+  campaignLaunchRevenue: number
+  transactionFeeRevenue: number
+  brandBuilderRevenuePercentage: number
+  campaignLaunchRevenuePercentage: number
+  transactionFeeRevenuePercentage: number
+}
+
+const toFixedNum = (val: number, decimals: number = 2): number => {
+  return Number(Math.round(Number(`${val}e${decimals}`)) + `e-${decimals}`)
+}
+
+export function formatPaymentSummary(raw: RawPaymentSummary) {
+  return {
+    // Revenue & Earnings
+    totalPlatformRevenue: toFixedNum(raw.totalPlatformRevenue),
+    brandBuilderRevenue: toFixedNum(raw.brandBuilderRevenue),
+    campaignLaunchRevenue: toFixedNum(raw.campaignLaunchRevenue),
+    transactionFeeRevenue: toFixedNum(raw.transactionFeeRevenue),
+
+    // Percentage Breakdown
+    brandBuilderRevenuePercentage: toFixedNum(raw.brandBuilderRevenuePercentage),
+    campaignLaunchRevenuePercentage: toFixedNum(raw.campaignLaunchRevenuePercentage),
+    transactionFeeRevenuePercentage: toFixedNum(raw.transactionFeeRevenuePercentage),
+
+    // Fees & Totals Breakdown
+    brandBuilderTotal: toFixedNum(raw.brandBuilderTotal),
+    brandBuilderStripeFee: toFixedNum(raw.brandBuilderStripeFee),
+    brandBuilderTotalExcludingStripeFee: toFixedNum(raw.brandBuilderTotalExcludingStripeFee),
+    launchFeeCollectedTotal: toFixedNum(raw.launchFeeCollectedTotal),
+    launchFeeCollectedExcludingAllFees: toFixedNum(raw.launchFeeCollectedExcludingAllFees),
+    transactionFees: toFixedNum(raw.transactionFees),
+
+    // Failure Counts (Integers)
+    failedOrderPayments: Math.round(raw.failedOrderPayments || 0),
+    failedDonationPayments: Math.round(raw.failedDonationPayments || 0),
+    failedBrandBuilderPayments: Math.round(raw.failedBrandBuilderPayments || 0),
+    failedCampaignLaunchPayments: Math.round(raw.failedCampaignLaunchPayments || 0),
+    totalFailedPayments: Math.round(raw.totalFailedPayments || 0),
+  }
+}
+const getAnalyticsForAdminPortal = async () => {
+  const endDate = moment().endOf('day')?.toDate()
+  const startDate = moment().utc().subtract(6, 'days').startOf('day').toDate()
+  const [campaignStats, payments, revenueGraph, topCampaigns, recentBrandBuilders] =
+    await Promise.all([
+      await Campaign.aggregate([
+        {
+          $group: {
+            _id: null,
+            liveCampaign: {
+              $sum: {
+                $cond: [{ $eq: ['$status', CampaignStatus.ACTIVE] }, 1, 0],
+              },
+            },
+            completedCampaign: {
+              $sum: {
+                $cond: [{ $eq: ['$status', CampaignStatus.COMPLETED] }, 1, 0],
+              },
+            },
+            payoutRequestedCampaign: {
+              $sum: {
+                $cond: [{ $eq: ['$status', CampaignStatus.PAYOUT_REQUEST] }, 1, 0],
+              },
+            },
+            paidOutCampaign: {
+              $sum: {
+                $cond: [{ $eq: ['$status', CampaignStatus.PAID_OUT] }, 1, 0],
+              },
+            },
+            cancelledCampaign: {
+              $sum: {
+                $cond: [{ $eq: ['$status', CampaignStatus.CANCELLED] }, 1, 0],
+              },
+            },
+            rejectedCampaign: {
+              $sum: {
+                $cond: [{ $eq: ['$status', CampaignStatus.REJECTED] }, 1, 0],
+              },
+            },
+            totalCampaign: {
+              $sum: 1,
+            },
+          },
+        },
+      ]),
+      await Payment.aggregate([
+        {
+          $match: {
+            paymentType: {
+              $in: [
+                paymentType.ORDER,
+                paymentType.DONATION,
+                paymentType.BRAND_BUILDER,
+                paymentType.LAUNCH_FEE,
+              ],
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: 'paymentbreakdowns',
+            localField: '_id',
+            foreignField: 'payment',
+            as: 'paymentBreakdown',
+          },
+        },
+        {
+          $unwind: {
+            path: '$paymentBreakdown',
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            transactionFees: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $in: ['$paymentType', [paymentType.DONATION, paymentType.ORDER]] },
+                      { status: paymentStatus.PAID },
+                    ],
+                  },
+
+                  {
+                    $ifNull: ['$paymentBreakdown.platformFee', 0],
+                  },
+                  0,
+                ],
+              },
+            },
+            brandBuilderTotal: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {
+                        $eq: ['$paymentType', paymentType.BRAND_BUILDER],
+                      },
+                      {
+                        status: paymentStatus.PAID,
+                      },
+                    ],
+                  },
+                  {
+                    $ifNull: ['$paymentBreakdown.subtotal', 0],
+                  },
+                  0,
+                ],
+              },
+            },
+            brandBuilderTotalExcludingStripeFee: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {
+                        $eq: ['$paymentType', paymentType.BRAND_BUILDER],
+                      },
+                      {
+                        status: paymentStatus.PAID,
+                      },
+                    ],
+                  },
+                  {
+                    $ifNull: ['$paymentBreakdown.totalAmount', 0],
+                  },
+                  0,
+                ],
+              },
+            },
+            brandBuilderStripeFee: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {
+                        $eq: ['$paymentType', paymentType.BRAND_BUILDER],
+                      },
+                      {
+                        status: paymentStatus.PAID,
+                      },
+                    ],
+                  },
+                  {
+                    $ifNull: ['$paymentBreakdown.stripeFee', 0],
+                  },
+                  0,
+                ],
+              },
+            },
+            launchFeeCollectedTotal: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {
+                        $eq: ['$paymentType', paymentType.LAUNCH_FEE],
+                      },
+                      {
+                        status: paymentStatus.PAID,
+                      },
+                    ],
+                  },
+                  {
+                    $ifNull: ['$paymentBreakdown.subtotal', 0],
+                  },
+                  0,
+                ],
+              },
+            },
+            launchFeeCollectedExcludingAllFees: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {
+                        $eq: ['$paymentType', paymentType.LAUNCH_FEE],
+                      },
+                      {
+                        status: paymentStatus.PAID,
+                      },
+                    ],
+                  },
+                  {
+                    $ifNull: ['$paymentBreakdown.totalAmount', 0],
+                  },
+                  0,
+                ],
+              },
+            },
+            failedOrderPayments: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {
+                        $eq: ['$paymentType', paymentType.ORDER],
+                      },
+                      {
+                        status: paymentStatus.FAILED,
+                      },
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            failedDonationPayments: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {
+                        $eq: ['$paymentType', paymentType.DONATION],
+                      },
+                      {
+                        status: paymentStatus.FAILED,
+                      },
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            failedBrandBuilderPayments: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {
+                        $eq: ['$paymentType', paymentType.BRAND_BUILDER],
+                      },
+                      {
+                        status: paymentStatus.FAILED,
+                      },
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            failedCampaignLaunchPayments: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {
+                        $eq: ['$paymentType', paymentType.LAUNCH_FEE],
+                      },
+                      {
+                        status: paymentStatus.FAILED,
+                      },
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            totalFailedPayments: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {
+                        $ne: ['$paymentType', paymentType.PAYOUT],
+                      },
+                      {
+                        status: paymentStatus.FAILED,
+                      },
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+        {
+          $addFields: {
+            totalPlatformRevenue: {
+              $add: [
+                '$launchFeeCollectedExcludingAllFees',
+                '$brandBuilderTotalExcludingStripeFee',
+                '$transactionFees',
+              ],
+            },
+            brandBuilderRevenue: '$brandBuilderTotalExcludingStripeFee',
+
+            campaignLaunchRevenue: '$launchFeeCollectedExcludingAllFees',
+            transactionFeeRevenue: '$transactionFees',
+          },
+        },
+        {
+          $addFields: {
+            brandBuilderRevenuePercentage: {
+              $divide: [{ $multiply: ['$brandBuilderRevenue', 100] }, '$totalPlatformRevenue'],
+            },
+            campaignLaunchRevenuePercentage: {
+              $divide: [{ $multiply: ['$campaignLaunchRevenue', 100] }, '$totalPlatformRevenue'],
+            },
+            transactionFeeRevenuePercentage: {
+              $divide: [{ $multiply: ['$transactionFeeRevenue', 100] }, '$totalPlatformRevenue'],
+            },
+          },
+        },
+      ]),
+      await Payment.aggregate([
+        {
+          $match: {
+            paymentType: {
+              $in: [
+                paymentType.ORDER,
+                paymentType.DONATION,
+                paymentType.BRAND_BUILDER,
+                paymentType.LAUNCH_FEE,
+              ],
+            },
+            paidAt: {
+              $gte: startDate,
+              $lte: endDate,
+            },
+          },
+        },
+
+        {
+          $lookup: {
+            from: 'paymentbreakdowns',
+            localField: '_id',
+            foreignField: 'payment',
+            as: 'paymentBreakdown',
+          },
+        },
+
+        {
+          $unwind: {
+            path: '$paymentBreakdown',
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+
+        {
+          $group: {
+            _id: {
+              $dateToString: {
+                format: '%Y-%m-%d',
+                date: '$createdAt',
+              },
+            },
+
+            // Transaction/platform fees from orders + donations
+            transactionFees: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {
+                        $in: ['$paymentType', [paymentType.DONATION, paymentType.ORDER]],
+                      },
+                      {
+                        $eq: ['$status', paymentStatus.PAID],
+                      },
+                    ],
+                  },
+                  {
+                    $ifNull: ['$paymentBreakdown.platformFee', 0],
+                  },
+                  0,
+                ],
+              },
+            },
+
+            // Brand Builder revenue
+            brandBuilderRevenue: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {
+                        $eq: ['$paymentType', paymentType.BRAND_BUILDER],
+                      },
+                      {
+                        $eq: ['$status', paymentStatus.PAID],
+                      },
+                    ],
+                  },
+                  {
+                    $ifNull: ['$paymentBreakdown.totalAmount', 0],
+                  },
+                  0,
+                ],
+              },
+            },
+
+            // Launch fee revenue
+            launchFeeRevenue: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {
+                        $eq: ['$paymentType', paymentType.LAUNCH_FEE],
+                      },
+                      {
+                        $eq: ['$status', paymentStatus.PAID],
+                      },
+                    ],
+                  },
+                  {
+                    $ifNull: ['$paymentBreakdown.totalAmount', 0],
+                  },
+                  0,
+                ],
+              },
+            },
+          },
+        },
+
+        {
+          $addFields: {
+            platformRevenue: {
+              $add: ['$transactionFees', '$brandBuilderRevenue', '$launchFeeRevenue'],
+            },
+          },
+        },
+
+        {
+          $sort: {
+            _id: 1,
+          },
+        },
+
+        {
+          $project: {
+            _id: 0,
+            date: '$_id',
+            revenue: '$platformRevenue',
+            platformFees: '$transactionFees',
+            brandBuilderRevenue: 1,
+            launchFeeRevenue: 1,
+          },
+        },
+      ]),
+      await Campaign.aggregate([
+        {
+          $match: {
+            status: {
+              $in: [
+                CampaignStatus.ACTIVE,
+                CampaignStatus.COMPLETED,
+                CampaignStatus.PAID_OUT,
+                CampaignStatus.PAYOUT_REQUEST,
+              ],
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'organizer',
+            foreignField: '_id',
+            as: 'organizerDetails',
+          },
+        },
+        {
+          $lookup: {
+            from: 'payments',
+            localField: '_id',
+            foreignField: 'campaign',
+            as: 'paymentDetails',
+            pipeline: [
+              {
+                $match: {
+                  status: paymentStatus.PAID,
+                  paymentType: {
+                    $in: [paymentType.DONATION, paymentType.ORDER],
+                  },
+                },
+              },
+              {
+                $group: {
+                  _id: null,
+                  totalOrders: {
+                    $sum: {
+                      $cond: [
+                        {
+                          $eq: ['$paymentType', paymentType.ORDER],
+                        },
+                        1,
+                        0,
+                      ],
+                    },
+                  },
+                  totalDonations: {
+                    $sum: {
+                      $cond: [
+                        {
+                          $eq: ['$paymentType', paymentType.DONATION],
+                        },
+                        1,
+                        0,
+                      ],
+                    },
+                  },
+                },
+              },
+            ],
+          },
+        },
+        {
+          $unwind: {
+            path: '$paymentDetails',
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $unwind: {
+            path: '$organizerDetails',
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+
+        {
+          $project: {
+            _id: 0,
+            campaignId: '$_id',
+            name: 1,
+            raisedAmount: 1,
+            thumbnail: {
+              $ifNull: ['$thumbnail', null],
+            },
+            organizerId: '$organizerDetails._id',
+            organizerName: '$organizerDetails.name',
+            organizerEmail: '$organizerDetails.email',
+            organizerPhone: { $ifNull: ['$organizerDetails.phoneNumber', null] },
+            totalOrders: {
+              $ifNull: ['$paymentDetails.totalOrders', 0],
+            },
+            totalDonations: {
+              $ifNull: ['$paymentDetails.totalDonations', 0],
+            },
+            campaignStatus: '$status',
+          },
+        },
+        {
+          $sort: {
+            raisedAmount: -1,
+          },
+        },
+        {
+          $limit: 6,
+        },
+      ]),
+      await BrandBuilder.aggregate([
+        {
+          $match: {
+            status: {
+              $ne: brandBuilderStatus.PAYMEMT_FAILED,
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'organizer',
+            foreignField: '_id',
+            as: 'organizerDetails',
+          },
+        },
+        {
+          $unwind: {
+            path: '$organizerDetails',
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            brandId: '$_id',
+            businessName: '$businessName',
+            brandImage: { $ifNull: ['$brandImage', null] },
+            brandLogo: { $ifNull: ['$brandLogo', null] },
+            sellingItem: { $ifNull: ['$sellingItem', []] },
+            status: '$status',
+            organizerId: '$organizerDetails._id',
+            organizerName: '$organizerDetails.name',
+            organizerEmail: '$organizerDetails.email',
+            organizerPhone: { $ifNull: ['$organizerDetails.phoneNumber', null] },
+          },
+        },
+        {
+          $sort: {
+            createdAt: -1,
+          },
+        },
+        {
+          $limit: 6,
+        },
+      ]),
+    ])
+
+  // ?? Campaign :
+  const campaignBreakdown = campaignStats?.[0] ?? {}
+
+  return {
+    liveCampaign: campaignBreakdown.liveCampaign ?? 0,
+    completedCampaign: campaignBreakdown.completedCampaign ?? 0,
+    payoutRequestedCampaign: campaignBreakdown.payoutRequestedCampaign ?? 0,
+    paidOutCampaign: campaignBreakdown.paidOutCampaign ?? 0,
+    cancelledCampaign: campaignBreakdown.cancelledCampaign ?? 0,
+    rejectedCampaign: campaignBreakdown.rejectedCampaign ?? 0,
+    totalCampaign: campaignBreakdown.totalCampaign ?? 0,
+    ...formatPaymentSummary(payments?.[0]),
+    revenueGraph: formatRevenueGraph(revenueGraph, startDate, endDate),
+    topCampaigns,
+    recentBrandBuilders,
+  }
+}
+
+export const analyticServices = { getCampaignAnalyticsFromDB, getAnalyticsForAdminPortal }

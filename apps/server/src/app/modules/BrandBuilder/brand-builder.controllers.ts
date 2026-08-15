@@ -34,8 +34,21 @@ const getAllBrandBuilder = catchAsync(async (req, res) => {
   })
 })
 
+const getCustomerBrandBuilders = catchAsync(async (req, res) => {
+  const user = await getUserFromRequest(req)
+  const result = await brandBuilderServices.getCustomerBrandBuilders(user, req.query)
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: 'The customer brand building request retrieved successfully!',
+    data: result.data,
+    meta: result.meta,
+  })
+})
+
 export const brandBuilderControllers = {
   createBrandBuilder,
-
+  getCustomerBrandBuilders,
   getAllBrandBuilder,
 }
