@@ -6,8 +6,9 @@ import {
   optionalString,
   optionalDate,
   sortingOrderValues,
+  requiredMongooseId,
 } from '@repo/shared'
-import { brandBuilderSortableFields } from '@repo/db'
+import { brandBuilderSortableFields, brandBuilderStatusValues } from '@repo/db'
 
 const createBrandBuilderSchema = z.object({
   body: z.object({
@@ -46,6 +47,21 @@ const getAllBrandBuilderSchema = z.object({
   query: z.object({
     page: optionalNumber('Page'),
     limit: optionalNumber('Limit'),
+    organizerId: requiredMongooseId('Organizer ID').optional(),
+    status: optionalEnumString(brandBuilderStatusValues, 'Brand status'),
+    searchTerm: optionalString('Search term'),
+    sortOrder: optionalEnumString(sortingOrderValues, 'Sort order'),
+    sortBy: optionalEnumString(brandBuilderSortableFields, 'Sort by'),
+    fromDate: optionalDate('From date'),
+    toDate: optionalDate('To date'),
+  }),
+})
+
+const getCustomerAllBrandBuilderSchema = z.object({
+  query: z.object({
+    page: optionalNumber('Page'),
+    limit: optionalNumber('Limit'),
+    status: optionalEnumString(brandBuilderStatusValues, 'Brand status'),
     searchTerm: optionalString('Search term'),
     sortOrder: optionalEnumString(sortingOrderValues, 'Sort order'),
     sortBy: optionalEnumString(brandBuilderSortableFields, 'Sort by'),
@@ -72,12 +88,16 @@ export const brandBuilderValidations = {
   getAllBrandBuilderSchema,
   getBrandBuilderByIdSchema,
   deleteBrandBuilderByIdSchema,
+  getCustomerAllBrandBuilderSchema,
 }
 
 export type TCreateBrandBuilderPayloadType = z.infer<typeof createBrandBuilderSchema.shape.body>
 export type TUpdateBrandBuilderPayloadType = z.infer<typeof updateBrandBuilderSchema.shape.body>
 export type TGetAllBrandBuilderQueryParamsType = z.infer<
   typeof getAllBrandBuilderSchema.shape.query
+>
+export type TGetCustomerAllBrandBuilderQueryParamsType = z.infer<
+  typeof getCustomerAllBrandBuilderSchema.shape.query
 >
 export type TGetBrandBuilderByIdParamsType = z.infer<typeof getBrandBuilderByIdSchema.shape.params>
 export type TDeleteBrandBuilderByIdParamsType = z.infer<

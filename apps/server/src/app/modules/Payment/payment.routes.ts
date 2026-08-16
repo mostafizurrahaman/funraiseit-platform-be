@@ -2,37 +2,22 @@ import express, { Router } from 'express'
 import { validateRequest } from '@app/middlewares'
 import { paymentControllers } from './payment.controllers'
 import { paymentValidations } from './payment.validations'
+import { AuthRoles } from 'packages/db/src'
+import { auth } from '@app/middlewares/auth'
 
-const router : Router = express.Router()
-
-router.post(
-  '/',
-  validateRequest(paymentValidations.createPaymentSchema),
-  paymentControllers.createPayment
-)
-
-router.patch(
-  '/:id',
-  validateRequest(paymentValidations.updatePaymentSchema),
-  paymentControllers.updatePayment
-)
+const router: Router = express.Router()
 
 router.get(
   '/all',
+  auth(AuthRoles.ADMIN, AuthRoles.SUPER_ADMIN),
   validateRequest(paymentValidations.getAllPaymentSchema),
   paymentControllers.getAllPayment
 )
 
 router.get(
-  '/:id',
-  validateRequest(paymentValidations.getPaymentByIdSchema),
-  paymentControllers.getPaymentById
-)
-
-router.delete(
-  '/:id',
-  validateRequest(paymentValidations.deletePaymentByIdSchema),
-  paymentControllers.deletePaymentById
+  '/overview',
+  auth(AuthRoles.ADMIN, AuthRoles.SUPER_ADMIN),
+  paymentControllers.getPaymentOverview
 )
 
 export const paymentRoutes = router

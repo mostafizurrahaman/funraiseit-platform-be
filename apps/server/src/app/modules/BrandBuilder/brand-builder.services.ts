@@ -1,11 +1,11 @@
 import {
+  AuthRoles,
   BrandBuilder,
   BrandBuilderPayment,
   brandBuilderSearchableFields,
   brandBuilderStatus,
   Campaign,
   CampaignStatus,
-  Payment,
   paymentStatus,
   paymentType,
   SiteInfo,
@@ -17,15 +17,15 @@ import type { PipelineStage } from 'mongoose'
 
 import type {
   TCreateBrandBuilderPayloadType,
-  TUpdateBrandBuilderPayloadType,
   TGetAllBrandBuilderQueryParamsType,
+  TGetCustomerAllBrandBuilderQueryParamsType,
 } from './brand-builder.validations'
 import {
   deleteSingleFileFromS3,
   uploadSingleFileToS3,
   type IMulterFile,
 } from 'packages/media-hub/src'
-import mongoose from 'mongoose'
+import mongoose, { Types } from 'mongoose'
 import { stripeCheckoutSession } from '@app/libs/stripe'
 import moment from 'moment'
 
@@ -165,29 +165,39 @@ const createBrandBuilder = async (
   }
 }
 
-const updateBrandBuilder = async (id: string, payload: TUpdateBrandBuilderPayloadType) => {
-  const result = await BrandBuilder.findOneAndUpdate({ _id: id }, { $set: payload }, { new: true })
-
-  if (!result) {
-    throw new AppError(httpStatus.NOT_FOUND, 'BrandBuilder not found')
-  }
-
-  return result
-}
-
 const getAllBrandBuilder = async (query: TGetAllBrandBuilderQueryParamsType) => {
   const {
-    page = 1,
-    limit = 10,
+    page: currentPage = 1,
+    limit: currentLimit = 10,
     searchTerm,
     sortOrder = 'desc',
+    organizerId,
+    status,
     sortBy = 'createdAt',
     fromDate,
     toDate,
   } = query
 
+  const limit = Number(currentLimit) || 10
+  const page = Number(currentPage) || 1
   const skip = (page - 1) * limit
   const pipeline: PipelineStage[] = []
+
+  if (organizerId) {
+    pipeline.push({
+      $match: {
+        organizer: new Types.ObjectId(organizerId),
+      },
+    })
+  }
+
+  if (status) {
+    pipeline.push({
+      $match: {
+        status,
+      },
+    })
+  }
 
   if (fromDate || toDate) {
     const dateFilter: Record<string, unknown> = {}
@@ -196,6 +206,31 @@ const getAllBrandBuilder = async (query: TGetAllBrandBuilderQueryParamsType) => 
 
     pipeline.push({ $match: { createdAt: dateFilter } })
   }
+
+  pipeline.push(
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'organizer',
+        foreignField: '_id',
+        as: 'organizerDetails',
+      },
+    },
+    {
+      $unwind: {
+        path: '$organizerDetails',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $addFields: {
+        organizerName: '$organizerDetails.name',
+        organizerEmail: '$organizerDetails.email',
+        organizerPhoneNumber: { $ifNull: ['$organizerDetails.phoneNumber', null] },
+        organizerProfileImage: { $ifNull: ['$organizerDetails.profileImage', null] },
+      },
+    }
+  )
 
   if (searchTerm) {
     pipeline.push({
@@ -207,6 +242,11 @@ const getAllBrandBuilder = async (query: TGetAllBrandBuilderQueryParamsType) => 
     })
   }
 
+  pipeline.push({
+    $project: {
+      organizerDetails: 0,
+    },
+  })
   pipeline.push({ $sort: { [sortBy]: sortOrder === 'asc' ? 1 : -1 } })
 
   pipeline.push({
@@ -232,30 +272,121 @@ const getAllBrandBuilder = async (query: TGetAllBrandBuilderQueryParamsType) => 
   }
 }
 
-const getBrandBuilderById = async (id: string) => {
-  const result = await BrandBuilder.findById(id)
+const getCustomerBrandBuilders = async (
+  user: IUser,
+  query: TGetCustomerAllBrandBuilderQueryParamsType
+) => {
+  const {
+    page: currentPage = 1,
+    limit: currentLimit = 10,
+    searchTerm,
+    sortOrder = 'desc',
+    status,
+    sortBy = 'createdAt',
+    fromDate,
+    toDate,
+  } = query
 
-  if (!result) {
-    throw new AppError(httpStatus.NOT_FOUND, 'BrandBuilder not found')
+  const limit = Number(currentLimit) || 10
+  const page = Number(currentPage) || 1
+
+  const skip = (page - 1) * limit
+  const pipeline: PipelineStage[] = []
+
+  if (user?.role !== AuthRoles.ORGANIZER) {
+    throw new AppError(httpStatus.UNAUTHORIZED, 'Only organizer can access this api.')
   }
 
-  return result
-}
+  pipeline.push({
+    $match: {
+      organizer: user?._id,
+    },
+  })
 
-const deleteBrandBuilderById = async (id: string) => {
-  const result = await BrandBuilder.findOneAndDelete({ _id: id })
-
-  if (!result) {
-    throw new AppError(httpStatus.NOT_FOUND, 'BrandBuilder not found')
+  if (status) {
+    pipeline.push({
+      $match: {
+        status,
+      },
+    })
   }
 
-  return result
+  if (fromDate || toDate) {
+    const dateFilter: Record<string, unknown> = {}
+    if (fromDate) dateFilter.$gte = new Date(fromDate)
+    if (toDate) dateFilter.$lte = new Date(toDate)
+
+    pipeline.push({ $match: { createdAt: dateFilter } })
+  }
+
+  pipeline.push(
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'organizer',
+        foreignField: '_id',
+        as: 'organizerDetails',
+      },
+    },
+    {
+      $unwind: {
+        path: '$organizerDetails',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $addFields: {
+        organizerName: '$organizerDetails.name',
+        organizerEmail: '$organizerDetails.email',
+        organizerPhoneNumber: { $ifNull: ['$organizerDetails.phoneNumber', null] },
+        organizerProfileImage: { $ifNull: ['$organizerDetails.profileImage', null] },
+      },
+    }
+  )
+
+  if (searchTerm) {
+    pipeline.push({
+      $match: {
+        $or: brandBuilderSearchableFields.map((field) => ({
+          [field]: { $regex: searchTerm, $options: 'i' },
+        })),
+      },
+    })
+  }
+
+  pipeline.push({
+    $project: {
+      organizerDetails: 0,
+    },
+  })
+  pipeline.push({ $sort: { [sortBy]: sortOrder === 'asc' ? 1 : -1 } })
+
+  pipeline.push({
+    $facet: {
+      data: [{ $skip: skip }, { $limit: limit }],
+      meta: [{ $count: 'total' }],
+    },
+  })
+
+  const aggregated = await BrandBuilder.aggregate(pipeline)
+
+  const data = aggregated?.[0]?.data || []
+  const total = aggregated?.[0]?.meta?.[0]?.total || 0
+
+  return {
+    data,
+    meta: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit) || 1,
+    },
+  }
 }
 
 export const brandBuilderServices = {
   createBrandBuilder,
-  updateBrandBuilder,
+
   getAllBrandBuilder,
-  getBrandBuilderById,
-  deleteBrandBuilderById,
+  getCustomerBrandBuilders,
 }

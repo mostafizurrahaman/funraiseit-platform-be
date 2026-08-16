@@ -1,6 +1,27 @@
-export const paymentSearchableFields = ['name'] as const
+export const paymentSearchableFields = [
+  'transactionId',
+  'organizerName',
+  'organizerEmail',
+  'organizerPhone',
+  'paymentType',
+] as const
 
-export const paymentSortableFields = ['createdAt', 'updatedAt'] as const
+export const paymentSortableFields = [
+  'paidAt',
+  'createdAt',
+  'updatedAt',
+  'subtotal',
+  'shippingFee',
+  'totalAmount',
+  'stripeFee',
+  'platformFee',
+  'organizerAmount',
+  'organizerAmountWithoutShipping',
+  'discountAmount',
+  'paymentType',
+  'organizerName',
+  'organizerEmail',
+] as const
 
 // Types (optional but recommended)
 export type TPaymentSearchableField = (typeof paymentSearchableFields)[number]
