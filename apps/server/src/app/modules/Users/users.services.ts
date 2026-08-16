@@ -503,7 +503,6 @@ const getAllOrganizations = async (query: TGetAllOrganizationsQueryParamsType) =
       supporters: {
         $size: { $ifNull: ['$paymentDetails.supporters', []] },
       },
-
       totalOrders: { $ifNull: ['$paymentDetails.totalOrders', 0] },
       totalDonations: { $ifNull: ['$paymentDetails.totalDonations', 0] },
       totalOrderedAmount: { $ifNull: ['$paymentDetails.totalOrderedAmount', 0] },

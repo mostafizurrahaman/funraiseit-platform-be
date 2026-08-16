@@ -1,5 +1,3 @@
-import { Donation } from './../../../../../../packages/db/src/apps/modules/Donation/donation.model'
-import { Order } from './../../../../../../packages/db/src/apps/modules/Order/order.model'
 import httpStatus from 'http-status'
 import moment from 'moment'
 import type { TGetAnalyticsOverview } from './analytics.validations'
@@ -16,7 +14,7 @@ import {
 } from 'packages/db/src'
 import { AppError } from 'packages/shared/src'
 import { formatRelativeTime } from '@app/libs/format-relative-time'
-import { formatRevenueGraph } from './analytics.utils'
+import { formatPaymentSummary, formatRevenueGraph } from './analytics.utils'
 
 const getCampaignAnalyticsFromDB = async (query: TGetAnalyticsOverview) => {
   const { campaignId } = query
@@ -333,61 +331,6 @@ const getCampaignAnalyticsFromDB = async (query: TGetAnalyticsOverview) => {
   }
 }
 
-interface RawPaymentSummary {
-  _id: string | null
-  transactionFees: number
-  brandBuilderTotal: number
-  brandBuilderTotalExcludingStripeFee: number
-  brandBuilderStripeFee: number
-  launchFeeCollectedTotal: number
-  launchFeeCollectedExcludingAllFees: number
-  failedOrderPayments: number
-  failedDonationPayments: number
-  failedBrandBuilderPayments: number
-  failedCampaignLaunchPayments: number
-  totalFailedPayments: number
-  totalPlatformRevenue: number
-  brandBuilderRevenue: number
-  campaignLaunchRevenue: number
-  transactionFeeRevenue: number
-  brandBuilderRevenuePercentage: number
-  campaignLaunchRevenuePercentage: number
-  transactionFeeRevenuePercentage: number
-}
-
-const toFixedNum = (val: number, decimals: number = 2): number => {
-  return Number(Math.round(Number(`${val}e${decimals}`)) + `e-${decimals}`)
-}
-
-export function formatPaymentSummary(raw: RawPaymentSummary) {
-  return {
-    // Revenue & Earnings
-    totalPlatformRevenue: toFixedNum(raw.totalPlatformRevenue),
-    brandBuilderRevenue: toFixedNum(raw.brandBuilderRevenue),
-    campaignLaunchRevenue: toFixedNum(raw.campaignLaunchRevenue),
-    transactionFeeRevenue: toFixedNum(raw.transactionFeeRevenue),
-
-    // Percentage Breakdown
-    brandBuilderRevenuePercentage: toFixedNum(raw.brandBuilderRevenuePercentage),
-    campaignLaunchRevenuePercentage: toFixedNum(raw.campaignLaunchRevenuePercentage),
-    transactionFeeRevenuePercentage: toFixedNum(raw.transactionFeeRevenuePercentage),
-
-    // Fees & Totals Breakdown
-    brandBuilderTotal: toFixedNum(raw.brandBuilderTotal),
-    brandBuilderStripeFee: toFixedNum(raw.brandBuilderStripeFee),
-    brandBuilderTotalExcludingStripeFee: toFixedNum(raw.brandBuilderTotalExcludingStripeFee),
-    launchFeeCollectedTotal: toFixedNum(raw.launchFeeCollectedTotal),
-    launchFeeCollectedExcludingAllFees: toFixedNum(raw.launchFeeCollectedExcludingAllFees),
-    transactionFees: toFixedNum(raw.transactionFees),
-
-    // Failure Counts (Integers)
-    failedOrderPayments: Math.round(raw.failedOrderPayments || 0),
-    failedDonationPayments: Math.round(raw.failedDonationPayments || 0),
-    failedBrandBuilderPayments: Math.round(raw.failedBrandBuilderPayments || 0),
-    failedCampaignLaunchPayments: Math.round(raw.failedCampaignLaunchPayments || 0),
-    totalFailedPayments: Math.round(raw.totalFailedPayments || 0),
-  }
-}
 const getAnalyticsForAdminPortal = async () => {
   const endDate = moment().endOf('day')?.toDate()
   const startDate = moment().utc().subtract(6, 'days').startOf('day').toDate()

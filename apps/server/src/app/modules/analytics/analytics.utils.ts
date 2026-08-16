@@ -1,4 +1,26 @@
-import moment, { Moment } from 'moment'
+import moment, { type Moment } from 'moment'
+
+export interface RawPaymentSummary {
+  _id: string | null
+  transactionFees: number
+  brandBuilderTotal: number
+  brandBuilderTotalExcludingStripeFee: number
+  brandBuilderStripeFee: number
+  launchFeeCollectedTotal: number
+  launchFeeCollectedExcludingAllFees: number
+  failedOrderPayments: number
+  failedDonationPayments: number
+  failedBrandBuilderPayments: number
+  failedCampaignLaunchPayments: number
+  totalFailedPayments: number
+  totalPlatformRevenue: number
+  brandBuilderRevenue: number
+  campaignLaunchRevenue: number
+  transactionFeeRevenue: number
+  brandBuilderRevenuePercentage: number
+  campaignLaunchRevenuePercentage: number
+  transactionFeeRevenuePercentage: number
+}
 
 export interface RevenueGraphItem {
   date: string
@@ -52,4 +74,38 @@ export const formatRevenueGraph = (
   }
 
   return result
+}
+
+export const toFixedNum = (val: number, decimals: number = 2): number => {
+  return Number(Math.round(Number(`${val}e${decimals}`)) + `e-${decimals}`)
+}
+
+export function formatPaymentSummary(raw: RawPaymentSummary) {
+  return {
+    // Revenue & Earnings
+    totalPlatformRevenue: toFixedNum(raw.totalPlatformRevenue),
+    brandBuilderRevenue: toFixedNum(raw.brandBuilderRevenue),
+    campaignLaunchRevenue: toFixedNum(raw.campaignLaunchRevenue),
+    transactionFeeRevenue: toFixedNum(raw.transactionFeeRevenue),
+
+    // Percentage Breakdown
+    brandBuilderRevenuePercentage: toFixedNum(raw.brandBuilderRevenuePercentage),
+    campaignLaunchRevenuePercentage: toFixedNum(raw.campaignLaunchRevenuePercentage),
+    transactionFeeRevenuePercentage: toFixedNum(raw.transactionFeeRevenuePercentage),
+
+    // Fees & Totals Breakdown
+    brandBuilderTotal: toFixedNum(raw.brandBuilderTotal),
+    brandBuilderStripeFee: toFixedNum(raw.brandBuilderStripeFee),
+    brandBuilderTotalExcludingStripeFee: toFixedNum(raw.brandBuilderTotalExcludingStripeFee),
+    launchFeeCollectedTotal: toFixedNum(raw.launchFeeCollectedTotal),
+    launchFeeCollectedExcludingAllFees: toFixedNum(raw.launchFeeCollectedExcludingAllFees),
+    transactionFees: toFixedNum(raw.transactionFees),
+
+    // Failure Counts (Integers)
+    failedOrderPayments: Math.round(raw.failedOrderPayments || 0),
+    failedDonationPayments: Math.round(raw.failedDonationPayments || 0),
+    failedBrandBuilderPayments: Math.round(raw.failedBrandBuilderPayments || 0),
+    failedCampaignLaunchPayments: Math.round(raw.failedCampaignLaunchPayments || 0),
+    totalFailedPayments: Math.round(raw.totalFailedPayments || 0),
+  }
 }
