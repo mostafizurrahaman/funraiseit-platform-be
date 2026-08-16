@@ -3,6 +3,8 @@ import {
   AuthRoles,
   AuthStatus,
   CampaignStatus,
+  paymentStatus,
+  paymentType,
   User,
   usersSearchableFields,
   type IUser,
@@ -314,75 +316,217 @@ const getAllOrganizations = async (query: TGetAllOrganizationsQueryParamsType) =
     })
   }
 
-  pipeline.push({
-    $lookup: {
-      from: 'campaigns',
-      localField: '_id',
-      foreignField: 'organizer',
-      as: 'campaignDetails',
-      pipeline: [
-        {
-          $group: {
-            _id: null,
-            totalCampaign: {
-              $sum: 1,
-            },
-            totalActiveCampaign: {
-              $sum: {
-                $cond: [
-                  {
-                    $ifNull: ['$status', CampaignStatus.ACTIVE],
-                  },
-                  1,
-                  0,
-                ],
+  pipeline.push(
+    {
+      $lookup: {
+        from: 'campaigns',
+        localField: '_id',
+        foreignField: 'organizer',
+        as: 'campaignDetails',
+        pipeline: [
+          {
+            $group: {
+              _id: null,
+              totalCampaign: {
+                $sum: 1,
               },
-            },
-            cancelledCampaign: {
-              $sum: {
-                $cond: [
-                  {
-                    $ifNull: ['$status', CampaignStatus.CANCELLED],
-                  },
-                  1,
-                  0,
-                ],
+              totalActiveCampaign: {
+                $sum: {
+                  $cond: [
+                    {
+                      $ifNull: ['$status', CampaignStatus.ACTIVE],
+                    },
+                    1,
+                    0,
+                  ],
+                },
               },
-            },
-            rejectedCampaign: {
-              $sum: {
-                $cond: [
-                  {
-                    $ifNull: ['$status', CampaignStatus.REJECTED],
-                  },
-                  1,
-                  0,
-                ],
+              cancelledCampaign: {
+                $sum: {
+                  $cond: [
+                    {
+                      $ifNull: ['$status', CampaignStatus.CANCELLED],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
+              rejectedCampaign: {
+                $sum: {
+                  $cond: [
+                    {
+                      $ifNull: ['$status', CampaignStatus.REJECTED],
+                    },
+                    1,
+                    0,
+                  ],
+                },
               },
             },
           },
-        },
-      ],
+        ],
+      },
+    },
+    {
+      $lookup: {
+        from: 'payments',
+        localField: '_id',
+        foreignField: 'organizer',
+        as: 'paymentDetails',
+        pipeline: [
+          {
+            $match: {
+              status: paymentStatus.PAID,
+              paymentType: {
+                $in: [paymentType.DONATION, paymentType.ORDER],
+              },
+            },
+          },
+          {
+            $lookup: {
+              from: 'paymentbreakdowns',
+              localField: '_id',
+              foreignField: 'payment',
+              as: 'paymentBreakdown',
+            },
+          },
+
+          {
+            $unwind: {
+              path: '$paymentBreakdown',
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              supporters: {
+                $addToSet: '$supporter',
+              },
+              totalOrders: {
+                $sum: {
+                  $cond: [{ $eq: ['$paymentType', paymentType.ORDER] }, 1, 0],
+                },
+              },
+              totalDonations: {
+                $sum: {
+                  $cond: [{ $eq: ['$paymentType', paymentType.DONATION] }, 1, 0],
+                },
+              },
+              totalOrderedAmount: {
+                $sum: {
+                  $cond: [
+                    { $eq: ['$paymentType', paymentType.ORDER] },
+                    '$paymentBreakdown.totalAmount',
+                    0,
+                  ],
+                },
+              },
+              totalDonationAmount: {
+                $sum: {
+                  $cond: [
+                    { $eq: ['$paymentType', paymentType.DONATION] },
+                    { $ifNull: ['$paymentBreakdown.totalAmount', 0] },
+                    0,
+                  ],
+                },
+              },
+              subtotal: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.subtotal', 0],
+                },
+              },
+              shippingFee: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.shippingFee', 0],
+                },
+              },
+              totalAmount: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.totalAmount', 0],
+                },
+              },
+              stripeFee: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.stripeFee', 0],
+                },
+              },
+              platformFee: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.platformFee', 0],
+                },
+              },
+              organizerAmount: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.organizerAmount', 0],
+                },
+              },
+              organizerAmountWithoutShipping: {
+                $sum: {
+                  $ifNull: ['$paymentBreakdown.organizerAmountWithoutShipping', 0],
+                },
+              },
+            },
+          },
+        ],
+      },
+    }
+  )
+
+  pipeline.push({
+    $unwind: {
+      path: '$paymentDetails',
+      preserveNullAndEmptyArrays: true,
     },
   })
 
-  // pipeline.push({
-  //   $project: {
-  //     _id: 0,
-  //     userId: '$_id',
-  //     name: '$name',
-  //     email: '$email',
-  //     phoneNumber: { $ifNull: ['$phoneNumber', null] },
-  //     profileImage: { $ifNull: ['$profileImage', null] },
-  //     role: '$role',
-  //     status: '$status',
-  //     lastLogin: { $ifNull: ['$lastLogin', null] },
-  //     lastActivity: { $ifNull: ['$lastActivity', null] },
-  //     joinedAt: '$createdAt',
-  //     createdAt: '$createdAt',
-  //     updatedAt: '$updatedAt',
-  //   },
-  // })
+  pipeline.push({
+    $unwind: {
+      path: '$campaignDetails',
+      preserveNullAndEmptyArrays: true,
+    },
+  })
+
+  pipeline.push({
+    $project: {
+      _id: 0,
+      userId: '$_id',
+      name: '$name',
+      email: '$email',
+      phoneNumber: { $ifNull: ['$phoneNumber', null] },
+      profileImage: { $ifNull: ['$profileImage', null] },
+      totalCampaign: { $ifNull: ['$totalCampaign', 0] },
+      totalActiveCampaign: { $ifNull: ['$totalActiveCampaign', 0] },
+      cancelledCampaign: { $ifNull: ['$cancelledCampaign', 0] },
+      rejectedCampaign: { $ifNull: ['$rejectedCampaign', 0] },
+      supporters: {
+        $size: { $ifNull: ['$paymentDetails.supporters', []] },
+      },
+
+      totalOrders: { $ifNull: ['$paymentDetails.totalOrders', 0] },
+      totalDonations: { $ifNull: ['$paymentDetails.totalDonations', 0] },
+      totalOrderedAmount: { $ifNull: ['$paymentDetails.totalOrderedAmount', 0] },
+      totalDonationAmount: { $ifNull: ['$paymentDetails.totalDonationAmount', 0] },
+      subtotal: { $ifNull: ['$paymentDetails.subtotal', 0] },
+      shippingFee: { $ifNull: ['$paymentDetails.shippingFee', 0] },
+      totalAmount: { $ifNull: ['$paymentDetails.totalAmount', 0] },
+      stripeFee: { $ifNull: ['$paymentDetails.stripeFee', 0] },
+      platformFee: { $ifNull: ['$paymentDetails.platformFee', 0] },
+      organizerAmount: { $ifNull: ['$paymentDetails.organizerAmount', 0] },
+      totalRevenue: { $ifNull: ['$paymentDetails.organizerAmount', 0] },
+      organizerAmountWithoutShipping: {
+        $ifNull: ['$paymentDetails.organizerAmountWithoutShipping', 0],
+      },
+      role: '$role',
+      status: '$status',
+      lastLogin: { $ifNull: ['$lastLogin', null] },
+      lastActivity: { $ifNull: ['$lastActivity', null] },
+      joinedAt: '$createdAt',
+      createdAt: '$createdAt',
+      updatedAt: '$updatedAt',
+    },
+  })
 
   pipeline.push({ $sort: { [sortBy]: sortOrder === 'asc' ? 1 : -1 } })
 
