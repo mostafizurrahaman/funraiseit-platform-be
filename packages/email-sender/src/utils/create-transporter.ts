@@ -1,24 +1,39 @@
 import nodemailer from 'nodemailer'
 import type { EmailConfig } from '../types/email-sender'
 
-export const createTransporter = (config: EmailConfig) => {
+export const createTransporter = (config?: Partial<EmailConfig>) => {
+  const host =
+    config?.host ||
+    process.env.NODE_EMAIL_HOST ||
+    process.env.NODE_EAMIL_HOST ||
+    'smtp.gmail.com'
+
+  const port = Number(config?.port || process.env.NODE_EMAIL_PORT || 587)
+  const user = config?.user || process.env.NODE_APP_EMAIL || ''
+  const pass = config?.pass || process.env.NODE_APP_PASSWORD || ''
+
+  // Port 465 uses SSL (secure: true). Port 587 uses STARTTLS (secure: false).
+  const secure =
+    config?.secure !== undefined
+      ? config.secure
+      : process.env.NODE_EMAIL_SECURE !== undefined
+        ? process.env.NODE_EMAIL_SECURE === 'true'
+        : port === 465
+
   return nodemailer.createTransport({
-    host: config.host || 'smtp.gmail.com',
-    port: config.port || 587,
-    secure: config.secure ?? false,
+    host,
+    port,
+    secure,
     auth: {
-      user: config.user,
-      pass: config.pass,
+      user,
+      pass,
+    },
+    tls: {
+      rejectUnauthorized: process.env.NODE_ENV === 'production',
+      minVersion: 'TLSv1.2',
     },
   })
 }
 
-const config: EmailConfig = {
-  host: process.env.NODE_EAMIL_HOST as string,
-  pass: process.env.NODE_APP_PASSWORD as string,
-  port: Number(process.env.NODE_EMAIL_PORT),
-  user: process.env.NODE_APP_EMAIL as string,
-  secure: process.env.NODE_ENV === 'production',
-}
+export const transporter = createTransporter()
 
-export const transporter = createTransporter(config)

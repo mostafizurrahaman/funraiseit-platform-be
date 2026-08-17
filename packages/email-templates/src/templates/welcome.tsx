@@ -10,31 +10,33 @@ import {
 } from '@react-email/components'
 import { EmailLayout } from '../layouts/email-layout' // Adjust path based on your folder structure
 
-interface WelcomeEmailProps {
+export interface WelcomeEmailProps {
   firstName: string
-  companyName: string
+  companyName?: string | undefined
   password: string
-  productName?: string
-  actionUrl: string
-  signatureImgSrc?: string
-  logoSrc?: string
-  greeting?: string
-  supportEmail?: string
-  footer?: React.ReactNode
+  productName?: string | undefined
+  actionUrl?: string | undefined
+  signatureImgSrc?: string | undefined
+  logoSrc?: string | undefined
+  greeting?: string | undefined
+  supportEmail?: string | undefined
+  companyAddress?: string | undefined
+  footer?: React.ReactNode | undefined
 }
 
-export const WelcomeEmail: React.FC<WelcomeEmailProps> = ({
+export const WelcomeEmail = ({
   firstName = 'User',
-  companyName = 'Your Company',
+  companyName = 'FunRaisingIt',
   password = 'temp-password',
   productName,
   actionUrl = 'https://example.com/login',
   signatureImgSrc,
-  logoSrc = 'https://via.placeholder.com/120x40/03AFA8/ffffff?text=LOGO',
+  logoSrc,
   greeting = 'Welcome aboard!',
-  supportEmail = 'support@example.com',
+  supportEmail = 'support@funraisingit.com',
+  companyAddress,
   footer,
-}) => {
+}: WelcomeEmailProps): React.ReactElement => {
   const finalProductName = productName || companyName
   const previewText = `Welcome to ${finalProductName}, ${firstName}!`
 
@@ -89,8 +91,22 @@ export const WelcomeEmail: React.FC<WelcomeEmailProps> = ({
 
         {/* CTA Button */}
         <Button
-          href={actionUrl}
-          className="bg-[#03AFA8] w-full text-white text-base font-semibold py-4 rounded-lg text-center shadow-sm mb-8"
+          href={actionUrl || '#'}
+          style={{
+            backgroundColor: '#03AFA8',
+            color: '#ffffff',
+            fontSize: '16px',
+            fontWeight: '600',
+            textDecoration: 'none',
+            textAlign: 'center',
+            display: 'block',
+            width: '100%',
+            padding: '14px 20px',
+            borderRadius: '8px',
+            boxSizing: 'border-box',
+            marginBottom: '32px',
+          }}
+          className="bg-[#03AFA8] w-full text-white text-base font-semibold py-4 rounded-lg text-center shadow-sm mb-8 block"
         >
           Login to Your Account
         </Button>
