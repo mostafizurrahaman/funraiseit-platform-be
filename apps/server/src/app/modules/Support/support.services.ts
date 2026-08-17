@@ -89,6 +89,14 @@ const getAllSupport = async (query: TGetAllSupportQueryParamsType) => {
     },
     {
       $lookup: {
+        from: 'supportreplies',
+        localField: '_id',
+        foreignField: 'supportId',
+        as: 'supportReplies',
+      },
+    },
+    {
+      $lookup: {
         from: 'campaigns',
         localField: 'campaign',
         foreignField: '_id',
@@ -138,7 +146,8 @@ const getAllSupport = async (query: TGetAllSupportQueryParamsType) => {
         organizerId: { $ifNull: ['$campaignDetails.organizer', null] },
         organizerName: { $ifNull: ['$campaignDetails.organizerDetails.name', null] },
         organizerEmail: { $ifNull: ['$campaignDetails.organizerDetails.email', null] },
-
+        supportReplies: '$supportReplies',
+        totalReplies: { $size: { $ifNull: ['$supportReplies', []] } },
         subject: '$subject',
         message: '$message',
         status: '$status',
