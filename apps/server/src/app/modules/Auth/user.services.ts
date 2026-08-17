@@ -66,6 +66,7 @@ const signUp = async (payload: ISignUpSchemaType) => {
           to: existingUser.email,
           html: htmlTemplate.html,
           subject: 'Your OTP for Account Verification',
+          text: htmlTemplate.text,
         })
 
         //
@@ -142,6 +143,7 @@ const signUp = async (payload: ISignUpSchemaType) => {
       to: newUser.email,
       html: htmlTemplate.html,
       subject: 'Your OTP for Account Verification',
+      text: htmlTemplate.text,
     })
 
     return {
@@ -226,6 +228,7 @@ const resendSignupOTP = async (payload: IResendSignupType) => {
     to: user.email,
     html: htmlTemplate.html,
     subject: 'Your New OTP for Account Verification',
+    text: htmlTemplate.text,
   })
 }
 
@@ -475,6 +478,7 @@ const forgotPassword = async (payload: IForgotPasswordType) => {
     to: user.email,
     html: htmlTemplate.html,
     subject: 'OTP for reset password!',
+    text: htmlTemplate.text,
   })
 }
 
@@ -599,6 +603,7 @@ const resendOTP = async (payload: IResendSignupType) => {
     to: user.email,
     html: htmlTemplate.html,
     subject: 'OTP for reset password!',
+    text: htmlTemplate.text,
   })
 
   return {

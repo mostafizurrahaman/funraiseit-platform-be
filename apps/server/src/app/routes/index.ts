@@ -15,6 +15,7 @@ import { contentRoutes } from '@app/modules/Content/content.routes'
 import { brandBuilderRoutes } from '@app/modules/BrandBuilder/brand-builder.routes'
 import { paymentRoutes } from '@app/modules/Payment/payment.routes'
 import { supportRoutes } from '@app/modules/Support/support.routes'
+import { newsLetterRoutes } from '@app/modules/NewsLetter/news-letter.routes'
 
 const router: Router = express.Router()
 
@@ -82,6 +83,10 @@ const routes = [
   {
     path: '/support',
     route: supportRoutes,
+  },
+  {
+    path: '/newsletter',
+    route: newsLetterRoutes,
   },
 ]
 

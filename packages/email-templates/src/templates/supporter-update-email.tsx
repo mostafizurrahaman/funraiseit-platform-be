@@ -7,11 +7,15 @@ import {
 import * as React from 'react'
 import { EmailLayout } from '../layouts/email-layout' // Adjust this path based on your folder structure
 
-interface SupporterUpdateEmailProps {
+export interface SupporterUpdateEmailProps {
   supporterName: string
   campaignTitle: string
   message: string // HTML content
-  logoUrl?: string
+  logoUrl?: string | undefined
+  companyName?: string | undefined
+  supportEmail?: string | undefined
+  companyAddress?: string | undefined
+  unsubscribeUrl?: string | undefined
 }
 
 export const SupporterUpdateEmail = ({
@@ -20,7 +24,11 @@ export const SupporterUpdateEmail = ({
   message = '<p>Thank you for your support!</p>',
   // Your permanent S3 bucket logo URL
   logoUrl = 'https://funraising-it.s3.us-east-1.amazonaws.com/non_delatable_files/funraisingit-logo.png',
-}: SupporterUpdateEmailProps) => {
+  companyName = 'FunRaisingIt',
+  supportEmail = 'support@funraisingit.com',
+  companyAddress,
+  unsubscribeUrl,
+}: SupporterUpdateEmailProps): React.ReactElement => {
   return (
     <EmailLayout previewText={`An update regarding ${campaignTitle}`}>
       {/* --- BRANDED HERO BANNER --- */}

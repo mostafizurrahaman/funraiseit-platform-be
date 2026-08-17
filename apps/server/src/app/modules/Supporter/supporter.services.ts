@@ -731,15 +731,20 @@ const sendEmailToCampaignSupporters = async (
         supporterName: supporter.supporterName || 'Awesome Supporter',
         campaignTitle: campaign.name || 'Campaign Update',
         message: message,
-        logoUrl: configs.site.logo!,
+        logoUrl: configs.site.logo || undefined,
+        companyName: configs.site.name,
+        supportEmail: configs.site.supportEmail,
       })
     )
 
     // 2. Send the email using your preferred email provider (Nodemailer, Resend, etc.)
     return sendEmail({
       to: supporter.supporterEmail,
+      fromName: configs.site.name,
+      replyTo: configs.site.supportEmail,
       subject: subject,
-      html: emailHtml.html as string,
+      html: emailHtml.html,
+      text: emailHtml.text,
     })
   })
 

@@ -12,13 +12,16 @@ import {
 import * as React from 'react'
 import { EmailLayout } from '../layouts/email-layout' // Adjust path if necessary
 
-interface ResetPasswordOTPEmailProps {
-  userFirstName?: string
-  otpCode?: string
-  userEmail?: string
-  expirationMinutes?: number
-  companyName?: string
-  companyLogo?: string
+export interface ResetPasswordOTPEmailProps {
+  userFirstName?: string | undefined
+  otpCode?: string | undefined
+  userEmail?: string | undefined
+  expirationMinutes?: number | undefined
+  companyName?: string | undefined
+  companyLogo?: string | undefined
+  actionUrl?: string | undefined
+  supportEmail?: string | undefined
+  companyAddress?: string | undefined
 }
 
 export const ResetPasswordOTPEmail = ({
@@ -26,9 +29,26 @@ export const ResetPasswordOTPEmail = ({
   otpCode = '123456',
   userEmail = 'user@example.com',
   expirationMinutes = 15,
-  companyName = 'Your Company',
-  companyLogo = 'https://via.placeholder.com/120x40/03AFA8/ffffff?text=LOGO',
-}: ResetPasswordOTPEmailProps) => {
+  companyName = 'FunRaisingIt',
+  companyLogo = 'https://funraising-it.s3.us-east-1.amazonaws.com/non_delatable_files/funraisingit-logo.png',
+  actionUrl,
+  supportEmail = 'support@funraisingit.com',
+  companyAddress,
+}: ResetPasswordOTPEmailProps): React.ReactElement => {
+  
+    const button = {
+    backgroundColor: "#ff7600",
+    borderRadius: '8px',
+    color: "white",
+    display: 'inline-block',
+    fontSize: '16px',
+    fontWeight: '600',
+    lineHeight: '48px',
+    padding: '0 24px',
+    textAlign: 'center' as const,
+    textDecoration: 'none',
+  }
+  
   return (
     <EmailLayout previewText={`Your password reset code is ${otpCode}`}>
       {/* Header */}
@@ -80,12 +100,12 @@ export const ResetPasswordOTPEmail = ({
         </Section>
 
         {/* CTA Button */}
-        <Button
-          href="https://example.com/reset-password"
-          className="bg-[#03AFA8] w-full text-white text-base font-semibold py-4 rounded-lg text-center shadow-sm mb-8"
-        >
-          Reset Password
-        </Button>
+                     {/* <Section style={{ textAlign: 'center', margin: '32px 0' }}>
+                <Button href="https://funraisingit.com/reset-password" style={button}>
+                  Reset Password
+                </Button>
+              </Section> */}
+
 
         {/* Warning Alert - Using Secondary Color (#FE7B01) */}
         <Section className="bg-[#FE7B01]/10 border border-[#FE7B01]/30 rounded-lg p-4 mb-8">
@@ -129,3 +149,5 @@ export const ResetPasswordOTPEmail = ({
     </EmailLayout>
   )
 }
+
+

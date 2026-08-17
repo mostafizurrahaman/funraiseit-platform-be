@@ -8,6 +8,7 @@ import {
   sortingOrderValues,
   requiredMongooseId,
 } from '@repo/shared'
+import { newsLetterSortableFields } from 'packages/db/src'
 
 const getAllSupporterSchema = z.object({
   query: z.object({
@@ -16,7 +17,7 @@ const getAllSupporterSchema = z.object({
     campaignId: requiredMongooseId('Campaign ID'),
     searchTerm: optionalString('Search term'),
     sortOrder: optionalEnumString(sortingOrderValues, 'Sort order'),
-    sortBy: optionalEnumString([], 'Sort by'),
+    sortBy: optionalEnumString(newsLetterSortableFields, 'Sort by'),
     fromDate: optionalDate('From date'),
     toDate: optionalDate('To date'),
   }),

@@ -89,17 +89,17 @@ const createUsers = async (
       companyName: configs.site.name,
       password, // Plain password from payload
       actionUrl: `${configs.site.clientUrl!}/login`,
-      logoSrc: configs.site.logo!,
-      supportEmail: configs.site.supportEmail!,
-      greeting: 'Welcome to our platform!',
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any
+      logoSrc: configs.site.logo || undefined,
+      supportEmail: configs.site.supportEmail || undefined,
+      greeting: `Welcome to ${configs.site.name}!`,
+    })
   )
 
   sendEmail({
     to: result.email,
     subject: `Welcome to ${configs.site.name}`,
     html: htmlTemplate.html,
+    text: htmlTemplate.text,
   })
 
   return result

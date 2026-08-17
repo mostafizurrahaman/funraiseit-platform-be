@@ -63,83 +63,107 @@ const sendEmailToSupporters = catchAsync(async (req, res) => {
 
 const testEmail = catchAsync(async (req, res) => {
   const user = await getUserFromRequest(req)
+  const targetEmail = req.query.email ? String(req.query.email) : user?.email || 'tss.sta.gpt@gmail.com'
 
-  const testEmail = user?.email
+  const siteName = configs.site.name || 'FunRaisingIt'
+  const siteLogo = configs.site.logo || undefined
+  const supportEmail = configs.site.supportEmail || 'support@funraisingit.com'
+
   // 1. Render Supporter Update Email
   const supporterHtml = await renderEmail(
     SupporterUpdateEmail({
-      supporterName: 'Alex Doe',
+      supporterName: user?.name || 'Alex Doe',
       campaignTitle: 'Help Build the Community Center',
       message:
-        '<p>Great news! We just hit <strong>50% of our goal</strong> thanks to amazing people like you.</p><p>We will be starting the foundation work next week. Stay tuned for more updates!</p>',
-      logoUrl: configs.site.logo!,
+        '<p>Great news! We just hit <strong>50% of our goal</strong> thanks to amazing supporters like you.</p><p>We will be starting the foundation work next week. Stay tuned for more updates!</p>',
+      logoUrl: siteLogo,
+      companyName: siteName,
+      supportEmail,
     })
   )
 
   // 2. Render Signup OTP Email
   const signupHtml = await renderEmail(
     SignupOTPEmail({
-      userFirstName: 'Alex',
+      userFirstName: user?.name || 'Alex',
       otpCode: '492015',
-      companyName: 'Your Awesome Startup',
-      companyLogo: configs.site.logo!,
+      companyName: siteName,
+      companyLogo: siteLogo!,
+      supportEmail,
+      expirationMinutes: configs.otpSettings.expiresIn,
     })
   )
 
   // 3. Render Reset Password OTP Email
   const resetHtml = await renderEmail(
     ResetPasswordOTPEmail({
-      userFirstName: 'Alex',
+      userFirstName: user?.name || 'Alex',
       otpCode: '827364',
-      userEmail: 'alex.doe@example.com',
-      expirationMinutes: 10,
-      companyName: 'Your Awesome Startup',
-      companyLogo: configs.site.logo!,
+      userEmail: targetEmail,
+      expirationMinutes: configs.otpSettings.expiresIn,
+      companyName: siteName,
+      companyLogo: siteLogo,
+      supportEmail,
     })
   )
 
-  // 4. Render Welcome Email (New!)
+  // 4. Render Welcome Email
   const welcomeHtml = await renderEmail(
     WelcomeEmail({
-      firstName: 'Alex',
-      companyName: 'Your Awesome Startup',
-      productName: 'StartupPro Dashboard',
+      firstName: user?.name || 'Alex',
+      companyName: siteName,
+      productName: siteName,
       password: 'TempPassword123!',
-      actionUrl: 'https://example.com/login',
-      logoSrc: configs.site.logo!,
-      supportEmail: 'support@example.com',
-    }) as any
+      actionUrl: `${configs.site.clientUrl}/login`,
+      logoSrc: siteLogo,
+      supportEmail,
+    })
   )
 
-  // Fire all four emails concurrently
+  // Send emails with clean subject lines, sender display names, and multipart (HTML + Plain Text)
   await Promise.all([
     sendEmail({
-      to: testEmail,
-      subject: '🧪 TEST: Campaign Supporter Update',
+      to: targetEmail,
+      fromName: siteName,
+      replyTo: supportEmail,
+      subject: `${siteName} - Campaign Supporter Update`,
       html: supporterHtml.html,
+      text: supporterHtml.text,
     }),
     sendEmail({
-      to: testEmail,
-      subject: '🧪 TEST: Verify your email',
+      to: targetEmail,
+      fromName: siteName,
+      replyTo: supportEmail,
+      subject: `${siteName} - Verification Code: 492015`,
       html: signupHtml.html,
+      text: signupHtml.text,
     }),
     sendEmail({
-      to: testEmail,
-      subject: '🧪 TEST: Reset Your Password',
+      to: targetEmail,
+      fromName: siteName,
+      replyTo: supportEmail,
+      subject: `${siteName} - Password Reset Code: 827364`,
       html: resetHtml.html,
+      text: resetHtml.text,
     }),
     sendEmail({
-      to: testEmail,
-      subject: '🧪 TEST: Welcome Aboard!',
+      to: targetEmail,
+      fromName: siteName,
+      replyTo: supportEmail,
+      subject: `Welcome to ${siteName}!`,
       html: welcomeHtml.html,
+      text: welcomeHtml.text,
     }),
   ])
 
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
-    message: 'Email sent successfully!',
-    data: null,
+    message: 'Test emails sent successfully!',
+    data: {
+      sentTo: targetEmail,
+      siteName,
+    },
   })
 })
 export const supporterControllers = {
