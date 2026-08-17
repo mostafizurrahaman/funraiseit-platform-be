@@ -33,13 +33,10 @@ export const sendEmail = async (params: SendEmailParams) => {
     params.from ||
     (fromName && fromEmail ? `"${fromName.replace(/"/g, '')}" <${fromEmail}>` : fromEmail)
 
-  const replyTo =
-    params.replyTo || process.env.SUPPORT_EMAIL || fromEmail
+  const replyTo = params.replyTo || process.env.SUPPORT_EMAIL || fromEmail
 
   const textContent =
-    params.text && params.text.trim().length > 0
-      ? params.text
-      : htmlToTextFallback(params.html)
+    params.text && params.text.trim().length > 0 ? params.text : htmlToTextFallback(params.html)
 
   return transporter.sendMail({
     from,
@@ -56,4 +53,3 @@ export const sendEmail = async (params: SendEmailParams) => {
     },
   })
 }
-

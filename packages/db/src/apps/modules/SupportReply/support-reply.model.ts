@@ -3,8 +3,14 @@ import { Schema, model } from 'mongoose'
 
 const supportReplySchema = new Schema<ISupportReplyDoc>(
   {
-    name: {
+    supportId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Support',
+      required: true,
+    },
+    replyMessage: {
       type: String,
+      required: true,
     },
   },
   {
