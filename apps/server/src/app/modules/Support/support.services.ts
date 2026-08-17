@@ -1,11 +1,22 @@
-import { Campaign, Support, supportSearchableFields, User } from '@repo/db'
+import {
+  Campaign,
+  Support,
+  SupportReply,
+  supportSearchableFields,
+  supportStatus,
+  User,
+} from '@repo/db'
 import httpStatus from 'http-status'
 import { AppError } from '@repo/shared'
 import type { PipelineStage } from 'mongoose'
+import { renderEmail, SupportReplyEmail } from '@repo/email-templates'
+import { sendEmail } from '@repo/email-sender'
+import configs from '@app/configs'
 
 import type {
   TCreateSupportPayloadType,
   TGetAllSupportQueryParamsType,
+  TReplySupportMessagePayloadType,
 } from './support.validations'
 import { getUniqueTicket } from './support.utils'
 
@@ -78,6 +89,14 @@ const getAllSupport = async (query: TGetAllSupportQueryParamsType) => {
     },
     {
       $lookup: {
+        from: 'supportreplies',
+        localField: '_id',
+        foreignField: 'supportId',
+        as: 'supportReplies',
+      },
+    },
+    {
+      $lookup: {
         from: 'campaigns',
         localField: 'campaign',
         foreignField: '_id',
@@ -122,12 +141,13 @@ const getAllSupport = async (query: TGetAllSupportQueryParamsType) => {
         userName: { $ifNull: ['$userDetails.name', null] },
         userEmail: { $ifNull: ['$userDetails.email', null] },
         campaignId: { $ifNull: ['$campaign', null] },
-        campaignName: {$ifNull: ["$campaignDetails.name", null]},
-        campaignCode: {$ifNull: ["$campaignDetails.campaignCode", null]},
-        organizerId: {$ifNull: ["$campaignDetails.organizer", null]},
-        organizerName: {$ifNull: ["$campaignDetails.organizerDetails.name", null]},
-        organizerEmail: {$ifNull: ["$campaignDetails.organizerDetails.email", null]},
-
+        campaignName: { $ifNull: ['$campaignDetails.name', null] },
+        campaignCode: { $ifNull: ['$campaignDetails.campaignCode', null] },
+        organizerId: { $ifNull: ['$campaignDetails.organizer', null] },
+        organizerName: { $ifNull: ['$campaignDetails.organizerDetails.name', null] },
+        organizerEmail: { $ifNull: ['$campaignDetails.organizerDetails.email', null] },
+        supportReplies: '$supportReplies',
+        totalReplies: { $size: { $ifNull: ['$supportReplies', []] } },
         subject: '$subject',
         message: '$message',
         status: '$status',
@@ -174,7 +194,120 @@ const getAllSupport = async (query: TGetAllSupportQueryParamsType) => {
   }
 }
 
+// ?? Reply for support email:
+const SupportIssueReply = async (payload: TReplySupportMessagePayloadType) => {
+  const { replyMessage, supportId } = payload
+
+  // ?? Check is support exists ?:
+  const existingSupport = await Support.findOne({ _id: supportId }).populate('user')
+
+  if (!existingSupport) {
+    throw new AppError(httpStatus.NOT_FOUND, "Support ticket doesn't exist.")
+  }
+
+  if (existingSupport.status === supportStatus.RESOLVED) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'The raised issue is already resolved.')
+  }
+
+  if (!replyMessage || replyMessage?.trim() === '') {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Reply message is required.')
+  }
+
+  const reply = await SupportReply.create({
+    supportId: existingSupport._id,
+    replyMessage,
+  })
+
+  // Render Support Reply Email Template
+  const ticketNumber =
+    existingSupport.ticketNo || String(existingSupport._id).slice(-6).toUpperCase()
+
+  const htmlTemplate = await renderEmail(
+    SupportReplyEmail({
+      userName: (existingSupport.user as any)?.name || 'Valued Customer',
+      ticketNo: ticketNumber,
+      subject: existingSupport.subject,
+      originalMessage: existingSupport.message,
+      replyMessage,
+      companyName: configs.site.name,
+      logoUrl: configs.site.logo || undefined,
+      supportEmail: configs.site.supportEmail || undefined,
+    })
+  )
+
+  // Send Email
+  await sendEmail({
+    to: existingSupport.email,
+    fromName: configs.site.name,
+    replyTo: configs.site.supportEmail,
+    subject: `[Ticket #${ticketNumber}] Re: ${existingSupport.subject}`,
+    html: htmlTemplate.html,
+    text: htmlTemplate.text,
+  })
+
+  return reply
+}
+
+// ?? Mark support as IN_PROGRESS:
+const markSupportInProgress = async (id: string) => {
+  const existingSupport = await Support.findById(id)
+
+  if (!existingSupport) {
+    throw new AppError(httpStatus.NOT_FOUND, "Support ticket doesn't exist.")
+  }
+
+  if (existingSupport.status === supportStatus.RESOLVED) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'The support ticket is already resolved.')
+  }
+
+  if (existingSupport.status === supportStatus.IN_PROGRESS) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'The support is already is in progress.')
+  }
+
+  const updatedSupport = await Support.findByIdAndUpdate(
+    id,
+    { status: supportStatus.IN_PROGRESS },
+    { new: true }
+  )
+
+  return updatedSupport
+}
+
+// ?? Mark support as RESOLVED:
+const markSupportResolved = async (id: string) => {
+  const existingSupport = await Support.findById(id)
+
+  if (!existingSupport) {
+    throw new AppError(httpStatus.NOT_FOUND, "Support ticket doesn't exist.")
+  }
+
+  if (existingSupport.status === supportStatus.RESOLVED) {
+    return existingSupport
+  }
+
+  // Check if at least one reply has been sent by the support admin
+  const existingReply = await SupportReply.findOne({ supportId: existingSupport._id })
+
+  if (!existingReply) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'Cannot resolve support ticket. A reply must be sent by the support team before resolving.'
+    )
+  }
+
+  const updatedSupport = await Support.findByIdAndUpdate(
+    id,
+    { status: supportStatus.RESOLVED },
+    { new: true }
+  )
+
+  return updatedSupport
+}
+
 export const supportServices = {
   createSupport,
   getAllSupport,
+  SupportIssueReply,
+  markSupportInProgress,
+  markSupportResolved,
 }

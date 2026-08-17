@@ -19,11 +19,11 @@ const createSupportSchema = z.object({
   }),
 })
 
-const updateSupportSchema = z.object({
-  params: z.object({
-    id: requiredString('ID'),
+const replySupportMessageSchema = z.object({
+  body: z.object({
+    supportId: requiredMongooseId('Support Id'),
+    replyMessage: requiredString('Reply message'),
   }),
-  body: z.object({}),
 })
 
 const getAllSupportSchema = z.object({
@@ -51,16 +51,23 @@ const deleteSupportByIdSchema = z.object({
   }),
 })
 
+const updateSupportStatusSchema = z.object({
+  params: z.object({
+    id: requiredMongooseId('Support ID'),
+  }),
+})
+
 export const supportValidations = {
   createSupportSchema,
-  updateSupportSchema,
+  replySupportMessageSchema,
   getAllSupportSchema,
   getSupportByIdSchema,
   deleteSupportByIdSchema,
+  updateSupportStatusSchema,
 }
 
 export type TCreateSupportPayloadType = z.infer<typeof createSupportSchema.shape.body>
-export type TUpdateSupportPayloadType = z.infer<typeof updateSupportSchema.shape.body>
+export type TReplySupportMessagePayloadType = z.infer<typeof replySupportMessageSchema.shape.body>
 export type TGetAllSupportQueryParamsType = z.infer<typeof getAllSupportSchema.shape.query>
 export type TGetSupportByIdParamsType = z.infer<typeof getSupportByIdSchema.shape.params>
 export type TDeleteSupportByIdParamsType = z.infer<typeof deleteSupportByIdSchema.shape.params>

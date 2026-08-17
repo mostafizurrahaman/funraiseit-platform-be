@@ -11,6 +11,24 @@ router.post(
   supportControllers.createSupport
 )
 
+router.post(
+  '/reply',
+  validateRequest(supportValidations.replySupportMessageSchema),
+  supportControllers.replySupport
+)
+
+router.patch(
+  '/:id/in-progress',
+  validateRequest(supportValidations.updateSupportStatusSchema),
+  supportControllers.markSupportInProgress
+)
+
+router.patch(
+  '/:id/resolved',
+  validateRequest(supportValidations.updateSupportStatusSchema),
+  supportControllers.markSupportResolved
+)
+
 router.get(
   '/all',
   validateRequest(supportValidations.getAllSupportSchema),
@@ -18,3 +36,5 @@ router.get(
 )
 
 export const supportRoutes = router
+
+
