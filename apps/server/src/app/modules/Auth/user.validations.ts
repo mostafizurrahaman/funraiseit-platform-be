@@ -98,20 +98,19 @@ const updateUserStatusSchema = z.object({
   params: z.object({
     id: requiredMongooseId('User ID'),
   }),
-  body: z
-    .object({
-      status: enumString([AuthStatus.ACTIVE, AuthStatus.BLOCKED, AuthStatus.IN_REVIEW], 'Status'),
-      reason: optionalString('Reason'),
-    })
-    .superRefine((data, ctx) => {
-      if (data.status === AuthStatus.BLOCKED && !data.reason?.trim()) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['reason'],
-          message: 'A reason is required when blocking a user.',
-        })
-      }
-    }),
+  body: z.object({
+    status: enumString([AuthStatus.ACTIVE, AuthStatus.BLOCKED, AuthStatus.IN_REVIEW], 'Status'),
+    reason: optionalString('Reason'),
+  }),
+  // .superRefine((data, ctx) => {
+  //   if (data.status === AuthStatus.BLOCKED && !data.reason?.trim()) {
+  //     ctx.addIssue({
+  //       code: z.ZodIssueCode.custom,
+  //       path: ['reason'],
+  //       message: 'A reason is required when blocking a user.',
+  //     })
+  //   }
+  // }),
 })
 
 const refreshTokenSchema = z.object({
