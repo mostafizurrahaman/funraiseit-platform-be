@@ -180,6 +180,12 @@ const deleteCampaignByIdSchema = z.object({
   }),
 })
 
+const earlyCompletedCampaignById = z.object({
+  params: z.object({
+    id: requiredString('ID'),
+  }),
+})
+
 export const campaignValidations = {
   createCampaignSchema,
   updateCampaignSchema,
@@ -191,6 +197,7 @@ export const campaignValidations = {
   launchCampaignByID,
   getAllActiveCampaign,
   getMyAllCampaignSchema,
+  earlyCompletedCampaignById,
 }
 
 export type TCreateCampaignPayloadType = z.infer<typeof createCampaignSchema.shape.body>

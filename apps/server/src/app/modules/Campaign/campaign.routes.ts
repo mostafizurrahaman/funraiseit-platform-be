@@ -48,6 +48,13 @@ router.patch(
   campaignControllers.updateCampaign
 )
 
+router.patch(
+  '/:id/early-complete',
+  auth(AuthRoles.ORGANIZER),
+  validateRequest(campaignValidations.earlyCompletedCampaignById),
+  campaignControllers.earlyCompleteCampaignById
+)
+
 router.get(
   '/all',
   validateRequest(campaignValidations.getAllCampaignSchema),

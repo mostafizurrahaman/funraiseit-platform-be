@@ -2242,6 +2242,42 @@ const getAllActiveCampaign = async (query: TGetAllActiveCampaignQuery) => {
   }
 }
 
+const earlyCompleteCampaignById = async (user: IUser, campaignId: string) => {
+  // ?? check campaign:
+  const campaign = await Campaign.findById(campaignId)
+  if (!campaign) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Campaign not found.')
+  }
+
+  if (campaign?.organizer?.toString() !== user?._id?.toString()) {
+    throw new AppError(httpStatus.NOT_FOUND, `This campaign does not belong to your account.`)
+  }
+  if (campaign.status !== CampaignStatus.ACTIVE) {
+    throw new AppError(httpStatus.BAD_REQUEST, `Only active campaigns can be completed early.`)
+  }
+
+  const now = moment().utc()
+
+  const result = await Campaign.findOneAndUpdate(
+    {
+      _id: campaign?._id,
+      status: CampaignStatus.ACTIVE,
+    },
+    {
+      $set: {
+        status: CampaignStatus.COMPLETED,
+        endedAt: now.toDate(),
+        expectedPayoutDate: now.clone().add(2, 'days').toDate(),
+      },
+    },
+    {
+      returnDocument: 'after',
+    }
+  )
+
+  return result
+}
+
 // ?? Complete the campaign which are in active and reached to end date:
 const cronJobToCompleteCampaign = async () => {
   try {
@@ -2451,4 +2487,7 @@ export const campaignServices = {
   // CORN JOBS:
   cronJobToCompleteCampaign,
   cronJobToGetPayoutReadyCampaign,
+
+  // EARLY COMPLETE :
+  earlyCompleteCampaignById,
 }
