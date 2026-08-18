@@ -9,7 +9,11 @@ const router: Router = express.Router()
 
 router.post('/', validateRequest(orderValidations.createOrderSchema), orderControllers.createOrder)
 
-router.get('/', validateRequest(orderValidations.previewOrderSchema), orderControllers.previewOrder)
+router.post(
+  '/preview',
+  validateRequest(orderValidations.previewOrderSchema),
+  orderControllers.previewOrder
+)
 
 router.patch(
   '/:id',
