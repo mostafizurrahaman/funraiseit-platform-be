@@ -1,0 +1,375 @@
+{
+  "info": {
+    "_postman_id": "9f3c7a8b-4b2e-4b71-8d2a-c9d3ef84a123",
+    "name": "FunRaiseIt - Campaign & Order Management APIs",
+    "description": "Postman Collection for Campaign and Order/OrderItem Lifecycle Management APIs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "YOUR_BEARER_TOKEN_HERE",
+      "type": "string"
+    },
+    {
+      "key": "campaignId",
+      "value": "66bc0123456789abcdef0123",
+      "type": "string"
+    },
+    {
+      "key": "orderId",
+      "value": "66bc0123456789abcdef0456",
+      "type": "string"
+    },
+    {
+      "key": "orderItemId",
+      "value": "66bc0123456789abcdef0789",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Campaign Management",
+      "item": [
+        {
+          "name": "1. Early Complete Campaign",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/campaign/{{campaignId}}/early-complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "campaign", "{{campaignId}}", "early-complete"]
+            },
+            "description": "Allows an Organizer or Admin to complete an active campaign before its endDate."
+          },
+          "response": []
+        },
+        {
+          "name": "2. Flag Campaign (Admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isFlagged\": true,\n  \"reason\": \"Suspicious activity reported\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/campaign/{{campaignId}}/flag",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "campaign", "{{campaignId}}", "flag"]
+            },
+            "description": "Admin/Super Admin flags a campaign with a reason."
+          },
+          "response": []
+        },
+        {
+          "name": "3. Unflag Campaign (Admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isFlagged\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/campaign/{{campaignId}}/flag",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "campaign", "{{campaignId}}", "flag"]
+            },
+            "description": "Admin removes the flag from a campaign."
+          },
+          "response": []
+        },
+        {
+          "name": "4. Cancel Campaign",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Organizer requested cancellation\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/campaign/{{campaignId}}/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "campaign", "{{campaignId}}", "cancel"]
+            },
+            "description": "Cancels an ongoing campaign."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Order Management",
+      "item": [
+        {
+          "name": "1. Cancel Entire Order",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Customer requested order cancellation\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/order/{{orderId}}/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "order", "{{orderId}}", "cancel"]
+            },
+            "description": "Cancels entire order, marks all child items as cancelled, and restocks inventory."
+          },
+          "response": []
+        },
+        {
+          "name": "2. Deliver All Items at Once (Bulk)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/order/{{orderId}}/deliver-all",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "order", "{{orderId}}", "deliver-all"]
+            },
+            "description": "Delivers all pending physical items, fulfills digital items with emails, and marks parent order as delivered."
+          },
+          "response": []
+        },
+        {
+          "name": "3. Update Whole Order Status (Manual)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"delivered\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/order/{{orderId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "order", "{{orderId}}", "status"]
+            },
+            "description": "Manual overall order status update (paid, partially_fulfilled, delivered, cancelled, refunded)."
+          },
+          "response": []
+        },
+        {
+          "name": "4. Get Order Details with Items",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/order/{{orderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "order", "{{orderId}}"]
+            },
+            "description": "View full order information, supporter details, and item statuses."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Order Item Management",
+      "item": [
+        {
+          "name": "1. Cancel Single Order Item",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Item out of stock\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/order/item/{{orderItemId}}/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "order", "item", "{{orderItemId}}", "cancel"]
+            },
+            "description": "Cancels individual order item, restocks stock, and auto-syncs parent order status."
+          },
+          "response": []
+        },
+        {
+          "name": "2. Deliver Single Physical Product Item",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/order/item/{{orderItemId}}/deliver-physical",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "order", "item", "{{orderItemId}}", "deliver-physical"]
+            },
+            "description": "Marks single physical item as shipped and auto-syncs parent order status."
+          },
+          "response": []
+        },
+        {
+          "name": "3. Fulfill Single Digital Product Item & Email Link",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/order/item/{{orderItemId}}/fulfill-digital",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "order", "item", "{{orderItemId}}", "fulfill-digital"]
+            },
+            "description": "Marks digital item as fulfilled, sends email with download link to supporter, and auto-syncs parent order."
+          },
+          "response": []
+        },
+        {
+          "name": "4. Update Single Item Status (Generic)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"shipped\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/order/item/{{orderItemId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "order", "item", "{{orderItemId}}", "status"]
+            },
+            "description": "Generic status update for individual item (pending, fulfilled, shipped, cancelled)."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

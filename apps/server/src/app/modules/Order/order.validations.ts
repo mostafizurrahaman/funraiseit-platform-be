@@ -13,6 +13,7 @@ import {
   usaPhoneRegex,
 } from '@repo/shared'
 import {
+  orderItemStatusValues,
   orderSortableFields,
   OrderStatusValues,
   paymentStatusValues,
@@ -177,12 +178,6 @@ const previewOrderSchema = z.object({
       })
     }),
 })
-const updateOrderSchema = z.object({
-  params: z.object({
-    id: requiredString('ID'),
-  }),
-  body: z.object({}),
-})
 
 const getAllOrderSchema = z.object({
   query: z.object({
@@ -211,32 +206,93 @@ const getCampaignOrderOverview = z.object({
   }),
 })
 
-const deleteOrderByIdSchema = z.object({
-  params: z.object({
-    id: requiredString('ID'),
-  }),
-})
 const getOrderByIdSchema = z.object({
   params: z.object({
     id: requiredMongooseId('ID'),
   }),
 })
 
+const cancelOrderSchema = z.object({
+  params: z.object({
+    id: requiredMongooseId('Order ID'),
+  }),
+  body: z
+    .object({
+      reason: optionalString('Cancel reason'),
+    })
+    .optional(),
+})
+
+const cancelOrderItemSchema = z.object({
+  params: z.object({
+    itemId: requiredMongooseId('Item ID'),
+  }),
+  body: z
+    .object({
+      reason: optionalString('Cancel reason'),
+    })
+    .optional(),
+})
+
+const deliverPhysicalItemSchema = z.object({
+  params: z.object({
+    itemId: requiredMongooseId('Item ID'),
+  }),
+})
+
+const fulfillDigitalItemSchema = z.object({
+  params: z.object({
+    itemId: requiredMongooseId('Item ID'),
+  }),
+})
+
+const deliverAllOrderItemsSchema = z.object({
+  params: z.object({
+    id: requiredMongooseId('Order ID'),
+  }),
+})
+
+const updateOrderItemStatusSchema = z.object({
+  params: z.object({
+    itemId: requiredMongooseId('Item ID'),
+  }),
+  body: z.object({
+    status: enumString(orderItemStatusValues, 'Item status'),
+  }),
+})
+
+const updateOrderStatusSchema = z.object({
+  params: z.object({
+    id: requiredMongooseId('Order ID'),
+  }),
+  body: z.object({
+    status: enumString(OrderStatusValues, 'Order status'),
+  }),
+})
+
 export const orderValidations = {
   createOrderSchema,
   previewOrderSchema,
-  updateOrderSchema,
   getAllOrderSchema,
   getCampaignOrderOverview,
-  deleteOrderByIdSchema,
   getOrderByIdSchema,
+  cancelOrderSchema,
+  cancelOrderItemSchema,
+  deliverPhysicalItemSchema,
+  fulfillDigitalItemSchema,
+  deliverAllOrderItemsSchema,
+  updateOrderItemStatusSchema,
+  updateOrderStatusSchema,
 }
 
 export type TCreateOrderPayloadType = z.infer<typeof createOrderSchema.shape.body>
 export type TPreviewOrderPayloadType = z.infer<typeof previewOrderSchema.shape.body>
-export type TUpdateOrderPayloadType = z.infer<typeof updateOrderSchema.shape.body>
 export type TGetAllOrderQueryParamsType = z.infer<typeof getAllOrderSchema.shape.query>
 export type TGetCampaignOrderOverviewQueryType = z.infer<
   typeof getCampaignOrderOverview.shape.query
 >
-export type TDeleteOrderByIdParamsType = z.infer<typeof deleteOrderByIdSchema.shape.params>
+export type TUpdateOrderItemStatusPayloadType = z.infer<typeof updateOrderItemStatusSchema.shape.body>
+export type TUpdateOrderStatusPayloadType = z.infer<typeof updateOrderStatusSchema.shape.body>
+export type TCancelOrderPayloadType = z.infer<typeof cancelOrderSchema.shape.body>
+export type TCancelOrderItemPayloadType = z.infer<typeof cancelOrderItemSchema.shape.body>
+

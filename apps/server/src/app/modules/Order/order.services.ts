@@ -2,10 +2,12 @@ import { paymentStatus } from './../../../../../../packages/db/src/apps/modules/
 import {
   Account,
   accountStatus,
+  AuthRoles,
   AuthStatus,
   Campaign,
   CampaignStatus,
   Currency,
+  DigitalProduct,
   Order,
   OrderAddress,
   OrderItem,
@@ -15,27 +17,35 @@ import {
   OrderStatus,
   Payment,
   paymentType,
+  PhysicalProduct,
   Product,
   productType,
   SiteInfo,
   Supporter,
   User,
+  type IDigitalProduct,
+  type IOrderDoc,
+  type IOrderItemDoc,
   type IPhysicalProduct,
   type IUser,
   type ProductDoc,
+  type TOrderItemStatusType,
+  type TOrderStatus,
 } from '@repo/db'
 import httpStatus from 'http-status'
 import { AppError } from '@repo/shared'
 import type { PipelineStage } from 'mongoose'
+import mongoose, { Types } from 'mongoose'
+import { calculatePaymentBreakdown } from '@app/libs/get-stripe-fee-breakdown'
+import { stripeCheckoutSessionWithApplicationFee } from '@app/libs/stripe'
+import { logger } from '@app/libs/logger'
+import { sendEmail } from '@repo/email-sender'
 
 import type {
   TCreateOrderPayloadType,
   TGetAllOrderQueryParamsType,
   TPreviewOrderPayloadType,
 } from './order.validations'
-import { calculatePaymentBreakdown } from '@app/libs/get-stripe-fee-breakdown'
-import mongoose, { Types } from 'mongoose'
-import { stripeCheckoutSessionWithApplicationFee } from '@app/libs/stripe'
 
 const createOrder = async (payload: TCreateOrderPayloadType) => {
   const {
@@ -870,9 +880,6 @@ const getAllOrder = async (user: IUser, query: TGetAllOrderQueryParamsType) => {
 }
 
 const getOrderById = async (user: IUser, id: string) => {
-  console.log({
-    id,
-  })
   const pipeline: PipelineStage[] = [
     {
       $match: {
@@ -1249,10 +1256,536 @@ const getCampaignOrderOverview = async (user: IUser, campaignId: string) => {
   }
 }
 
+// ----------------------------------------------------
+// Order & OrderItem Lifecycle Management Helpers & Services
+// ----------------------------------------------------
+
+const checkOrderAccess = async (user: IUser, order: IOrderDoc) => {
+  const isAdmin = [AuthRoles.ADMIN, AuthRoles.SUPER_ADMIN].includes(user.role as any)
+  if (isAdmin) return true
+
+  const campaign = await Campaign.findById(order.campaign)
+  if (!campaign) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Campaign not found for this order.')
+  }
+
+  if (campaign.organizer.toString() !== user._id.toString()) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      'You are not authorized to manage orders for this campaign.'
+    )
+  }
+
+  return true
+}
+
+const restockPhysicalProduct = async (
+  productId: Types.ObjectId | string,
+  quantity: number,
+  session?: mongoose.ClientSession
+) => {
+  if (quantity <= 0) return
+  const options = session ? { session } : {}
+  await PhysicalProduct.findOneAndUpdate(
+    {
+      _id: productId,
+      productType: productType.PHYSICAL,
+      isUnlimited: false,
+    },
+    {
+      $inc: {
+        stock: quantity,
+      },
+    },
+    options
+  )
+}
+
+const sendDigitalDeliveryEmail = async (
+  recipientEmail: string,
+  customerName: string,
+  productName: string,
+  downloadUrl: string,
+  campaignName: string
+) => {
+  try {
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+        <h2 style="color: #333;">Your Digital Product is Ready!</h2>
+        <p>Hi ${customerName || 'there'},</p>
+        <p>Thank you for supporting <strong>${campaignName}</strong>. Your digital product is ready for download:</p>
+        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 6px; margin: 20px 0;">
+          <p style="margin: 0 0 10px 0; font-size: 16px; font-weight: bold; color: #222;">${productName}</p>
+          <a href="${downloadUrl}" style="display: inline-block; background-color: #0070f3; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;" target="_blank">Download Product</a>
+        </div>
+        <p style="color: #666; font-size: 14px;">If the button above does not work, copy and paste this link into your browser:</p>
+        <p style="color: #0070f3; word-break: break-all; font-size: 13px;">${downloadUrl}</p>
+        <p style="color: #888; font-size: 12px; margin-top: 30px;">Thank you for your support!</p>
+      </div>
+    `
+    await sendEmail({
+      to: recipientEmail,
+      subject: `Your digital download for "${productName}" is ready!`,
+      html,
+    })
+  } catch (error) {
+    logger.error('Failed to send digital delivery email', error)
+  }
+}
+
+const syncParentOrderStatus = async (
+  orderId: Types.ObjectId | string,
+  session?: mongoose.ClientSession
+) => {
+  const options = session ? { session } : {}
+  const order = await Order.findById(orderId, null, options)
+  if (!order) return null
+
+  if ([OrderStatus.PENDING, OrderStatus.PAYMENT_FAILED].includes(order.status as any)) {
+    return order
+  }
+
+  const items = await OrderItem.find({ order: order._id }, null, options)
+  if (!items || items.length === 0) return order
+
+  const isAllCancelled = items.every((item) => item.status === OrderItemStatus.CANCELLED)
+  if (isAllCancelled) {
+    order.status = OrderStatus.CANCELLED
+    await order.save(options)
+    return order
+  }
+
+  const activeItems = items.filter((item) => item.status !== OrderItemStatus.CANCELLED)
+
+  const isAllActiveDelivered =
+    activeItems.length > 0 &&
+    activeItems.every(
+      (item) =>
+        item.status === OrderItemStatus.SHIPPED || item.status === OrderItemStatus.FULFILLED
+    )
+
+  const isAnyActiveDelivered = activeItems.some(
+    (item) =>
+      item.status === OrderItemStatus.SHIPPED || item.status === OrderItemStatus.FULFILLED
+  )
+
+  if (isAllActiveDelivered) {
+    order.status = OrderStatus.DELIVERED
+  } else if (isAnyActiveDelivered) {
+    order.status = OrderStatus.PARTIALLY_FULFILLED
+  } else {
+    if (
+      order.status === OrderStatus.DELIVERED ||
+      order.status === OrderStatus.PARTIALLY_FULFILLED
+    ) {
+      order.status = OrderStatus.PAID
+    }
+  }
+
+  await order.save(options)
+  return order
+}
+
+const cancelOrder = async (user: IUser, orderId: string, reason?: string) => {
+  const order = await Order.findById(orderId)
+  if (!order) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Order not found.')
+  }
+
+  await checkOrderAccess(user, order)
+
+  if (order.status === OrderStatus.CANCELLED) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Order is already cancelled.')
+  }
+
+  if (order.status === OrderStatus.DELIVERED) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Cannot cancel an already delivered order.')
+  }
+
+  const items = await OrderItem.find({
+    order: order._id,
+    status: { $ne: OrderItemStatus.CANCELLED },
+  })
+
+  for (const item of items) {
+    item.status = OrderItemStatus.CANCELLED
+    await item.save()
+    await restockPhysicalProduct(item.product, item.quantity)
+  }
+
+  order.status = OrderStatus.CANCELLED
+  await order.save()
+
+  return {
+    order,
+    items,
+    reason: reason || null,
+  }
+}
+
+const cancelOrderItem = async (user: IUser, itemId: string, reason?: string) => {
+  const item = await OrderItem.findById(itemId)
+  if (!item) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Order item not found.')
+  }
+
+  const order = await Order.findById(item.order)
+  if (!order) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Parent order not found.')
+  }
+
+  await checkOrderAccess(user, order)
+
+  if (item.status === OrderItemStatus.CANCELLED) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Order item is already cancelled.')
+  }
+
+  if (
+    item.status === OrderItemStatus.SHIPPED ||
+    item.status === OrderItemStatus.FULFILLED
+  ) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'Cannot cancel an already delivered or fulfilled order item.'
+    )
+  }
+
+  item.status = OrderItemStatus.CANCELLED
+  await item.save()
+
+  await restockPhysicalProduct(item.product, item.quantity)
+
+  const updatedOrder = await syncParentOrderStatus(order._id)
+
+  return {
+    item,
+    order: updatedOrder,
+    reason: reason || null,
+  }
+}
+
+const deliverPhysicalItem = async (user: IUser, itemId: string) => {
+  const item = await OrderItem.findById(itemId)
+  if (!item) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Order item not found.')
+  }
+
+  const order = await Order.findById(item.order)
+  if (!order) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Parent order not found.')
+  }
+
+  await checkOrderAccess(user, order)
+
+  if (![OrderStatus.PAID, OrderStatus.PARTIALLY_FULFILLED].includes(order.status as any)) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      `Cannot deliver items for an order with status "${order.status}". Order must be paid.`
+    )
+  }
+
+  const product = await Product.findById(item.product)
+  if (!product) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Product not found.')
+  }
+
+  if (product.productType !== productType.PHYSICAL) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'This item is a digital product. Please use the digital fulfillment endpoint.'
+    )
+  }
+
+  if (item.status === OrderItemStatus.CANCELLED) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Cannot deliver a cancelled order item.')
+  }
+
+  item.status = OrderItemStatus.SHIPPED
+  await item.save()
+
+  const updatedOrder = await syncParentOrderStatus(order._id)
+
+  return {
+    item,
+    order: updatedOrder,
+  }
+}
+
+const fulfillDigitalItem = async (user: IUser, itemId: string) => {
+  const item = await OrderItem.findById(itemId)
+  if (!item) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Order item not found.')
+  }
+
+  const order = await Order.findById(item.order)
+  if (!order) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Parent order not found.')
+  }
+
+  await checkOrderAccess(user, order)
+
+  if (![OrderStatus.PAID, OrderStatus.PARTIALLY_FULFILLED].includes(order.status as any)) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      `Cannot fulfill items for an order with status "${order.status}". Order must be paid.`
+    )
+  }
+
+  const product = (await Product.findById(item.product)) as IDigitalProduct | null
+  if (!product) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Product not found.')
+  }
+
+  if (product.productType !== productType.DIGITAL) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'This item is a physical product. Please use the physical delivery endpoint.'
+    )
+  }
+
+  if (item.status === OrderItemStatus.CANCELLED) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Cannot fulfill a cancelled order item.')
+  }
+
+  item.status = OrderItemStatus.FULFILLED
+  await item.save()
+
+  const supporter = await Supporter.findById(order.supporter)
+  const campaign = await Campaign.findById(order.campaign)
+  const targetEmail = supporter?.email
+
+  if (targetEmail && product.digitalFileUrl) {
+    await sendDigitalDeliveryEmail(
+      targetEmail,
+      order.customerName || supporter?.name || 'Valued Supporter',
+      product.name,
+      product.digitalFileUrl,
+      campaign?.name || 'Campaign'
+    )
+  }
+
+  const updatedOrder = await syncParentOrderStatus(order._id)
+
+  return {
+    item,
+    order: updatedOrder,
+    downloadUrl: product.digitalFileUrl,
+  }
+}
+
+const deliverAllOrderItems = async (user: IUser, orderId: string) => {
+  const order = await Order.findById(orderId)
+  if (!order) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Order not found.')
+  }
+
+  await checkOrderAccess(user, order)
+
+  if (![OrderStatus.PAID, OrderStatus.PARTIALLY_FULFILLED].includes(order.status as any)) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      `Cannot deliver items for an order with status "${order.status}". Order must be paid.`
+    )
+  }
+
+  const pendingItems = await OrderItem.find({
+    order: order._id,
+    status: OrderItemStatus.PENDING,
+  })
+
+  if (pendingItems.length === 0) {
+    return {
+      order,
+      message: 'No pending items to deliver.',
+    }
+  }
+
+  const supporter = await Supporter.findById(order.supporter)
+  const campaign = await Campaign.findById(order.campaign)
+  const targetEmail = supporter?.email
+
+  for (const item of pendingItems) {
+    const product = await Product.findById(item.product)
+    if (product?.productType === productType.DIGITAL) {
+      item.status = OrderItemStatus.FULFILLED
+      await item.save()
+
+      const digitalProd = product as IDigitalProduct
+      if (targetEmail && digitalProd?.digitalFileUrl) {
+        await sendDigitalDeliveryEmail(
+          targetEmail,
+          order.customerName || supporter?.name || 'Valued Supporter',
+          product.name,
+          digitalProd.digitalFileUrl,
+          campaign?.name || 'Campaign'
+        )
+      }
+    } else {
+      item.status = OrderItemStatus.SHIPPED
+      await item.save()
+    }
+  }
+
+  const updatedOrder = await syncParentOrderStatus(order._id)
+
+  return {
+    order: updatedOrder,
+    deliveredCount: pendingItems.length,
+  }
+}
+
+const updateOrderItemStatus = async (
+  user: IUser,
+  itemId: string,
+  status: TOrderItemStatusType
+) => {
+  const item = await OrderItem.findById(itemId)
+  if (!item) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Order item not found.')
+  }
+
+  const order = await Order.findById(item.order)
+  if (!order) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Parent order not found.')
+  }
+
+  await checkOrderAccess(user, order)
+
+  if (
+    [OrderItemStatus.SHIPPED, OrderItemStatus.FULFILLED].includes(status as any) &&
+    ![OrderStatus.PAID, OrderStatus.PARTIALLY_FULFILLED].includes(order.status as any)
+  ) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      `Cannot mark item as delivered for unpaid order. Order status is "${order.status}".`
+    )
+  }
+
+  const previousStatus = item.status
+  item.status = status
+  await item.save()
+
+  if (status === OrderItemStatus.CANCELLED && previousStatus !== OrderItemStatus.CANCELLED) {
+    await restockPhysicalProduct(item.product, item.quantity)
+  }
+
+  if (status === OrderItemStatus.FULFILLED && previousStatus !== OrderItemStatus.FULFILLED) {
+    const product = await Product.findById(item.product)
+    if (product?.productType === productType.DIGITAL) {
+      const supporter = await Supporter.findById(order.supporter)
+      const campaign = await Campaign.findById(order.campaign)
+      const targetEmail = supporter?.email
+      const digitalProd = product as IDigitalProduct
+
+      if (targetEmail && digitalProd?.digitalFileUrl) {
+        await sendDigitalDeliveryEmail(
+          targetEmail,
+          order.customerName || supporter?.name || 'Valued Supporter',
+          product.name,
+          digitalProd.digitalFileUrl,
+          campaign?.name || 'Campaign'
+        )
+      }
+    }
+  }
+
+  const updatedOrder = await syncParentOrderStatus(order._id)
+
+  return {
+    item,
+    order: updatedOrder,
+  }
+}
+
+const updateOrderStatus = async (
+  user: IUser,
+  orderId: string,
+  status: TOrderStatus
+) => {
+  const order = await Order.findById(orderId)
+  if (!order) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Order not found.')
+  }
+
+  await checkOrderAccess(user, order)
+
+  if (
+    status === OrderStatus.DELIVERED &&
+    [OrderStatus.PENDING, OrderStatus.PAYMENT_FAILED].includes(order.status as any)
+  ) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'Cannot mark unpaid order as delivered.'
+    )
+  }
+
+  if (status === OrderStatus.DELIVERED) {
+    const pendingItems = await OrderItem.find({
+      order: order._id,
+      status: {
+        $nin: [
+          OrderItemStatus.SHIPPED,
+          OrderItemStatus.FULFILLED,
+          OrderItemStatus.CANCELLED,
+        ],
+      },
+    })
+
+    const supporter = await Supporter.findById(order.supporter)
+    const campaign = await Campaign.findById(order.campaign)
+    const targetEmail = supporter?.email
+
+    for (const item of pendingItems) {
+      const product = await Product.findById(item.product)
+      if (product?.productType === productType.DIGITAL) {
+        item.status = OrderItemStatus.FULFILLED
+        await item.save()
+
+        const digitalProd = product as IDigitalProduct
+        if (targetEmail && digitalProd?.digitalFileUrl) {
+          await sendDigitalDeliveryEmail(
+            targetEmail,
+            order.customerName || supporter?.name || 'Valued Supporter',
+            product.name,
+            digitalProd.digitalFileUrl,
+            campaign?.name || 'Campaign'
+          )
+        }
+      } else {
+        item.status = OrderItemStatus.SHIPPED
+        await item.save()
+      }
+    }
+  } else if (status === OrderStatus.CANCELLED) {
+    const nonCancelledItems = await OrderItem.find({
+      order: order._id,
+      status: { $ne: OrderItemStatus.CANCELLED },
+    })
+
+    for (const item of nonCancelledItems) {
+      item.status = OrderItemStatus.CANCELLED
+      await item.save()
+      await restockPhysicalProduct(item.product, item.quantity)
+    }
+  }
+
+  order.status = status
+  await order.save()
+
+  return order
+}
+
 export const orderServices = {
   createOrder,
   getAllOrder,
   getOrderById,
   previewOrderPrice,
   getCampaignOrderOverview,
+  cancelOrder,
+  cancelOrderItem,
+  deliverPhysicalItem,
+  fulfillDigitalItem,
+  deliverAllOrderItems,
+  updateOrderItemStatus,
+  updateOrderStatus,
 }
