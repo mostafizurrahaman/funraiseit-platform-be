@@ -33,6 +33,8 @@ import type {
   TGetAllCampaignQueryParamsType,
   TGetAllActiveCampaignQuery,
   TGetMyAllCampaignQueryParamsType,
+  TCancelCampaignByOrganizationID,
+  TRejectionCampaignByOrganizationID,
 } from './campaign.validations'
 import { uploadSingleFileToS3, type IMulterFile } from 'packages/media-hub/src'
 import { generateCampaignCode } from './campaign.utils'
@@ -2242,6 +2244,119 @@ const getAllActiveCampaign = async (query: TGetAllActiveCampaignQuery) => {
   }
 }
 
+const earlyCompleteCampaignById = async (user: IUser, campaignId: string) => {
+  // ?? check campaign:
+  const campaign = await Campaign.findById(campaignId)
+  if (!campaign) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Campaign not found.')
+  }
+
+  if (campaign?.organizer?.toString() !== user?._id?.toString()) {
+    throw new AppError(httpStatus.NOT_FOUND, `This campaign does not belong to your account.`)
+  }
+  if (campaign.status !== CampaignStatus.ACTIVE) {
+    throw new AppError(httpStatus.BAD_REQUEST, `Only active campaigns can be completed early.`)
+  }
+
+  const now = moment().utc()
+
+  const result = await Campaign.findOneAndUpdate(
+    {
+      _id: campaign?._id,
+      status: CampaignStatus.ACTIVE,
+    },
+    {
+      $set: {
+        status: CampaignStatus.COMPLETED,
+        endedAt: now.toDate(),
+        expectedPayoutDate: now.clone().add(2, 'days').toDate(),
+      },
+    },
+    {
+      returnDocument: 'after',
+    }
+  )
+
+  return result
+}
+
+const cancelCampaignByOrganizerByCampaignID = async (
+  user: IUser,
+  campaignId: string,
+  payload: TCancelCampaignByOrganizationID
+) => {
+  const { cancelledReason } = payload
+
+  // ?? check campaign:
+  const campaign = await Campaign.findById(campaignId)
+  if (!campaign) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Campaign not found.')
+  }
+
+  if (campaign?.organizer?.toString() !== user?._id?.toString()) {
+    throw new AppError(httpStatus.NOT_FOUND, `This campaign does not belong to your account.`)
+  }
+  if (campaign.status !== CampaignStatus.ACTIVE) {
+    throw new AppError(httpStatus.BAD_REQUEST, `Only active campaigns can be cancelled early.`)
+  }
+
+  const result = await Campaign.findOneAndUpdate(
+    {
+      _id: campaign?._id,
+      status: CampaignStatus.ACTIVE,
+    },
+    {
+      $set: {
+        cancelledReason: cancelledReason,
+        status: CampaignStatus.CANCELLED,
+        cancelledAt: new Date(),
+      },
+    },
+    {
+      returnDocument: 'after',
+    }
+  )
+
+  return result
+}
+
+const flaggedCampaignByOrganizerByCampaignID = async (
+  user: IUser,
+  campaignId: string,
+  payload: TRejectionCampaignByOrganizationID
+) => {
+  const { rejectedReason } = payload
+
+  // ?? check campaign:
+  const campaign = await Campaign.findById(campaignId)
+  if (!campaign) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Campaign not found.')
+  }
+
+  if (campaign.status !== CampaignStatus.ACTIVE) {
+    throw new AppError(httpStatus.BAD_REQUEST, `Only active campaigns can be rejected.`)
+  }
+
+  const result = await Campaign.findOneAndUpdate(
+    {
+      _id: campaign?._id,
+      status: CampaignStatus.ACTIVE,
+    },
+    {
+      $set: {
+        rejectedAt: new Date(),
+        status: CampaignStatus.REJECTED,
+        rejectionReason: rejectedReason,
+      },
+    },
+    {
+      returnDocument: 'after',
+    }
+  )
+
+  return result
+}
+
 // ?? Complete the campaign which are in active and reached to end date:
 const cronJobToCompleteCampaign = async () => {
   try {
@@ -2451,4 +2566,9 @@ export const campaignServices = {
   // CORN JOBS:
   cronJobToCompleteCampaign,
   cronJobToGetPayoutReadyCampaign,
+
+  // EARLY COMPLETE :
+  earlyCompleteCampaignById,
+  cancelCampaignByOrganizerByCampaignID,
+  flaggedCampaignByOrganizerByCampaignID,
 }

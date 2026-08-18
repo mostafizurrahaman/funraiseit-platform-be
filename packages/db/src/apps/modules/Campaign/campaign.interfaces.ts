@@ -44,6 +44,12 @@ export interface ICampaign {
   endedAt?: Date
   expectedPayoutDate?: Date
   paidOutAt?: Date
+  cancelledAt?: Date
+  rejectedAt?: Date
+
+  // Reason:
+  cancelledReason?: string
+  rejectionReason?: string
 
   // Status :
   status: TCampaignStatus

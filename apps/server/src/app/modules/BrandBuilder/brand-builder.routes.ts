@@ -41,4 +41,12 @@ router.get(
   brandBuilderControllers.getCustomerBrandBuilders
 )
 
+router.patch(
+  '/:id/complete',
+  auth(AuthRoles.ADMIN, AuthRoles.SUPER_ADMIN),
+  validateRequest(brandBuilderValidations.completeBrandBuilderSchemaByID),
+  brandBuilderControllers.completeBrandBuilder
+  
+)
+
 export const brandBuilderRoutes = router

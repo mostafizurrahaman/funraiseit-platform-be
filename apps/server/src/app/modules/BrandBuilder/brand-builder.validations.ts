@@ -36,11 +36,10 @@ const createBrandBuilderSchema = z.object({
   }),
 })
 
-const updateBrandBuilderSchema = z.object({
+const completeBrandBuilderSchemaByID = z.object({
   params: z.object({
     id: requiredString('ID'),
   }),
-  body: z.object({}),
 })
 
 const getAllBrandBuilderSchema = z.object({
@@ -84,7 +83,7 @@ const deleteBrandBuilderByIdSchema = z.object({
 
 export const brandBuilderValidations = {
   createBrandBuilderSchema,
-  updateBrandBuilderSchema,
+  completeBrandBuilderSchemaByID,
   getAllBrandBuilderSchema,
   getBrandBuilderByIdSchema,
   deleteBrandBuilderByIdSchema,
@@ -92,7 +91,7 @@ export const brandBuilderValidations = {
 }
 
 export type TCreateBrandBuilderPayloadType = z.infer<typeof createBrandBuilderSchema.shape.body>
-export type TUpdateBrandBuilderPayloadType = z.infer<typeof updateBrandBuilderSchema.shape.body>
+
 export type TGetAllBrandBuilderQueryParamsType = z.infer<
   typeof getAllBrandBuilderSchema.shape.query
 >

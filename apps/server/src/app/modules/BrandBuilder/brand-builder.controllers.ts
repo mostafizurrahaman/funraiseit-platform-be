@@ -47,8 +47,20 @@ const getCustomerBrandBuilders = catchAsync(async (req, res) => {
   })
 })
 
+const completeBrandBuilder = catchAsync(async (req, res) => {
+  const result = await brandBuilderServices.completeBrandBuilder(req?.params?.id as string)
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.CREATED,
+    message: 'Brand builder completion successful.',
+    data: result,
+  })
+})
+
 export const brandBuilderControllers = {
   createBrandBuilder,
   getCustomerBrandBuilders,
   getAllBrandBuilder,
+  completeBrandBuilder,
 }

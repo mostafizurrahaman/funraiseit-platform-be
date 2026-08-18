@@ -139,6 +139,18 @@ const campaignSchema = new Schema<ICampaignDoc>(
       enum: campaignPaymentStatusValues,
       default: campaignLunchPaymentStatus.NOT_INITIATED,
     },
+    cancelledReason: {
+      type: String,
+    },
+    cancelledAt: {
+      type: Date,
+    },
+    rejectionReason: {
+      type: String,
+    },
+    rejectedAt: {
+      type: Date,
+    },
   },
   {
     timestamps: true,

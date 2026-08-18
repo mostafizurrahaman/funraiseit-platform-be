@@ -1,4 +1,3 @@
-import { campaignCategoryValues } from './../../../../../../packages/db/src/apps/modules/Campaign/campaign.constants'
 import z from 'zod'
 import {
   requiredString,
@@ -180,6 +179,30 @@ const deleteCampaignByIdSchema = z.object({
   }),
 })
 
+const earlyCompletedCampaignById = z.object({
+  params: z.object({
+    id: requiredString('ID'),
+  }),
+})
+
+const cancelCampaignByOrganizerByCampaignID = z.object({
+  params: z.object({
+    id: requiredString('ID'),
+  }),
+  body: z.object({
+    cancelledReason: requiredString('Cancelled reason'),
+  }),
+})
+
+const flaggedCampaignByOrganizerByCampaignID = z.object({
+  params: z.object({
+    id: requiredString('ID'),
+  }),
+  body: z.object({
+    rejectedReason: requiredString('Rejection reason'),
+  }),
+})
+
 export const campaignValidations = {
   createCampaignSchema,
   updateCampaignSchema,
@@ -191,6 +214,9 @@ export const campaignValidations = {
   launchCampaignByID,
   getAllActiveCampaign,
   getMyAllCampaignSchema,
+  earlyCompletedCampaignById,
+  cancelCampaignByOrganizerByCampaignID,
+  flaggedCampaignByOrganizerByCampaignID,
 }
 
 export type TCreateCampaignPayloadType = z.infer<typeof createCampaignSchema.shape.body>
@@ -203,3 +229,10 @@ export type TDeleteCampaignByIdParamsType = z.infer<typeof deleteCampaignByIdSch
 export type TGetCampaignPreviewByID = z.infer<typeof getCampaignPreviewByID.shape.body>
 export type TLaunchCampaignPayloadType = z.infer<typeof launchCampaignByID.shape.body>
 export type TGetAllActiveCampaignQuery = z.infer<typeof getAllActiveCampaign.shape.query>
+export type TCancelCampaignByOrganizationID = z.infer<
+  typeof cancelCampaignByOrganizerByCampaignID.shape.body
+>
+
+export type TRejectionCampaignByOrganizationID = z.infer<
+  typeof flaggedCampaignByOrganizerByCampaignID.shape.body
+>
