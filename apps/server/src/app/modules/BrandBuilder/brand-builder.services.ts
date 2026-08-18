@@ -384,9 +384,28 @@ const getCustomerBrandBuilders = async (
   }
 }
 
+const completeBrandBuilder = async (id: string) => {
+  // ?? Check is brand builder exists?
+
+  const brandBuilder = await BrandBuilder.findById(id)
+  if (!brandBuilder) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Brand builder not found.')
+  }
+
+  if (brandBuilder.status !== brandBuilderStatus.PAID) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Brand builder payment is not completed.')
+  }
+
+  brandBuilder.status = brandBuilderStatus.COMPLETED
+
+  await brandBuilder.save()
+
+  return brandBuilder
+}
+
 export const brandBuilderServices = {
   createBrandBuilder,
-
   getAllBrandBuilder,
   getCustomerBrandBuilders,
+  completeBrandBuilder,
 }
