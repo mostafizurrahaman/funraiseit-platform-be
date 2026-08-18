@@ -15,12 +15,6 @@ router.post(
   orderControllers.previewOrder
 )
 
-router.patch(
-  '/:id',
-  validateRequest(orderValidations.updateOrderSchema),
-  orderControllers.updateOrder
-)
-
 router.get(
   '/all',
   auth(AuthRoles.ORGANIZER),
@@ -37,15 +31,60 @@ router.get(
 
 router.get(
   '/:id',
-  auth(AuthRoles.ORGANIZER),
+  auth(AuthRoles.ORGANIZER, AuthRoles.ADMIN, AuthRoles.SUPER_ADMIN),
   validateRequest(orderValidations.getOrderByIdSchema),
   orderControllers.getOrderById
 )
 
-router.delete(
-  '/:id',
-  validateRequest(orderValidations.deleteOrderByIdSchema),
-  orderControllers.deleteOrderById
+// Item level routes:
+router.patch(
+  '/item/:itemId/cancel',
+  auth(AuthRoles.ORGANIZER, AuthRoles.ADMIN, AuthRoles.SUPER_ADMIN),
+  validateRequest(orderValidations.cancelOrderItemSchema),
+  orderControllers.cancelOrderItem
+)
+
+router.patch(
+  '/item/:itemId/deliver-physical',
+  auth(AuthRoles.ORGANIZER, AuthRoles.ADMIN, AuthRoles.SUPER_ADMIN),
+  validateRequest(orderValidations.deliverPhysicalItemSchema),
+  orderControllers.deliverPhysicalItem
+)
+
+router.patch(
+  '/item/:itemId/fulfill-digital',
+  auth(AuthRoles.ORGANIZER, AuthRoles.ADMIN, AuthRoles.SUPER_ADMIN),
+  validateRequest(orderValidations.fulfillDigitalItemSchema),
+  orderControllers.fulfillDigitalItem
+)
+
+router.patch(
+  '/item/:itemId/status',
+  auth(AuthRoles.ORGANIZER, AuthRoles.ADMIN, AuthRoles.SUPER_ADMIN),
+  validateRequest(orderValidations.updateOrderItemStatusSchema),
+  orderControllers.updateOrderItemStatus
+)
+
+// Order level status & delivery routes:
+router.patch(
+  '/:id/cancel',
+  auth(AuthRoles.ORGANIZER, AuthRoles.ADMIN, AuthRoles.SUPER_ADMIN),
+  validateRequest(orderValidations.cancelOrderSchema),
+  orderControllers.cancelOrder
+)
+
+router.patch(
+  '/:id/deliver-all',
+  auth(AuthRoles.ORGANIZER, AuthRoles.ADMIN, AuthRoles.SUPER_ADMIN),
+  validateRequest(orderValidations.deliverAllOrderItemsSchema),
+  orderControllers.deliverAllOrderItems
+)
+
+router.patch(
+  '/:id/status',
+  auth(AuthRoles.ORGANIZER, AuthRoles.ADMIN, AuthRoles.SUPER_ADMIN),
+  validateRequest(orderValidations.updateOrderStatusSchema),
+  orderControllers.updateOrderStatus
 )
 
 export const orderRoutes = router

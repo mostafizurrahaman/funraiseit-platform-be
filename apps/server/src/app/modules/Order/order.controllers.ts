@@ -26,17 +26,6 @@ const previewOrder = catchAsync(async (req, res) => {
   })
 })
 
-const updateOrder = catchAsync(async (req, res) => {
-  const result = await orderServices.updateOrder(req.params.id as string, req.body)
-
-  sendResponse(res, {
-    success: true,
-    statusCode: httpStatus.OK,
-    message: 'The order updated successfully!',
-    data: result,
-  })
-})
-
 const getAllOrder = catchAsync(async (req, res) => {
   const user = await getUserFromRequest(req)
   const result = await orderServices.getAllOrder(user, req.query as TGetAllOrderQueryParamsType)
@@ -75,23 +64,119 @@ const getOrderById = catchAsync(async (req, res) => {
   })
 })
 
-const deleteOrderById = catchAsync(async (req, res) => {
-  const result = await orderServices.deleteOrderById(req.params.id as string)
+const cancelOrder = catchAsync(async (req, res) => {
+  const user = await getUserFromRequest(req)
+  const orderId = req.params.id as string
+  const reason = req.body?.reason
+
+  const result = await orderServices.cancelOrder(user, orderId, reason)
 
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
-    message: 'The order deleted successfully!',
+    message: 'The order cancelled successfully!',
+    data: result,
+  })
+})
+
+const cancelOrderItem = catchAsync(async (req, res) => {
+  const user = await getUserFromRequest(req)
+  const itemId = req.params.itemId as string
+  const reason = req.body?.reason
+
+  const result = await orderServices.cancelOrderItem(user, itemId, reason)
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: 'The order item cancelled successfully!',
+    data: result,
+  })
+})
+
+const deliverPhysicalItem = catchAsync(async (req, res) => {
+  const user = await getUserFromRequest(req)
+  const itemId = req.params.itemId as string
+
+  const result = await orderServices.deliverPhysicalItem(user, itemId)
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: 'The physical item marked as shipped successfully!',
+    data: result,
+  })
+})
+
+const fulfillDigitalItem = catchAsync(async (req, res) => {
+  const user = await getUserFromRequest(req)
+  const itemId = req.params.itemId as string
+
+  const result = await orderServices.fulfillDigitalItem(user, itemId)
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: 'The digital item fulfilled and download link delivered successfully!',
+    data: result,
+  })
+})
+
+const deliverAllOrderItems = catchAsync(async (req, res) => {
+  const user = await getUserFromRequest(req)
+  const orderId = req.params.id as string
+
+  const result = await orderServices.deliverAllOrderItems(user, orderId)
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: 'All order items delivered successfully!',
+    data: result,
+  })
+})
+
+const updateOrderItemStatus = catchAsync(async (req, res) => {
+  const user = await getUserFromRequest(req)
+  const itemId = req.params.itemId as string
+  const status = req.body.status
+
+  const result = await orderServices.updateOrderItemStatus(user, itemId, status)
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: 'The order item status updated successfully!',
+    data: result,
+  })
+})
+
+const updateOrderStatus = catchAsync(async (req, res) => {
+  const user = await getUserFromRequest(req)
+  const orderId = req.params.id as string
+  const status = req.body.status
+
+  const result = await orderServices.updateOrderStatus(user, orderId, status)
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: 'The order status updated successfully!',
     data: result,
   })
 })
 
 export const orderControllers = {
   createOrder,
-  updateOrder,
   getAllOrder,
   getOrderById,
-  deleteOrderById,
   previewOrder,
   getCampaignOrderOverview,
+  cancelOrder,
+  cancelOrderItem,
+  deliverPhysicalItem,
+  fulfillDigitalItem,
+  deliverAllOrderItems,
+  updateOrderItemStatus,
+  updateOrderStatus,
 }
