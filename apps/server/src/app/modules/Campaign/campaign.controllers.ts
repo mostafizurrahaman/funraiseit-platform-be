@@ -142,7 +142,44 @@ const earlyCompleteCampaignById = catchAsync(async (req, res) => {
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
+
     message: 'Campaign completed early successfully.',
+    data: result,
+  })
+})
+
+const cancelCampaignByID = catchAsync(async (req, res) => {
+  const user = await getUserFromRequest(req)
+  const campaignId = req.params.id as string
+  const payload = req.body
+  const result = await campaignServices.cancelCampaignByOrganizerByCampaignID(
+    user,
+    campaignId,
+    payload
+  )
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: 'Campaign cancelled successfully.',
+    data: result,
+  })
+})
+
+const flaggedCampaignByID = catchAsync(async (req, res) => {
+  const user = await getUserFromRequest(req)
+  const campaignId = req.params.id as string
+  const payload = req.body
+  const result = await campaignServices.flaggedCampaignByOrganizerByCampaignID(
+    user,
+    campaignId,
+    payload
+  )
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: 'Campaign cancelled successfully.',
     data: result,
   })
 })
@@ -174,4 +211,6 @@ export const campaignControllers = {
   generateCampaignStory,
   getMyAllCampaign,
   earlyCompleteCampaignById,
+  cancelCampaignByID,
+  flaggedCampaignByID,
 }

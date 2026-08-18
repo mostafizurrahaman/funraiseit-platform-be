@@ -55,6 +55,20 @@ router.patch(
   campaignControllers.earlyCompleteCampaignById
 )
 
+router.patch(
+  '/:id/cancel',
+  auth(AuthRoles.ORGANIZER),
+  validateRequest(campaignValidations.cancelCampaignByOrganizerByCampaignID),
+  campaignControllers.cancelCampaignByID
+)
+
+router.patch(
+  '/:id/reject',
+  auth(AuthRoles.ADMIN, AuthRoles.SUPER_ADMIN),
+  validateRequest(campaignValidations.flaggedCampaignByOrganizerByCampaignID),
+  campaignControllers.flaggedCampaignByID
+)
+
 router.get(
   '/all',
   validateRequest(campaignValidations.getAllCampaignSchema),
