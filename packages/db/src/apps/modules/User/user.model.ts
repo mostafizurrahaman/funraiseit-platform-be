@@ -85,6 +85,10 @@ const userSchema = new Schema<IUser, IUserModel>(
     passwordChangedAt: {
       type: Date,
     },
+    hasSkippedReview: {
+      type: Boolean,
+      default: false,
+    },
   },
 
   {

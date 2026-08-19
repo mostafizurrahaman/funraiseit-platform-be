@@ -42,6 +42,7 @@ import mongoose, { Types } from 'mongoose'
 import { createStripePayout, stripe, stripeCheckoutSession } from '@app/libs/stripe'
 import { logger } from '@app/libs/logger'
 import { enhanceCampaignStory } from '@app/libs/generate-story'
+import { User } from '@repo/db'
 
 const createCampaign = async (
   user: IUser,
@@ -2277,6 +2278,12 @@ const earlyCompleteCampaignById = async (user: IUser, campaignId: string) => {
     }
   )
 
+  if (result) {
+    await User.findByIdAndUpdate(user._id, {
+      $set: { hasSkippedReview: false },
+    })
+  }
+
   return result
 }
 
@@ -2361,8 +2368,22 @@ const flaggedCampaignByOrganizerByCampaignID = async (
 const cronJobToCompleteCampaign = async () => {
   try {
     const now = moment().utc()
+
+    const campaignsToComplete = await Campaign.find({
+      status: CampaignStatus.ACTIVE,
+      endDate: { $lte: now.toDate() },
+    })
+
+    if (campaignsToComplete.length === 0) {
+      return
+    }
+
+    const organizerIds = campaignsToComplete.map((campaign) => campaign.organizer).filter(Boolean)
+
+    const campaignIds = campaignsToComplete.map((c) => c._id).filter(Boolean)
+
     const result = await Campaign.updateMany(
-      { status: CampaignStatus.ACTIVE, endDate: { $lte: now.toDate() } },
+      { _id: { $in: campaignIds } },
       {
         $set: {
           status: CampaignStatus.COMPLETED,
@@ -2371,6 +2392,18 @@ const cronJobToCompleteCampaign = async () => {
         },
       }
     )
+
+    if (organizerIds.length > 0) {
+      await User.updateMany(
+        { _id: { $in: organizerIds } },
+        {
+          $set: {
+            hasSkippedReview: false,
+          },
+        }
+      )
+    }
+
     logger.info(`Completed ${result.modifiedCount} campaigns at ${now.toISOString()}`)
   } catch (error) {
     logger.error('Failed to complete campaigns', error)
