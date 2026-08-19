@@ -609,10 +609,13 @@ const getAllCampaign = async (query: TGetAllCampaignQueryParamsType) => {
               $max: [
                 0,
                 {
-                  $dateDiff: {
-                    startDate: new Date(),
-                    endDate: '$endAt',
-                    unit: 'day',
+                  $ceil: {
+                    $divide: [
+                      {
+                        $subtract: ['$endDate', '$$NOW'],
+                      },
+                      1000 * 60 * 60 * 24,
+                    ],
                   },
                 },
               ],
@@ -937,10 +940,13 @@ const getMyAllCampaign = async (user: IUser, query: TGetMyAllCampaignQueryParams
               $max: [
                 0,
                 {
-                  $dateDiff: {
-                    startDate: new Date(),
-                    endDate: '$endAt',
-                    unit: 'day',
+                  $ceil: {
+                    $divide: [
+                      {
+                        $subtract: ['$endDate', '$$NOW'],
+                      },
+                      1000 * 60 * 60 * 24,
+                    ],
                   },
                 },
               ],
@@ -1213,10 +1219,13 @@ const getCampaignById = async (id: string) => {
               $max: [
                 0,
                 {
-                  $dateDiff: {
-                    startDate: new Date(),
-                    endDate: '$endAt',
-                    unit: 'day',
+                  $ceil: {
+                    $divide: [
+                      {
+                        $subtract: ['$endDate', '$$NOW'],
+                      },
+                      1000 * 60 * 60 * 24,
+                    ],
                   },
                 },
               ],
@@ -1486,10 +1495,13 @@ const getCampaignByCampaignCode = async (code: string) => {
               $max: [
                 0,
                 {
-                  $dateDiff: {
-                    startDate: new Date(),
-                    endDate: '$endAt',
-                    unit: 'day',
+                  $ceil: {
+                    $divide: [
+                      {
+                        $subtract: ['$endDate', '$$NOW'],
+                      },
+                      1000 * 60 * 60 * 24,
+                    ],
                   },
                 },
               ],
@@ -2140,10 +2152,13 @@ const getAllActiveCampaign = async (query: TGetAllActiveCampaignQuery) => {
               $max: [
                 0,
                 {
-                  $dateDiff: {
-                    startDate: new Date(),
-                    endDate: '$endAt',
-                    unit: 'day',
+                  $ceil: {
+                    $divide: [
+                      {
+                        $subtract: ['$endDate', '$$NOW'],
+                      },
+                      1000 * 60 * 60 * 24,
+                    ],
                   },
                 },
               ],
