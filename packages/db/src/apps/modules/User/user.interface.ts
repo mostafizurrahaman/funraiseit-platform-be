@@ -19,6 +19,7 @@ export interface IUser extends Document {
   isTwoFactorEnabled: boolean
   twoFactorBackupCodes?: string[]
   isOtpVerified: boolean
+  hasSkippedReview: boolean
 
   // Stripe related:
   isOnboardingCompleted: boolean

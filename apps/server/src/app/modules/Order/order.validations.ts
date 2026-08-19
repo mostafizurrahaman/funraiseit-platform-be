@@ -50,7 +50,7 @@ const createOrderSchema = z.object({
         error: 'Phone number should be valid usa number.',
       }),
       addressLine1: requiredString('Address line 1'),
-      addressLine2: optionalString('Address line 2'),
+      addressLine2: optionalString('Address line 2').nullable(),
       city: requiredString('City'),
       state: requiredString('State'),
       postalCode: requiredString('Postal code'),
@@ -291,8 +291,9 @@ export type TGetAllOrderQueryParamsType = z.infer<typeof getAllOrderSchema.shape
 export type TGetCampaignOrderOverviewQueryType = z.infer<
   typeof getCampaignOrderOverview.shape.query
 >
-export type TUpdateOrderItemStatusPayloadType = z.infer<typeof updateOrderItemStatusSchema.shape.body>
+export type TUpdateOrderItemStatusPayloadType = z.infer<
+  typeof updateOrderItemStatusSchema.shape.body
+>
 export type TUpdateOrderStatusPayloadType = z.infer<typeof updateOrderStatusSchema.shape.body>
 export type TCancelOrderPayloadType = z.infer<typeof cancelOrderSchema.shape.body>
 export type TCancelOrderItemPayloadType = z.infer<typeof cancelOrderItemSchema.shape.body>
-
