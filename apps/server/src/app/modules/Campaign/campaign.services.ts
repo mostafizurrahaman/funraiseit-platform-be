@@ -107,7 +107,7 @@ const createCampaign = async (
     allowLocalPickup,
     allowShipping,
     durationDays,
-    shippingFee,
+    shippingFee: shippingFee ?? 0,
     finalLaunchFee: siteFees.campaignLaunchFee,
     launchFee: siteFees.campaignLaunchFee,
     status: CampaignStatus.DRAFT,
@@ -1609,23 +1609,23 @@ const launchCampaignByID = async (user: IUser, campaignId: string, promoCode?: s
   }
 
   // ?? check organization stripe account :
-  const orgAccount = await Account.findOne({
-    user: user?._id,
-  })
+  // const orgAccount = await Account.findOne({
+  //   user: user?._id,
+  // })
 
-  if (!orgAccount) {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      'Before launching campaign setup organization bank account.'
-    )
-  }
+  // if (!orgAccount) {
+  //   throw new AppError(
+  //     httpStatus.BAD_REQUEST,
+  //     'Before launching campaign setup organization bank account.'
+  //   )
+  // }
 
-  if (orgAccount.status !== accountStatus.ACTIVE) {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      `Your connected bank account is ${accountStatus.RESTRICTED}. Please wait or submit documents.`
-    )
-  }
+  // if (orgAccount.status !== accountStatus.ACTIVE) {
+  //   throw new AppError(
+  //     httpStatus.BAD_REQUEST,
+  //     `Your connected bank account is ${accountStatus.RESTRICTED}. Please wait or submit documents.`
+  //   )
+  // }
 
   const siteFees = await SiteInfo.findOne({})
 
