@@ -43,7 +43,7 @@ const createCampaignSchema = z.object({
       allowLocalDelivery: requiredStrBoolean('Allow local delivery'),
       allowShipping: requiredStrBoolean('Allow shipping'),
       allowDonation: requiredStrBoolean('Allow donation'),
-      shippingFee: positiveNumber('Shipping fee'),
+      shippingFee: positiveNumber('Shipping fee').optional(),
     })
     .superRefine((data, ctx) => {
       if (!data.allowLocalPickup && !data.allowLocalDelivery && !data.allowShipping) {
@@ -55,7 +55,7 @@ const createCampaignSchema = z.object({
         })
       }
 
-      if (!data.allowShipping && data.shippingFee > 0) {
+      if (!data.allowShipping && data?.shippingFee && data?.shippingFee > 0) {
         return ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['allowShipping'],
