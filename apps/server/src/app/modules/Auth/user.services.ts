@@ -467,6 +467,7 @@ const forgotPassword = async (payload: IForgotPasswordType) => {
   const htmlTemplate = await renderEmail(
     ResetPasswordOTPEmail({
       userFirstName: user.name,
+      userEmail: user?.email,
       companyName: configs.site.name,
       companyLogo: configs.site.logo as string,
       otpCode: otp?.otp as string,
@@ -592,6 +593,7 @@ const resendOTP = async (payload: IResendSignupType) => {
   const htmlTemplate = await renderEmail(
     ResetPasswordOTPEmail({
       userFirstName: user.name,
+      userEmail: user?.email,
       companyName: configs.site.name,
       companyLogo: configs.site.logo as string,
       otpCode: newOtp?.otp as string,

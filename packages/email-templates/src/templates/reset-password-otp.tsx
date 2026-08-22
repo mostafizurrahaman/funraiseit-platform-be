@@ -31,7 +31,7 @@ export const ResetPasswordOTPEmail = ({
   expirationMinutes = 15,
   companyName = 'FunRaisingIt',
   companyLogo = 'https://funraising-it.s3.us-east-1.amazonaws.com/non_delatable_files/funraisingit-logo.png',
-  actionUrl,
+  // actionUrl,
   supportEmail = 'support@funraisingit.com',
   companyAddress,
 }: ResetPasswordOTPEmailProps): React.ReactElement => {
@@ -137,7 +137,7 @@ export const ResetPasswordOTPEmail = ({
       <Section className="px-8 py-6 bg-slate-50 text-center">
         <Text className="text-slate-500 text-sm m-0 mb-4">
           Need help?{' '}
-          <Link href="mailto:support@example.com" className="text-[#03AFA8] font-semibold underline">
+          <Link href={`mailto:${supportEmail}`} className="text-[#03AFA8] font-semibold underline">
             Contact Support
           </Link>
         </Text>
