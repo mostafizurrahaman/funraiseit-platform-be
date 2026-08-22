@@ -24,7 +24,7 @@ const addProductIntoCampaignSchema = z.object({
       price: positiveNumber('Price'),
       productType: enumString(productTypeValues, 'Product type'),
       stock: positiveNumber('Stock').nullable().optional(),
-      sku: optionalString('SKU'),
+      // sku: optionalString('SKU'),
       weight: optionalNumber('Weight'),
       downloadFileName: optionalString('Download file name'),
     })
@@ -55,7 +55,7 @@ const updateProductIntoCampaignSchema = z.object({
       productType: optionalEnumString(productTypeValues, 'Product type'),
 
       stock: positiveNumber('Stock').nullable().optional(),
-      sku: optionalString('SKU'),
+      // sku: optionalString('SKU'),
       weight: optionalNumber('Weight'),
 
       downloadFileName: optionalString('Download file name'),

@@ -18,7 +18,11 @@ import type {
   TGetAllProductQueryParamsType,
   TUpdateProductIntoCampaignPayload,
 } from './product.validations'
-import { deleteMultipleFilesFromS3, uploadSingleFileToS3, type IMulterFile } from 'packages/media-hub/src'
+import {
+  deleteMultipleFilesFromS3,
+  uploadSingleFileToS3,
+  type IMulterFile,
+} from 'packages/media-hub/src'
 
 const addProductIntoCampaign = async (
   user: IUser,
@@ -77,16 +81,16 @@ const addProductIntoCampaign = async (
   const { url } = await uploadSingleFileToS3(productImage, 'campaign/products')
 
   if (payload.productType === productType.PHYSICAL) {
-    if (payload.sku !== undefined) {
-      const duplicateSku = await Product.exists({
-        campaign: campaign?._id,
-        sku: payload.sku,
-      })
+    // if (payload.sku !== undefined) {
+    //   const duplicateSku = await Product.exists({
+    //     campaign: campaign?._id,
+    //     sku: payload.sku,
+    //   })
 
-      if (duplicateSku) {
-        throw new AppError(httpStatus.CONFLICT, 'A physical product exists with same sku.')
-      }
-    }
+    //   if (duplicateSku) {
+    //     throw new AppError(httpStatus.CONFLICT, 'A physical product exists with same sku.')
+    //   }
+    // }
 
     const physicalProductPayload = {
       campaign: campaign?._id,
@@ -98,7 +102,7 @@ const addProductIntoCampaign = async (
       // physical product related fields:
       stock: (payload.stock as number) ?? null,
       isUnlimited: payload.stock ? false : true,
-      sku: payload.sku!,
+      // sku: payload.sku!,
       weight: (payload.weight as number) ?? null,
     }
 
@@ -191,20 +195,20 @@ const updateProductByIDIntoCampaign = async (
       productImageUrl = uploaded.url
     }
 
-    if (payload.sku && payload.sku !== existingProduct.sku) {
-      const duplicateSku = await PhysicalProduct.exists({
-        campaign: campaign._id,
-        sku: payload.sku,
-        _id: { $ne: existingProduct._id },
-      })
+    // if (payload.sku && payload.sku !== existingProduct.sku) {
+    //   const duplicateSku = await PhysicalProduct.exists({
+    //     campaign: campaign._id,
+    //     sku: payload.sku,
+    //     _id: { $ne: existingProduct._id },
+    //   })
 
-      if (duplicateSku) {
-        throw new AppError(
-          httpStatus.CONFLICT,
-          'A physical product already exists with the same SKU.'
-        )
-      }
-    }
+    //   if (duplicateSku) {
+    //     throw new AppError(
+    //       httpStatus.CONFLICT,
+    //       'A physical product already exists with the same SKU.'
+    //     )
+    //   }
+    // }
 
     return await PhysicalProduct.findByIdAndUpdate(
       productId,
@@ -221,9 +225,9 @@ const updateProductByIDIntoCampaign = async (
         ...(payload.weight !== undefined && {
           weight: payload.weight,
         }),
-        ...(payload.sku !== undefined && {
-          sku: payload.sku,
-        }),
+        // ...(payload.sku !== undefined && {
+        //   sku: payload.sku,
+        // }),
         productImage: productImageUrl,
       },
       {
@@ -280,8 +284,6 @@ const updateProductByIDIntoCampaign = async (
     }
   )
 }
-
-
 
 const getAllProduct = async (query: TGetAllProductQueryParamsType) => {
   const {
@@ -351,10 +353,8 @@ const getProductById = async (id: string) => {
   return result
 }
 
-const deleteProductById = async (user:IUser, productId: string) => {
-
-
-   // Base product
+const deleteProductById = async (user: IUser, productId: string) => {
+  // Base product
   const baseProduct = await Product.findById(productId)
 
   if (!baseProduct) {
@@ -379,26 +379,23 @@ const deleteProductById = async (user:IUser, productId: string) => {
     )
   }
 
-
-
   if (baseProduct.productType === productType.DIGITAL) {
-
-    const result = await DigitalProduct.findOneAndDelete({ 
-       _id: productId
+    const result = await DigitalProduct.findOneAndDelete({
+      _id: productId,
     })
 
-  if (!result) {
-    throw new AppError(httpStatus.NOT_FOUND, 'Product not found')
-  }
+    if (!result) {
+      throw new AppError(httpStatus.NOT_FOUND, 'Product not found')
+    }
 
     const attachments = []
 
     if (result?.productImage) attachments.push(result.productImage)
     if (result?.digitalFileUrl) attachments.push(result.digitalFileUrl)
-    if (attachments?.length > 0) await deleteMultipleFilesFromS3(attachments) 
+    if (attachments?.length > 0) await deleteMultipleFilesFromS3(attachments)
 
-    return result  
-}
+    return result
+  }
 
   const result = await Product.findOneAndDelete({ _id: productId })
 
@@ -409,7 +406,7 @@ const deleteProductById = async (user:IUser, productId: string) => {
   const attachments = []
 
   if (result?.productImage) attachments.push(result.productImage)
-  if (attachments?.length > 0) await deleteMultipleFilesFromS3(attachments) 
+  if (attachments?.length > 0) await deleteMultipleFilesFromS3(attachments)
 
   return result
 }
