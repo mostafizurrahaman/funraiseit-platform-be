@@ -7,7 +7,6 @@ import {
   Campaign,
   CampaignStatus,
   Currency,
-  DigitalProduct,
   Order,
   OrderAddress,
   OrderItem,
@@ -25,7 +24,6 @@ import {
   User,
   type IDigitalProduct,
   type IOrderDoc,
-  type IOrderItemDoc,
   type IPhysicalProduct,
   type IUser,
   type ProductDoc,
@@ -698,7 +696,7 @@ const getAllOrder = async (user: IUser, query: TGetAllOrderQueryParamsType) => {
               productName: '$productDetails.name',
               productImage: '$productDetails.productImage',
               productType: '$productDetails.productType',
-              productSku: '$productDetails.sku',
+              // productSku: '$productDetails.sku',
 
               createdAt: '$createdAt',
               updatedAt: '$updatedAt',
@@ -947,7 +945,7 @@ const getOrderById = async (user: IUser, id: string) => {
               productName: '$productDetails.name',
               productImage: '$productDetails.productImage',
               productType: '$productDetails.productType',
-              productSku: '$productDetails.sku',
+              // productSku: '$productDetails.sku',
 
               createdAt: '$createdAt',
               updatedAt: '$updatedAt',
@@ -1360,13 +1358,11 @@ const syncParentOrderStatus = async (
   const isAllActiveDelivered =
     activeItems.length > 0 &&
     activeItems.every(
-      (item) =>
-        item.status === OrderItemStatus.SHIPPED || item.status === OrderItemStatus.FULFILLED
+      (item) => item.status === OrderItemStatus.SHIPPED || item.status === OrderItemStatus.FULFILLED
     )
 
   const isAnyActiveDelivered = activeItems.some(
-    (item) =>
-      item.status === OrderItemStatus.SHIPPED || item.status === OrderItemStatus.FULFILLED
+    (item) => item.status === OrderItemStatus.SHIPPED || item.status === OrderItemStatus.FULFILLED
   )
 
   if (isAllActiveDelivered) {
@@ -1440,10 +1436,7 @@ const cancelOrderItem = async (user: IUser, itemId: string, reason?: string) => 
     throw new AppError(httpStatus.BAD_REQUEST, 'Order item is already cancelled.')
   }
 
-  if (
-    item.status === OrderItemStatus.SHIPPED ||
-    item.status === OrderItemStatus.FULFILLED
-  ) {
+  if (item.status === OrderItemStatus.SHIPPED || item.status === OrderItemStatus.FULFILLED) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
       'Cannot cancel an already delivered or fulfilled order item.'
@@ -1634,11 +1627,7 @@ const deliverAllOrderItems = async (user: IUser, orderId: string) => {
   }
 }
 
-const updateOrderItemStatus = async (
-  user: IUser,
-  itemId: string,
-  status: TOrderItemStatusType
-) => {
+const updateOrderItemStatus = async (user: IUser, itemId: string, status: TOrderItemStatusType) => {
   const item = await OrderItem.findById(itemId)
   if (!item) {
     throw new AppError(httpStatus.NOT_FOUND, 'Order item not found.')
@@ -1675,7 +1664,7 @@ const updateOrderItemStatus = async (
       const supporter = await Supporter.findById(order.supporter)
       const campaign = await Campaign.findById(order.campaign)
       const targetEmail = supporter?.email
-      const digitalProd = product as IDigitalProduct
+      const digitalProd = product as unknown as IDigitalProduct
 
       if (targetEmail && digitalProd?.digitalFileUrl) {
         await sendDigitalDeliveryEmail(
@@ -1697,11 +1686,7 @@ const updateOrderItemStatus = async (
   }
 }
 
-const updateOrderStatus = async (
-  user: IUser,
-  orderId: string,
-  status: TOrderStatus
-) => {
+const updateOrderStatus = async (user: IUser, orderId: string, status: TOrderStatus) => {
   const order = await Order.findById(orderId)
   if (!order) {
     throw new AppError(httpStatus.NOT_FOUND, 'Order not found.')
@@ -1713,21 +1698,14 @@ const updateOrderStatus = async (
     status === OrderStatus.DELIVERED &&
     [OrderStatus.PENDING, OrderStatus.PAYMENT_FAILED].includes(order.status as any)
   ) {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      'Cannot mark unpaid order as delivered.'
-    )
+    throw new AppError(httpStatus.BAD_REQUEST, 'Cannot mark unpaid order as delivered.')
   }
 
   if (status === OrderStatus.DELIVERED) {
     const pendingItems = await OrderItem.find({
       order: order._id,
       status: {
-        $nin: [
-          OrderItemStatus.SHIPPED,
-          OrderItemStatus.FULFILLED,
-          OrderItemStatus.CANCELLED,
-        ],
+        $nin: [OrderItemStatus.SHIPPED, OrderItemStatus.FULFILLED, OrderItemStatus.CANCELLED],
       },
     })
 
