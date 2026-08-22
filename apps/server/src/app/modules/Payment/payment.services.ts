@@ -204,7 +204,7 @@ const getPaymentOverview = async () => {
               {
                 $and: [
                   { $in: ['$paymentType', [paymentType.DONATION, paymentType.ORDER]] },
-                  { status: paymentStatus.PAID },
+                  { $eq: ['$status', paymentStatus.PAID] },
                 ],
               },
 
@@ -223,9 +223,7 @@ const getPaymentOverview = async () => {
                   {
                     $eq: ['$paymentType', paymentType.BRAND_BUILDER],
                   },
-                  {
-                    status: paymentStatus.PAID,
-                  },
+                  { $eq: ['$status', paymentStatus.PAID] },
                 ],
               },
               {
@@ -243,9 +241,7 @@ const getPaymentOverview = async () => {
                   {
                     $eq: ['$paymentType', paymentType.BRAND_BUILDER],
                   },
-                  {
-                    status: paymentStatus.PAID,
-                  },
+                  { $eq: ['$status', paymentStatus.PAID] },
                 ],
               },
               {
@@ -263,9 +259,7 @@ const getPaymentOverview = async () => {
                   {
                     $eq: ['$paymentType', paymentType.BRAND_BUILDER],
                   },
-                  {
-                    status: paymentStatus.PAID,
-                  },
+                  { $eq: ['$status', paymentStatus.PAID] },
                 ],
               },
               {
@@ -283,9 +277,7 @@ const getPaymentOverview = async () => {
                   {
                     $eq: ['$paymentType', paymentType.LAUNCH_FEE],
                   },
-                  {
-                    status: paymentStatus.PAID,
-                  },
+                  { $eq: ['$status', paymentStatus.PAID] },
                 ],
               },
               {
@@ -303,9 +295,7 @@ const getPaymentOverview = async () => {
                   {
                     $eq: ['$paymentType', paymentType.LAUNCH_FEE],
                   },
-                  {
-                    status: paymentStatus.PAID,
-                  },
+                  { $eq: ['$status', paymentStatus.PAID] },
                 ],
               },
               {
@@ -323,9 +313,7 @@ const getPaymentOverview = async () => {
                   {
                     $eq: ['$paymentType', paymentType.ORDER],
                   },
-                  {
-                    status: paymentStatus.FAILED,
-                  },
+                  { $eq: ['$status', paymentStatus.FAILED] },
                 ],
               },
               1,
@@ -341,9 +329,7 @@ const getPaymentOverview = async () => {
                   {
                     $eq: ['$paymentType', paymentType.DONATION],
                   },
-                  {
-                    status: paymentStatus.FAILED,
-                  },
+                  { $eq: ['$status', paymentStatus.FAILED] },
                 ],
               },
               1,
@@ -359,9 +345,7 @@ const getPaymentOverview = async () => {
                   {
                     $eq: ['$paymentType', paymentType.BRAND_BUILDER],
                   },
-                  {
-                    status: paymentStatus.FAILED,
-                  },
+                  { $eq: ['$status', paymentStatus.FAILED] },
                 ],
               },
               1,
@@ -377,9 +361,7 @@ const getPaymentOverview = async () => {
                   {
                     $eq: ['$paymentType', paymentType.LAUNCH_FEE],
                   },
-                  {
-                    status: paymentStatus.FAILED,
-                  },
+                  { $eq: ['$status', paymentStatus.FAILED] },
                 ],
               },
               1,
@@ -395,9 +377,7 @@ const getPaymentOverview = async () => {
                   {
                     $ne: ['$paymentType', paymentType.PAYOUT],
                   },
-                  {
-                    status: paymentStatus.FAILED,
-                  },
+                  { $eq: ['$status', paymentStatus.FAILED] },
                 ],
               },
               1,
