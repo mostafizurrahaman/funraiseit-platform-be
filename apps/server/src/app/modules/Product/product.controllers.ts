@@ -3,6 +3,7 @@ import httpStatus from 'http-status'
 import { productServices } from './product.services'
 import type { IMulterFile } from 'packages/media-hub/src'
 import { getUserFromRequest } from '@app/libs/get-user-from-request'
+import type { TGetAllProductQueryParamsType } from './product.validations'
 
 const addProductIntoCampaign = catchAsync(async (req, res) => {
   const user = await getUserFromRequest(req)
@@ -51,7 +52,7 @@ const updateProductIntoCampaign = catchAsync(async (req, res) => {
 })
 
 const getAllProduct = catchAsync(async (req, res) => {
-  const result = await productServices.getAllProduct(req.query)
+  const result = await productServices.getAllProduct(req.query as unknown as TGetAllProductQueryParamsType)
 
   sendResponse(res, {
     success: true,

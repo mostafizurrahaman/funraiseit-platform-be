@@ -13,7 +13,7 @@ export interface IProduct {
 export interface IPhysicalProduct extends IProduct, Document {
   isUnlimited: boolean
   stock?: number | null
-  // sku?: string
+  sku?: string
   weight?: number | null
 }
 
