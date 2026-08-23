@@ -105,6 +105,35 @@ const getAllReview = async (query: TGetAllReviewQueryParamsType) => {
     pipeline.push({ $match: { createdAt: dateFilter } })
   }
 
+  pipeline.push(
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'organizer',
+        foreignField: '_id',
+        as: 'organizerDetails',
+      },
+    },
+    {
+      $unwind: {
+        path: '$organizerDetails',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $addFields: {
+        businessName: { $ifNull: ['$organizerDetails.name', null] },
+        organizerName: { $ifNull: ['$organizerDetails.name', null] },
+        profileImage: { $ifNull: ['$organizerDetails.profileImage', null] },
+      },
+    },
+    {
+      $project: {
+        organizerDetails: 0,
+      },
+    }
+  )
+
   if (searchTerm) {
     pipeline.push({
       $match: {
