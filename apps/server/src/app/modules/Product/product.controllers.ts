@@ -52,7 +52,9 @@ const updateProductIntoCampaign = catchAsync(async (req, res) => {
 })
 
 const getAllProduct = catchAsync(async (req, res) => {
-  const result = await productServices.getAllProduct(req.query as unknown as TGetAllProductQueryParamsType)
+  const result = await productServices.getAllProduct(
+    req.query as unknown as TGetAllProductQueryParamsType
+  )
 
   sendResponse(res, {
     success: true,
