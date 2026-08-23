@@ -81,6 +81,11 @@ const getAllProductSchema = z.object({
     searchTerm: optionalString('Search term'),
     sortOrder: optionalEnumString(sortingOrderValues, 'Sort order'),
     sortBy: optionalEnumString(productSortableFields, 'Sort by'),
+    skipPagination: z.coerce
+      .boolean({
+        error: 'Skip pagination should be boolean',
+      })
+      .transform((val) => Boolean(val)),
     fromDate: optionalDate('From date'),
     toDate: optionalDate('To date'),
   }),

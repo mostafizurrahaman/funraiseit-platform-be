@@ -68,6 +68,19 @@ router.patch(
   productControllers.updateProductIntoCampaign
 )
 
+router.get(
+  '/all',
+  validateRequest(productValidations.getAllProductSchema),
+  productControllers.getAllProduct
+)
+
+router.delete(
+  '/:id',
+  auth(AuthRoles.ORGANIZER),
+  validateRequest(productValidations.getProductByIdSchema),
+  productControllers.getProductById
+)
+
 router.delete(
   '/:productId',
   auth(AuthRoles.ORGANIZER),

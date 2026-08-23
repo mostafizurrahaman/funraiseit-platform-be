@@ -11,7 +11,7 @@ import {
 } from '@repo/db'
 import httpStatus from 'http-status'
 import { AppError } from '@repo/shared'
-import type { PipelineStage } from 'mongoose'
+import { Types, type PipelineStage } from 'mongoose'
 
 import type {
   TAddProductIntoCampaignPayload,
@@ -287,9 +287,10 @@ const updateProductByIDIntoCampaign = async (
 
 const getAllProduct = async (query: TGetAllProductQueryParamsType) => {
   const {
-    page = 1,
-    limit = 10,
+    page: currentPage = 1,
+    limit: currentLimit = 10,
     searchTerm,
+    skipPagination,
     sortOrder = 'desc',
     sortBy = 'createdAt',
     campaignId,
@@ -297,8 +298,22 @@ const getAllProduct = async (query: TGetAllProductQueryParamsType) => {
     toDate,
   } = query
 
+  const page = Number(currentPage) || 1
+  const limit = Number(currentLimit) || 10
+
+  const isSkippedPagination =
+    skipPagination === true && typeof skipPagination === 'string' && skipPagination === 'true'
+
   const skip = (page - 1) * limit
   const pipeline: PipelineStage[] = []
+
+  if (campaignId) {
+    pipeline.push({
+      $match: {
+        campaign: new Types.ObjectId(campaignId),
+      },
+    })
+  }
 
   if (fromDate || toDate) {
     const dateFilter: Record<string, unknown> = {}
@@ -320,9 +335,19 @@ const getAllProduct = async (query: TGetAllProductQueryParamsType) => {
 
   pipeline.push({ $sort: { [sortBy]: sortOrder === 'asc' ? 1 : -1 } })
 
+  const paginationStage: PipelineStage.FacetPipelineStage[] = []
+
+  if (isSkippedPagination) {
+    paginationStage.push({
+      $match: {},
+    })
+  } else {
+    paginationStage.push({ $skip: skip }, { $limit: limit })
+  }
+
   pipeline.push({
     $facet: {
-      data: [{ $skip: skip }, { $limit: limit }],
+      data: [],
       meta: [{ $count: 'total' }],
     },
   })
@@ -335,10 +360,10 @@ const getAllProduct = async (query: TGetAllProductQueryParamsType) => {
   return {
     data,
     meta: {
-      page,
-      limit,
+      page: skipPagination ? 1 : page,
+      limit: skipPagination ? total : limit,
       total,
-      totalPages: Math.ceil(total / limit) || 1,
+      totalPages: skipPagination ? 1 : Math.ceil(total / limit) || 1,
     },
   }
 }

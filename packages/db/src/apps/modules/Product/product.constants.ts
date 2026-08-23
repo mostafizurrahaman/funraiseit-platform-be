@@ -1,4 +1,4 @@
-export const productSearchableFields = ['name'] as const
+export const productSearchableFields = ['name', 'description', ''] as const
 
 export const productSortableFields = ['createdAt', 'updatedAt'] as const
 
