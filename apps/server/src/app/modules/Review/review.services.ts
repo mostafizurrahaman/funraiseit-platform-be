@@ -116,7 +116,9 @@ const getAllReview = async (query: TGetAllReviewQueryParamsType) => {
   }
 
   if (isFeatured !== undefined) {
-    pipeline.push({ $match: { isFeatured } })
+    const featured =
+      isFeatured === true || (typeof isFeatured === 'string' && isFeatured === 'true')
+    pipeline.push({ $match: { isFeatured: featured } })
   }
 
   pipeline.push({ $sort: { [sortBy]: sortOrder === 'asc' ? 1 : -1 } })
