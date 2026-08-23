@@ -7,6 +7,7 @@ import type {
 } from './supporter.validations'
 import { getUserFromRequest } from '../../libs/get-user-from-request'
 import {
+  CampaignLiveEmail,
   renderEmail,
   ResetPasswordOTPEmail,
   SignupOTPEmail,
@@ -63,7 +64,9 @@ const sendEmailToSupporters = catchAsync(async (req, res) => {
 
 const testEmail = catchAsync(async (req, res) => {
   const user = await getUserFromRequest(req)
-  const targetEmail = req.query.email ? String(req.query.email) : user?.email || 'tss.sta.gpt@gmail.com'
+  const targetEmail = req.query.email
+    ? String(req.query.email)
+    : user?.email || 'tss.sta.gpt@gmail.com'
 
   const siteName = configs.site.name || 'FunRaisingIt'
   const siteLogo = configs.site.logo || undefined
@@ -119,6 +122,22 @@ const testEmail = catchAsync(async (req, res) => {
       supportEmail,
     })
   )
+
+  const htmlTemplate = await renderEmail(
+    CampaignLiveEmail({
+      organizerName: 'Mostafizur Rahaman',
+      campaignName: 'Gen Z',
+      campaignCode: 'CMP_34343343', // 👈 Just pass the code here
+      companyLogo: configs.site.logo as string,
+    })
+  )
+
+  await sendEmail({
+    to: targetEmail,
+    subject: '🎉 YOUR CAMPAIGN IS LIVE!',
+    html: htmlTemplate.html,
+    text: htmlTemplate.text,
+  })
 
   // Send emails with clean subject lines, sender display names, and multipart (HTML + Plain Text)
   await Promise.all([

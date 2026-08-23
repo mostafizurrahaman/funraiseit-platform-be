@@ -67,20 +67,20 @@ const createCampaign = async (
     throw new AppError(httpStatus.BAD_REQUEST, 'Thumbnail image is required!')
   }
 
-  // Only one non-finished campaign is allowed
-  const existingCampaign = await Campaign.findOne({
-    organizer: user._id,
-    status: {
-      $nin: [CampaignStatus.CANCELLED, CampaignStatus.COMPLETED, CampaignStatus.REJECTED],
-    },
-  })
+  // // Only one non-finished campaign is allowed
+  // const existingCampaign = await Campaign.findOne({
+  //   organizer: user._id,
+  //   status: {
+  //     $nin: [CampaignStatus.CANCELLED, CampaignStatus.COMPLETED, CampaignStatus.REJECTED],
+  //   },
+  // })
 
-  if (existingCampaign) {
-    throw new AppError(
-      httpStatus.CONFLICT,
-      `A campaign with status "${existingCampaign.status}" already exists for your account. Only one campaign is allowed at a time.`
-    )
-  }
+  // if (existingCampaign) {
+  //   throw new AppError(
+  //     httpStatus.CONFLICT,
+  //     `A campaign with status "${existingCampaign.status}" already exists for your account. Only one campaign is allowed at a time.`
+  //   )
+  // }
 
   const siteFees = await SiteInfo.findOne({})
 
