@@ -74,7 +74,7 @@ router.get(
   productControllers.getAllProduct
 )
 
-router.delete(
+router.get(
   '/:id',
   auth(AuthRoles.ORGANIZER),
   validateRequest(productValidations.getProductByIdSchema),
