@@ -1,12 +1,4 @@
-import {
-  Button,
-  Img,
-  Link,
-  Section,
-  Text,
-  Heading,
-  Hr,
-} from '@react-email/components'
+import { Button, Img, Link, Section, Text, Heading, Hr } from '@react-email/components'
 import * as React from 'react'
 import { EmailLayout } from '../layouts/email-layout'
 
@@ -23,9 +15,21 @@ export const CampaignLiveEmail = ({
   campaignCode = 'CPN-ABC1234', // Default for preview
   companyLogo = 'https://funraising-it.s3.us-east-1.amazonaws.com/non_delatable_files/funraisingit-logo.png',
 }: CampaignLiveEmailProps) => {
-  
   // Construct the exact campaign link
   const campaignLink = `https://funraisingit.com/campaign/${campaignCode}`
+
+  const button = {
+    display: "inline-block",
+    backgroundColor: "#03AFA8",
+    color: "#FFFFFF",
+    fontSize: "16px",
+    fontWeight: 600,
+    padding: "12px 32px",
+    borderRadius: "8px",
+    textAlign: "center",
+    textDecoration: "none",
+    boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+  }
 
   return (
     <EmailLayout previewText={`🎉 ${campaignName} is officially LIVE! Ready to share.`}>
@@ -50,12 +54,11 @@ export const CampaignLiveEmail = ({
 
       {/* --- MAIN CONTENT --- */}
       <Section className="px-8 pb-8">
-        <Text className="text-slate-800 text-base font-semibold mb-4 m-0">
-          Hi {organizerName},
-        </Text>
+        <Text className="text-slate-800 text-base font-semibold mb-4 m-0">Hi {organizerName},</Text>
 
         <Text className="text-slate-600 text-base leading-relaxed m-0 mb-6">
-          Your FunRaisingIt campaign <strong>"{campaignName}"</strong> has been created and is officially ready to share!
+          Your FunRaisingIt campaign <strong>"{campaignName}"</strong> has been created and is
+          officially ready to share!
         </Text>
 
         {/* --- CAMPAIGN LINK CTA --- */}
@@ -69,13 +72,13 @@ export const CampaignLiveEmail = ({
           >
             {campaignLink}
           </Link>
-          
-          <Button
-            href={campaignLink}
-            className="bg-[#03AFA8] text-white text-base font-semibold px-8 py-3 rounded-lg text-center shadow-sm"
-          >
-            View Your Campaign
-          </Button>
+
+          {/* CTA Button */}
+          <Section style={{ textAlign: 'center', margin: '32px 0' }}>
+            <Button href={`${campaignLink}`} style={button}>
+              View Your Campaign
+            </Button>
+          </Section>
         </Section>
 
         <Text className="text-slate-600 text-base leading-relaxed m-0 mb-8 text-center">
@@ -84,11 +87,11 @@ export const CampaignLiveEmail = ({
 
         {/* --- START STRONG HIGHLIGHT BOX --- */}
         <Section className="bg-[#FE7B01]/10 border border-[#FE7B01]/30 rounded-lg p-5 mb-8">
-          <Text className="text-[#FE7B01] font-bold text-base m-0 mb-2">
-            🚀 START STRONG:
-          </Text>
+          <Text className="text-[#FE7B01] font-bold text-base m-0 mb-2">🚀 START STRONG:</Text>
           <Text className="text-slate-700 text-sm m-0 leading-relaxed">
-            Share your campaign with at least <strong>20 family members, friends, coworkers, and supporters TODAY</strong> and ask each person to support AND share your link with others.
+            Share your campaign with at least{' '}
+            <strong>20 family members, friends, coworkers, and supporters TODAY</strong> and ask
+            each person to support AND share your link with others.
           </Text>
         </Section>
 
@@ -98,18 +101,25 @@ export const CampaignLiveEmail = ({
             📱 Don't forget to post your link on:
           </Text>
           <Text className="text-slate-600 text-sm leading-relaxed m-0 ml-2">
-            <span className="text-[#03AFA8] mr-2">•</span>Facebook<br />
-            <span className="text-[#03AFA8] mr-2">•</span>Instagram<br />
-            <span className="text-[#03AFA8] mr-2">•</span>TikTok<br />
-            <span className="text-[#03AFA8] mr-2">•</span>Group chats<br />
-            <span className="text-[#03AFA8] mr-2">•</span>Text messages<br />
+            <span className="text-[#03AFA8] mr-2">•</span>Facebook
+            <br />
+            <span className="text-[#03AFA8] mr-2">•</span>Instagram
+            <br />
+            <span className="text-[#03AFA8] mr-2">•</span>TikTok
+            <br />
+            <span className="text-[#03AFA8] mr-2">•</span>Group chats
+            <br />
+            <span className="text-[#03AFA8] mr-2">•</span>Text messages
+            <br />
             <span className="text-[#03AFA8] mr-2">•</span>Community & organization pages
           </Text>
         </Section>
 
         {/* --- TIP SECTION --- */}
         <Text className="text-slate-600 text-sm leading-relaxed m-0 mb-8 p-4 bg-slate-50 border-l-4 border-[#03AFA8] italic">
-          <strong className="text-slate-800 not-italic block mb-1">Remember: Don't just post it — SEND IT!</strong>
+          <strong className="text-slate-800 not-italic block mb-1">
+            Remember: Don't just post it — SEND IT!
+          </strong>
           Personal messages usually get more attention than simply posting your link.
         </Text>
 
@@ -117,9 +127,7 @@ export const CampaignLiveEmail = ({
         <Text className="text-slate-800 text-base font-semibold m-0 mb-2">
           💰 Now let's have FUN-RAISING money for you.
         </Text>
-        <Text className="text-slate-600 text-sm m-0">
-          — The FunRaisingIt Team
-        </Text>
+        <Text className="text-slate-600 text-sm m-0">— The FunRaisingIt Team</Text>
       </Section>
 
       <Hr className="border-slate-100 m-0" />
@@ -128,11 +136,14 @@ export const CampaignLiveEmail = ({
       <Section className="px-8 py-6 bg-slate-50 text-center">
         <Text className="text-slate-500 text-sm m-0 mb-4">
           Need help?{' '}
-          <Link href="mailto:funraisingit@gmail.com" className="text-[#03AFA8] font-semibold underline">
+          <Link
+            href="mailto:funraisingit@gmail.com"
+            className="text-[#03AFA8] font-semibold underline"
+          >
             Contact Support
           </Link>
         </Text>
-        
+
         <Text className="text-slate-400 text-xs m-0">
           © {new Date().getFullYear()} FunRaisingIt. All rights reserved.
         </Text>

@@ -215,7 +215,6 @@ export const handleCampaignCheckoutPaymentSuccess = async (session: Stripe.Check
       await session.commitTransaction()
 
       const organizer = await User.findById(campaign?.organizer)
-      
 
       if (organizer) {
         const htmlTemplate = await renderEmail(
