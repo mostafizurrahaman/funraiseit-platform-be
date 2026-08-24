@@ -19,7 +19,7 @@ export const SignupOTPEmail = ({
   companyName = 'FunRaisingIt',
   companyLogo,
   supportEmail = 'support@funraisingit.com',
-  expirationMinutes = 10,
+  expirationMinutes = 1,
   actionUrl,
   companyAddress,
 }: SignupOTPEmailProps): React.ReactElement => {

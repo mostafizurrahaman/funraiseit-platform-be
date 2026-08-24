@@ -28,7 +28,7 @@ export const ResetPasswordOTPEmail = ({
   userFirstName = 'User',
   otpCode = '123456',
   userEmail = 'user@example.com',
-  expirationMinutes = 15,
+  expirationMinutes = 1,
   companyName = 'FunRaisingIt',
   companyLogo = 'https://funraising-it.s3.us-east-1.amazonaws.com/non_delatable_files/funraisingit-logo.png',
   // actionUrl,
