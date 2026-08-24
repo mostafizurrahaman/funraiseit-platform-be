@@ -922,13 +922,13 @@ const getAnalyticsForAdminPortal = async () => {
   const campaignBreakdown = campaignStats?.[0] ?? {}
 
   return {
-    liveCampaign: campaignBreakdown.liveCampaign ?? 0,
-    completedCampaign: campaignBreakdown.completedCampaign ?? 0,
-    payoutRequestedCampaign: campaignBreakdown.payoutRequestedCampaign ?? 0,
-    paidOutCampaign: campaignBreakdown.paidOutCampaign ?? 0,
-    cancelledCampaign: campaignBreakdown.cancelledCampaign ?? 0,
-    rejectedCampaign: campaignBreakdown.rejectedCampaign ?? 0,
-    totalCampaign: campaignBreakdown.totalCampaign ?? 0,
+    liveCampaign: campaignBreakdown?.liveCampaign ?? 0,
+    completedCampaign: campaignBreakdown?.completedCampaign ?? 0,
+    payoutRequestedCampaign: campaignBreakdown?.payoutRequestedCampaign ?? 0,
+    paidOutCampaign: campaignBreakdown?.paidOutCampaign ?? 0,
+    cancelledCampaign: campaignBreakdown?.cancelledCampaign ?? 0,
+    rejectedCampaign: campaignBreakdown?.rejectedCampaign ?? 0,
+    totalCampaign: campaignBreakdown?.totalCampaign ?? 0,
     ...formatPaymentSummary(payments?.[0]),
     revenueGraph: formatRevenueGraph(revenueGraph, startDate, endDate),
     topCampaigns,
