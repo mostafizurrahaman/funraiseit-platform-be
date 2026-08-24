@@ -23,7 +23,6 @@ const orderSchema = new Schema<IOrderDoc>(
     shippingType: {
       type: String,
       enum: shippingTypesValues,
-      required: true,
     },
     subTotal: {
       type: Number,

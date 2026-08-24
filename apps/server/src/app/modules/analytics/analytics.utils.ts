@@ -83,29 +83,29 @@ export const toFixedNum = (val: number, decimals: number = 2): number => {
 export function formatPaymentSummary(raw: RawPaymentSummary) {
   return {
     // Revenue & Earnings
-    totalPlatformRevenue: toFixedNum(raw.totalPlatformRevenue),
-    brandBuilderRevenue: toFixedNum(raw.brandBuilderRevenue),
-    campaignLaunchRevenue: toFixedNum(raw.campaignLaunchRevenue),
-    transactionFeeRevenue: toFixedNum(raw.transactionFeeRevenue),
+    totalPlatformRevenue: toFixedNum(raw?.totalPlatformRevenue),
+    brandBuilderRevenue: toFixedNum(raw?.brandBuilderRevenue),
+    campaignLaunchRevenue: toFixedNum(raw?.campaignLaunchRevenue),
+    transactionFeeRevenue: toFixedNum(raw?.transactionFeeRevenue),
 
     // Percentage Breakdown
-    brandBuilderRevenuePercentage: toFixedNum(raw.brandBuilderRevenuePercentage),
-    campaignLaunchRevenuePercentage: toFixedNum(raw.campaignLaunchRevenuePercentage),
-    transactionFeeRevenuePercentage: toFixedNum(raw.transactionFeeRevenuePercentage),
+    brandBuilderRevenuePercentage: toFixedNum(raw?.brandBuilderRevenuePercentage),
+    campaignLaunchRevenuePercentage: toFixedNum(raw?.campaignLaunchRevenuePercentage),
+    transactionFeeRevenuePercentage: toFixedNum(raw?.transactionFeeRevenuePercentage),
 
     // Fees & Totals Breakdown
-    brandBuilderTotal: toFixedNum(raw.brandBuilderTotal),
-    brandBuilderStripeFee: toFixedNum(raw.brandBuilderStripeFee),
-    brandBuilderTotalExcludingStripeFee: toFixedNum(raw.brandBuilderTotalExcludingStripeFee),
-    launchFeeCollectedTotal: toFixedNum(raw.launchFeeCollectedTotal),
-    launchFeeCollectedExcludingAllFees: toFixedNum(raw.launchFeeCollectedExcludingAllFees),
-    transactionFees: toFixedNum(raw.transactionFees),
+    brandBuilderTotal: toFixedNum(raw?.brandBuilderTotal),
+    brandBuilderStripeFee: toFixedNum(raw?.brandBuilderStripeFee),
+    brandBuilderTotalExcludingStripeFee: toFixedNum(raw?.brandBuilderTotalExcludingStripeFee),
+    launchFeeCollectedTotal: toFixedNum(raw?.launchFeeCollectedTotal),
+    launchFeeCollectedExcludingAllFees: toFixedNum(raw?.launchFeeCollectedExcludingAllFees),
+    transactionFees: toFixedNum(raw?.transactionFees),
 
     // Failure Counts (Integers)
-    failedOrderPayments: Math.round(raw.failedOrderPayments || 0),
-    failedDonationPayments: Math.round(raw.failedDonationPayments || 0),
-    failedBrandBuilderPayments: Math.round(raw.failedBrandBuilderPayments || 0),
-    failedCampaignLaunchPayments: Math.round(raw.failedCampaignLaunchPayments || 0),
-    totalFailedPayments: Math.round(raw.totalFailedPayments || 0),
+    failedOrderPayments: Math.round(raw?.failedOrderPayments || 0),
+    failedDonationPayments: Math.round(raw?.failedDonationPayments || 0),
+    failedBrandBuilderPayments: Math.round(raw?.failedBrandBuilderPayments || 0),
+    failedCampaignLaunchPayments: Math.round(raw?.failedCampaignLaunchPayments || 0),
+    totalFailedPayments: Math.round(raw?.totalFailedPayments || 0),
   }
 }
