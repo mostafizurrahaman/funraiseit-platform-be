@@ -7,8 +7,6 @@ import {
   Donation,
   DonationPayment,
   donationSearchableFields,
-  DonationStatus,
-  Payment,
   paymentStatus,
   paymentType,
   SiteInfo,
@@ -121,7 +119,6 @@ const createDonation = async (payload: TCreateDonationPayloadType) => {
     donationAmount: amount,
   })
 
-  console.log(paymentBreakdown)
 
   const session = await mongoose.startSession()
 
