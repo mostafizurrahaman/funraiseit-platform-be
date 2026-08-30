@@ -4,6 +4,7 @@ import Stripe from 'stripe'
 import httpStatus from 'http-status'
 import { AppError } from '@repo/shared'
 import type { Request } from 'express'
+import type { Types } from 'mongoose'
 // ? Stripe configured:
 export const stripe = new Stripe(configs.stripe.secretKey, {
   apiVersion: '2026-07-29.dahlia',
@@ -84,13 +85,17 @@ export const verifyWebHookSignature = (secretKey: string, req: Request): Stripe.
 export const stripeCheckoutSession = async ({
   name,
   unit_amount,
-
+  campaignId,
+  campaignCode,
+  brandId,
   expiresAt,
   metadata,
 }: {
   name: string
   unit_amount: number
-
+  campaignId?: Types.ObjectId
+  brandId?: Types.ObjectId
+  campaignCode?: string
   expiresAt: number
   metadata: Stripe.MetadataParam
 }) => {
@@ -119,8 +124,8 @@ export const stripeCheckoutSession = async ({
         ...metadata,
       },
     },
-    success_url: `${configs.site.clientUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${configs.site.clientUrl}/payment/cancel`,
+    success_url: `${configs.site.clientUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}&campaignId=${campaignId?.toString()}&campaignCode=${campaignCode}`,
+    cancel_url: `${configs.site.clientUrl}/payment/cancel?campaignId=${campaignId?.toString()}&campaignCode=${campaignCode}&brandId=${brandId}`,
   })
 
   return session
