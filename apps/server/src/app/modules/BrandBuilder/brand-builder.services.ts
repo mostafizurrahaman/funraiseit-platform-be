@@ -110,6 +110,7 @@ const createBrandBuilder = async (
     const result = await stripeCheckoutSession({
       name: `Brand Builder Payment for ${businessName}`,
       unit_amount: Math.round(brandBuilderFee * 100),
+      brandId: brandBuilder?._id,
       expiresAt: stripeExpiresAt,
       metadata: {
         brandBuilderId: brandBuilder?._id?.toString() as string,
