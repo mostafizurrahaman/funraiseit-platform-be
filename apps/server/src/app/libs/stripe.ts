@@ -46,6 +46,7 @@ export const createStripeAccount = async (user: IUser, metadata?: Record<string,
         },
       },
     },
+    
   })
 }
 
