@@ -46,7 +46,6 @@ export const createStripeAccount = async (user: IUser, metadata?: Record<string,
         },
       },
     },
-    
   })
 }
 
@@ -100,6 +99,18 @@ export const stripeCheckoutSession = async ({
   expiresAt: number
   metadata: Stripe.MetadataParam
 }) => {
+  // ?? Success url :
+  // const successUrl =
+  //  success_url: `${configs.site.clientUrl}&brandId=${brandId}`,
+  //   cancel_url: `${configs.site.clientUrl}/payment/cancel?campaignId=${campaignId?.toString()}&campaignCode=${campaignCode}&brandId=${brandId}`,
+
+  const apiSuccessPath = brandId
+    ? `/brand-builder/success?session_id={CHECKOUT_SESSION_ID}&brandId=${brandId}`
+    : `/payment/success?session_id={CHECKOUT_SESSION_ID}&campaignId=${campaignId?.toString()}&campaignCode=${campaignCode}`
+  const apiCancelPath = brandId
+    ? `/cancel?session_id={CHECKOUT_SESSION_ID}&brandId=${brandId}`
+    : `/payment/cancel?session_id={CHECKOUT_SESSION_ID}&campaignId=${campaignId?.toString()}&campaignCode=${campaignCode}`
+
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card'],
     mode: 'payment',
@@ -125,8 +136,8 @@ export const stripeCheckoutSession = async ({
         ...metadata,
       },
     },
-    success_url: `${configs.site.clientUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}&campaignId=${campaignId?.toString()}&campaignCode=${campaignCode}&brandId=${brandId}`,
-    cancel_url: `${configs.site.clientUrl}/payment/cancel?campaignId=${campaignId?.toString()}&campaignCode=${campaignCode}&brandId=${brandId}`,
+    success_url: `${configs.site.clientUrl}${apiSuccessPath}`,
+    cancel_url: `${configs.site.clientUrl}${apiCancelPath}`,
   })
 
   return session
