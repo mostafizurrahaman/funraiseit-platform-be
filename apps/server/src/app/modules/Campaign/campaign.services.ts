@@ -333,10 +333,12 @@ const updateCampaign = async (
     existingCampaign.thumbnail = url
   }
 
-  const changedAllowedShipping =
-    payload.allowShipping && payload.allowShipping !== existingCampaign.allowShipping
+  // const changedAllowedShipping =
+  //   payload.allowShipping && payload.allowShipping !== existingCampaign.allowShipping
 
-  if (changedAllowedShipping && payload.allowShipping) {
+  // console.log({ changedAllowedShipping })
+
+  if (allowShipping) {
     const newShippingFee = payload.shippingFee || existingCampaign.shippingFee
 
     if (newShippingFee <= 0) {
@@ -348,7 +350,7 @@ const updateCampaign = async (
     existingCampaign.shippingFee = newShippingFee
   }
 
-  if (!payload.allowShipping && existingCampaign.shippingFee) existingCampaign.shippingFee = 0
+  if (!allowShipping) existingCampaign.shippingFee = 0
 
   if (payload.name !== undefined) existingCampaign.name = payload.name
   if (payload.campaignCategory !== undefined)
