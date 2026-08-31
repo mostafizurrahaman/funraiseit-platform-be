@@ -339,7 +339,7 @@ const updateCampaign = async (
   if (changedAllowedShipping && payload.allowShipping) {
     const newShippingFee = payload.shippingFee || existingCampaign.shippingFee
 
-    if (newShippingFee >= 0) {
+    if (newShippingFee <= 0) {
       throw new AppError(
         httpStatus.BAD_REQUEST,
         'Shipping fee is required when shipping is enabled.'
