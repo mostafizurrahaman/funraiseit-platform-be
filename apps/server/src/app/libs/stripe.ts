@@ -46,6 +46,7 @@ export const createStripeAccount = async (user: IUser, metadata?: Record<string,
         },
       },
     },
+    
   })
 }
 
@@ -124,7 +125,7 @@ export const stripeCheckoutSession = async ({
         ...metadata,
       },
     },
-    success_url: `${configs.site.clientUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}&campaignId=${campaignId?.toString()}&campaignCode=${campaignCode}`,
+    success_url: `${configs.site.clientUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}&campaignId=${campaignId?.toString()}&campaignCode=${campaignCode}&brandId=${brandId}`,
     cancel_url: `${configs.site.clientUrl}/payment/cancel?campaignId=${campaignId?.toString()}&campaignCode=${campaignCode}&brandId=${brandId}`,
   })
 

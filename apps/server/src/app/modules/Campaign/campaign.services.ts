@@ -165,6 +165,7 @@ const getDraftCampaign = async (user: IUser) => {
         organizerEmail: { $ifNull: ['$organizerDetails.email', null] },
         organizerProfileImage: { $ifNull: ['$organizerDetails.profileImage', null] },
         organizerStatus: { $ifNull: ['$organizerDetails.status', null] },
+        campaignShippingFee: { $ifNull: ['$shippingFee', 0] },
       },
     },
     {
@@ -596,6 +597,7 @@ const getAllCampaign = async (query: TGetAllCampaignQueryParamsType) => {
         organizerEmail: { $ifNull: ['$organizerDetails.email', null] },
         organizerProfileImage: { $ifNull: ['$organizerDetails.profileImage', null] },
         organizerStatus: { $ifNull: ['$organizerDetails.status', null] },
+        campaignShippingFee: { $ifNull: ['$shippingFee', 0] },
         supporters: '$campaignDetails.supporters',
         remainingDays: {
           $cond: [
@@ -928,6 +930,7 @@ const getMyAllCampaign = async (user: IUser, query: TGetMyAllCampaignQueryParams
         organizerProfileImage: { $ifNull: ['$organizerDetails.profileImage', null] },
         organizerStatus: { $ifNull: ['$organizerDetails.status', null] },
         supporters: '$campaignDetails.supporters',
+        campaignShippingFee: { $ifNull: ['$shippingFee', 0] },
         remainingDays: {
           $cond: [
             {
@@ -1206,6 +1209,7 @@ const getCampaignById = async (id: string) => {
         organizerEmail: { $ifNull: ['$organizerDetails.email', null] },
         organizerProfileImage: { $ifNull: ['$organizerDetails.profileImage', null] },
         organizerStatus: { $ifNull: ['$organizerDetails.status', null] },
+        campaignShippingFee: { $ifNull: ['$shippingFee', 0] },
         supporters: '$campaignDetails.supporters',
         remainingDays: {
           $cond: [
@@ -1480,6 +1484,7 @@ const getCampaignByCampaignCode = async (code: string) => {
         organizerEmail: '$organizerDetails.email',
         organizerProfileImage: '$organizerDetails.profileImage',
         organizerStatus: '$organizerDetails.status',
+        campaignShippingFee: { $ifNull: ['$shippingFee', 0] },
 
         // Placeholder values (replace with real lookups later)
         supporters: '$campaignDetails.supporters',
@@ -2175,6 +2180,7 @@ const getAllActiveCampaign = async (query: TGetAllActiveCampaignQuery) => {
         orderedAmount: '$campaignDetails.totalOrderedAmount',
         donationAmount: '$campaignDetails.totalDonationAmount',
         subtotal: '$campaignDetails.subtotal',
+        campaignShippingFee: { $ifNull: ['$shippingFee', 0] },
         shippingFee: '$campaignDetails.shippingFee',
         totalAmount: '$campaignDetails.totalAmount',
         stripeFee: '$campaignDetails.stripeFee',
