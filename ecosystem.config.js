@@ -1,20 +1,23 @@
 module.exports = {
   apps: [
     {
-      name: "funraisingit-be",
-      script: "pnpm",
-      args: "run dev",
+      name: 'funraisingit',
+      script: 'pnpm',
+      args: 'run dev',
+      interpreter: 'none',
+
+      cwd: '/home/ubuntu/funraisingit/apps/server',
 
       instances: 1,
-      exec_mode: "fork",
+      exec_mode: 'fork',
 
       watch: false,
-
       autorestart: true,
       max_restarts: 10,
+
       env: {
-        NODE_ENV: "development",
+        NODE_ENV: 'development',
       },
-    }
-  ]
-};
+    },
+  ],
+}
