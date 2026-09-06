@@ -49,6 +49,8 @@ app.use(
   cors({
     origin: configs.corsOrigins?.split(','), // split all the origins
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   })
 )
 app.use(limiter)
