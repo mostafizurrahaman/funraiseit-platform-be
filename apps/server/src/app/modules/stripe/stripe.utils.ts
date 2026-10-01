@@ -35,6 +35,7 @@ import type Stripe from 'stripe'
 import configs from '@app/configs'
 import { sendEmail } from 'packages/email-sender/src'
 import { CampaignLiveEmail, renderEmail } from 'packages/email-templates/src'
+import { sendCampaignLiveNotification } from '../Campaign/campaign.utils'
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -216,22 +217,8 @@ export const handleCampaignCheckoutPaymentSuccess = async (session: Stripe.Check
 
       const organizer = await User.findById(campaign?.organizer)
 
-      if (organizer) {
-        const htmlTemplate = await renderEmail(
-          CampaignLiveEmail({
-            organizerName: organizer.name,
-            campaignName: campaign.name,
-            campaignCode: campaign.campaignCode, // 👈 Just pass the code here
-            companyLogo: configs.site.logo as string,
-          })
-        )
-
-        await sendEmail({
-          to: organizer.email,
-          subject: '🎉 YOUR CAMPAIGN IS LIVE!',
-          html: htmlTemplate.html,
-          text: htmlTemplate.text,
-        })
+      if (organizer && campaign) {
+        await sendCampaignLiveNotification(campaign, organizer)
       }
     } catch (error) {
       await session.abortTransaction()

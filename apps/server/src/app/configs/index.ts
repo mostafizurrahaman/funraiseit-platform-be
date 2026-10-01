@@ -68,6 +68,14 @@ const envSchema = z.object({
   OTP_EXPIRES_IN: z.string().transform(Number).default(5),
   OTP_DIGITS: z.string().transform(Number).default(6),
   OPEN_API_KEY: z.string(),
+
+  // Telnyx Apies:
+  TELNYX_API_KEY: z.string({
+    error: 'TELNYX_API_KEY is required.',
+  }),
+  TELENX_PHONE_NUMBER: z.string({
+    error: 'TELENX_PHONE_NUMBER is required.',
+  }),
 })
 
 // 3. Validate process.env
@@ -153,6 +161,11 @@ const configs = {
   otpSettings: {
     expiresIn: env.OTP_EXPIRES_IN,
     digits: env.OTP_DIGITS,
+  },
+
+  telnyxSettings: {
+    apiKey: env.TELNYX_API_KEY,
+    phone: env.TELENX_PHONE_NUMBER,
   },
 } as const
 

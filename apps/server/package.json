@@ -27,12 +27,14 @@
     "@repo/logger": "workspace:*",
     "@repo/media-hub": "workspace:*",
     "@repo/shared": "workspace:*",
+    "@types/exceljs": "^1.3.2",
     "@typescript-eslint/eslint-plugin": "^8.53.0",
     "@typescript-eslint/parser": "^8.53.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "cross-env": "^10.1.0",
     "dotenv": "^17.2.3",
+    "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "http-status": "^2.1.0",
     "moment": "^2.30.1",
@@ -44,6 +46,7 @@
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "stripe": "^22.4.0",
+    "telnyx": "^7.21.0",
     "zod": "^4.3.5"
   },
   "devDependencies": {

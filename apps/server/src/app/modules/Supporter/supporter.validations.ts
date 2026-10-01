@@ -1,5 +1,6 @@
 // import { supporterSortableFields } from '@repo/db'
 import z from 'zod'
+import mongoose from 'mongoose'
 import {
   optionalNumber,
   optionalEnumString,
@@ -41,10 +42,31 @@ const sendEmailToSupporterSchema = z.object({
   }),
 })
 
+const sendMessageToSupportersSchema = z.object({
+  body: z.object({
+    campaignId: z
+      .string()
+      .trim()
+      .refine((val) => !val || mongoose.isValidObjectId(val), {
+        message: 'Invalid Campaign ID!',
+      })
+      .optional(),
+    message: z
+      .string({
+        error: 'Message is required.',
+      })
+      .trim()
+      .min(1, 'Message cannot be empty.'),
+  }),
+})
+
 export const supporterValidations = {
   getAllSupporterSchema,
   getSupporterOverviewByID,
   sendEmailToSupporterSchema,
+  sendMessageToSupportersSchema,
+  sendMessageToSupporterSchema: sendMessageToSupportersSchema,
+  sendSmsToSupporterSchema: sendMessageToSupportersSchema,
 }
 
 export type TGetAllSupporterQueryParamsType = z.infer<typeof getAllSupporterSchema.shape.query>
@@ -54,3 +76,9 @@ export type TGetSupporterOverviewByCampaignIdQuery = z.infer<
 >
 
 export type TSendEmailToSupporterPayload = z.infer<typeof sendEmailToSupporterSchema.shape.body>
+
+export type TSendMessageToSupportersPayload = z.infer<
+  typeof sendMessageToSupportersSchema.shape.body
+>
+
+export type TSendMessageToSupporterPayload = TSendMessageToSupportersPayload

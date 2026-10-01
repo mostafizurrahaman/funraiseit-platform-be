@@ -17,7 +17,9 @@ import { Types, type PipelineStage } from 'mongoose'
 import type {
   TGetAllSupporterQueryParamsType,
   TSendEmailToSupporterPayload,
+  TSendMessageToSupportersPayload,
 } from './supporter.validations'
+import { normalizePhoneNumber, sendSms } from '@app/libs/send-sms'
 import { renderEmail, SupporterUpdateEmail } from 'packages/email-templates/src'
 import { sendEmail } from 'packages/email-sender/src'
 import configs from '@app/configs'
@@ -97,7 +99,8 @@ const getAllSupporter = async (user: IUser, query: TGetAllSupporterQueryParamsTy
     $project: {
       name: '$name',
       email: '$email',
-      phone: '$email',
+      phone: '$phoneNumber',
+      phoneNumber: '$phoneNumber',
       campaignId: '$paymentDetails.campaign',
       paymentDetails: 1,
       paidAt: '$paymentDetails.paidAt',
@@ -131,6 +134,9 @@ const getAllSupporter = async (user: IUser, query: TGetAllSupporterQueryParamsTy
         $first: '$email',
       },
       phone: {
+        $first: '$phoneNumber',
+      },
+      phoneNumber: {
         $first: '$phoneNumber',
       },
 
@@ -758,8 +764,198 @@ const sendEmailToCampaignSupporters = async (
   }
 }
 
+const sendMessageToSupporters = async (user: IUser, payload: TSendMessageToSupportersPayload) => {
+  const { campaignId, message } = payload
+
+  const matchFilter: Record<string, unknown> = {
+    status: paymentStatus.PAID,
+    paymentType: { $in: [paymentType.DONATION, paymentType.ORDER] },
+  }
+
+  if (campaignId) {
+    const campaign = await Campaign.findOne({
+      _id: campaignId,
+      organizer: user?._id,
+    })
+
+    if (!campaign) {
+      throw new AppError(httpStatus.NOT_FOUND, 'Campaign not found!')
+    }
+
+    if (campaign?.organizer?.toString() !== user?._id?.toString()) {
+      throw new AppError(httpStatus.FORBIDDEN, `This campaign doesn't belong to your organization.`)
+    }
+
+    if (
+      [
+        CampaignStatus.DRAFT,
+        CampaignStatus.PENDING,
+        CampaignStatus.CANCELLED,
+        CampaignStatus.REJECTED,
+      ].includes(campaign.status as 'draft' | 'pending' | 'rejected' | 'cancelled')
+    ) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        `You cannot send a message when the campaign status is ${campaign.status}`
+      )
+    }
+
+    matchFilter.campaign = new Types.ObjectId(campaignId)
+  } else {
+    // If no campaignId provided, fetch across all eligible campaigns of this organizer:
+    const campaigns = await Campaign.find({
+      organizer: user?._id,
+      status: {
+        $nin: [
+          CampaignStatus.DRAFT,
+          CampaignStatus.PENDING,
+          CampaignStatus.CANCELLED,
+          CampaignStatus.REJECTED,
+        ],
+      },
+    }).select('_id')
+
+    const campaignIds = campaigns.map((c) => c._id)
+
+    if (campaignIds.length === 0) {
+      throw new AppError(httpStatus.NOT_FOUND, 'No eligible campaigns found for this organizer.')
+    }
+
+    matchFilter.campaign = { $in: campaignIds }
+  }
+
+  // Aggregate unique supporters from Payments
+  const supporters = await Payment.aggregate([
+    {
+      $match: matchFilter,
+    },
+    {
+      $match: {
+        supporter: { $exists: true, $ne: null },
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        supporters: {
+          $addToSet: '$supporter',
+        },
+      },
+    },
+    {
+      $lookup: {
+        from: 'supporters',
+        localField: 'supporters',
+        foreignField: '_id',
+        as: 'supporterDetails',
+      },
+    },
+    {
+      $unwind: '$supporterDetails',
+    },
+    {
+      $project: {
+        _id: 0,
+        supporterId: '$supporterDetails._id',
+        supporterName: '$supporterDetails.name',
+        supporterEmail: '$supporterDetails.email',
+        supporterPhone: '$supporterDetails.phoneNumber',
+      },
+    },
+  ])
+
+  if (!supporters || supporters.length === 0) {
+    throw new AppError(httpStatus.NOT_FOUND, 'No supporters found for this campaign.')
+  }
+
+  // Deduplicate supporters uniquely by normalized phone number
+  const uniqueRecipientsMap = new Map<
+    string,
+    {
+      phone: string
+      originalPhone: string
+      supporterName?: string | undefined
+      supporterEmail?: string | undefined
+      supporterId?: Types.ObjectId | undefined
+    }
+  >()
+
+  for (const s of supporters) {
+    if (!s.supporterPhone) continue
+    const normalized = normalizePhoneNumber(s.supporterPhone)
+    if (!normalized) continue
+
+    if (!uniqueRecipientsMap.has(normalized)) {
+      uniqueRecipientsMap.set(normalized, {
+        phone: normalized,
+        originalPhone: s.supporterPhone,
+        supporterName: s.supporterName,
+        supporterEmail: s.supporterEmail,
+        supporterId: s.supporterId,
+      })
+    }
+  }
+
+  const uniqueRecipients = Array.from(uniqueRecipientsMap.values())
+
+  if (uniqueRecipients.length === 0) {
+    throw new AppError(httpStatus.NOT_FOUND, 'No supporters with valid phone numbers found.')
+  }
+
+  // Send SMS in batches of 10 to avoid Telnyx rate limits
+  const BATCH_SIZE = 10
+  const results: Array<{
+    phone: string
+    supporterName?: string | undefined
+    success: boolean
+    error?: string | undefined
+  }> = []
+
+  for (let i = 0; i < uniqueRecipients.length; i += BATCH_SIZE) {
+    const batch = uniqueRecipients.slice(i, i + BATCH_SIZE)
+    const batchResults = await Promise.all(
+      batch.map(async (recipient) => {
+        const personalizedMessage = message.includes('{name}')
+          ? message.replace(/\{name\}/g, recipient.supporterName || 'Supporter')
+          : message
+
+        const smsResult = await sendSms(recipient.phone, personalizedMessage)
+        return {
+          phone: recipient.phone,
+          supporterName: recipient.supporterName,
+          success: smsResult.success,
+          error: smsResult.error,
+        }
+      })
+    )
+    results.push(...batchResults)
+  }
+
+  const successfulSends = results.filter((r) => r.success)
+  const failedSends = results.filter((r) => !r.success)
+
+  if (successfulSends.length === 0 && failedSends.length > 0) {
+    throw new AppError(
+      httpStatus.BAD_GATEWAY,
+      `Failed to send SMS messages: ${failedSends[0]?.error || 'SMS provider error'}`
+    )
+  }
+
+  return {
+    success: true,
+    message: `Message sent to ${successfulSends.length} unique phone number${successfulSends.length === 1 ? '' : 's'}.${failedSends.length > 0 ? ` (${failedSends.length} failed)` : ''}`,
+    totalSupporters: supporters.length,
+    totalUniquePhones: uniqueRecipients.length,
+    sentCount: successfulSends.length,
+    failedCount: failedSends.length,
+    failedRecipients: failedSends.length > 0 ? failedSends : undefined,
+  }
+}
+
 export const supporterServices = {
   getAllSupporter,
   getSupporterOverviewByCampaignId,
   sendEmailToCampaignSupporters,
+  sendMessageToSupporters,
+  sendSmsToSupporters: sendMessageToSupporters,
 }

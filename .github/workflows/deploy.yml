@@ -33,6 +33,20 @@ jobs:
         run: npm install -g pnpm
       - name: Install Dependencies
         run: pnpm install
+      - name: DELETE TAR FILES
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/${{ secrets.EC2_USER }}/${{ secrets.PROJECT_FOLDER }}
+
+            echo "Removing tar files..."
+
+            find . -type f \( -name "*.tar" -o -name "*.tar.gz" -o -name "*.tgz" \) -delete
+
+            echo "Tar files removed."
       - name: COPY FILE VIA SCP
         uses: appleboy/scp-action@v1
         with:

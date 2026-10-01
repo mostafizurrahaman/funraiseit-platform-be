@@ -37,7 +37,7 @@ import type {
   TRejectionCampaignByOrganizationID,
 } from './campaign.validations'
 import { uploadSingleFileToS3, type IMulterFile } from 'packages/media-hub/src'
-import { generateCampaignCode } from './campaign.utils'
+import { generateCampaignCode, sendCampaignLiveNotification } from './campaign.utils'
 import mongoose, { Types } from 'mongoose'
 import { createStripePayout, stripe, stripeCheckoutSession } from '@app/libs/stripe'
 import { logger } from '@app/libs/logger'
@@ -1862,6 +1862,7 @@ const launchCampaignByID = async (user: IUser, campaignId: string, promoCode?: s
 
       await session.commitTransaction()
       await session.endSession()
+
 
       return {
         url: null,
