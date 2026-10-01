@@ -36,7 +36,7 @@ export interface ILaunchPayment extends IPayment {
 
 export interface IPayoutPayment extends IPayment {
   payoutId: Types.ObjectId
-  stripePayoutId: Types.ObjectId
+  stripePayoutId: string
 }
 
 export interface IBrandBuilderPayment extends IPayment {

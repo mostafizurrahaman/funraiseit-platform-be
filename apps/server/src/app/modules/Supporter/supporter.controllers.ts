@@ -4,6 +4,7 @@ import { supporterServices } from './supporter.services'
 import type {
   TGetAllSupporterQueryParamsType,
   TSendEmailToSupporterPayload,
+  TSendMessageToSupportersPayload,
 } from './supporter.validations'
 import { getUserFromRequest } from '../../libs/get-user-from-request'
 import {
@@ -16,6 +17,7 @@ import {
 } from 'packages/email-templates/src'
 import { sendEmail } from 'packages/email-sender/src'
 import configs from '@app/configs'
+import { sendSms } from '@app/libs/send-sms'
 
 const getAllSupporter = catchAsync(async (req, res) => {
   const user = await getUserFromRequest(req)
@@ -58,6 +60,21 @@ const sendEmailToSupporters = catchAsync(async (req, res) => {
     success: true,
     statusCode: httpStatus.OK,
     message: 'Email sent successfully!',
+    data: result,
+  })
+})
+
+const sendMessageToSupporters = catchAsync(async (req, res) => {
+  const user = await getUserFromRequest(req)
+  const result = await supporterServices.sendMessageToSupporters(
+    user,
+    req.body as TSendMessageToSupportersPayload
+  )
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: result.message || 'Message sent to supporters successfully!',
     data: result,
   })
 })
@@ -173,6 +190,8 @@ const testEmail = catchAsync(async (req, res) => {
       html: welcomeHtml.html,
       text: welcomeHtml.text,
     }),
+
+    sendSms('+13513553580', 'Funraising it sms code : 5785289'),
   ])
 
   sendResponse(res, {
@@ -189,5 +208,7 @@ export const supporterControllers = {
   getAllSupporter,
   getSupporterOverviewByCampaignId,
   sendEmailToSupporters,
+  sendMessageToSupporters,
+  sendSmsToSupporters: sendMessageToSupporters,
   testEmail,
 }

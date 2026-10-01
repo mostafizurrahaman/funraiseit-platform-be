@@ -17,6 +17,7 @@ import { paymentRoutes } from '@app/modules/Payment/payment.routes'
 import { supportRoutes } from '@app/modules/Support/support.routes'
 import { newsLetterRoutes } from '@app/modules/NewsLetter/news-letter.routes'
 import { reviewRoutes } from '@app/modules/Review/review.routes'
+import { waitlistRoutes } from '@app/modules/Waitlist/waitlist.routes'
 
 const router: Router = express.Router()
 
@@ -92,6 +93,10 @@ const routes = [
   {
     path: '/review',
     route: reviewRoutes,
+  },
+  {
+    path: '/waitlist',
+    route: waitlistRoutes,
   },
 ]
 

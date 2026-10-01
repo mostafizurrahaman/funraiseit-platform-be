@@ -27,6 +27,21 @@ router.post(
   validateRequest(supporterValidations.sendEmailToSupporterSchema),
   supporterControllers.sendEmailToSupporters
 )
+
+router.post(
+  '/send-message',
+  auth(AuthRoles.ORGANIZER),
+  validateRequest(supporterValidations.sendMessageToSupportersSchema),
+  supporterControllers.sendMessageToSupporters
+)
+
+router.post(
+  '/send-sms',
+  auth(AuthRoles.ORGANIZER),
+  validateRequest(supporterValidations.sendMessageToSupportersSchema),
+  supporterControllers.sendMessageToSupporters
+)
+
 router.post('/send-email-test', auth(AuthRoles.ORGANIZER), supporterControllers.testEmail)
 
 export const supporterRoutes = router
