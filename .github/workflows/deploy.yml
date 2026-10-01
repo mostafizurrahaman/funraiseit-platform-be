@@ -40,7 +40,7 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
-            cd /home/${{ secrets.EC2_USER }}/${{ secrets.PROJECT_FOLDER }}
+            cd /home/${{ secrets.EC2_USER }}
 
             echo "Removing tar files..."
 
