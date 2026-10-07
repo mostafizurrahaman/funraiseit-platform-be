@@ -33,6 +33,9 @@ const sendWaitlistWelcomeEmailAsync = async (
 ) => {
   try {
     const siteName = configs.site.name || 'FunRaisingIt'
+    const supportEmail = configs.site.supportEmail || 'support@funraisingit.com'
+    const clientUrl = configs.site.clientUrl || 'https://funraisingit.com'
+
     const htmlTemplate = await renderEmail(
       WaitlistWelcomeEmail({
         email,
@@ -40,20 +43,52 @@ const sendWaitlistWelcomeEmailAsync = async (
         isVip,
         companyName: siteName,
         companyLogo: (configs.site.logo as string) || undefined,
-        supportEmail: configs.site.supportEmail || undefined,
-        clientUrl: configs.site.clientUrl || undefined,
+        supportEmail,
+        clientUrl,
       })
     )
 
+    // Deliverability-optimized subject lines: clear, transactional, free of spam-trigger keywords & emojis
+    const subject = isVip
+      ? `VIP Priority Access Confirmed: ${siteName} (#${formattedMemberNumber})`
+      : `Waitlist Confirmation: ${siteName} (#${formattedMemberNumber})`
+
+    // High deliverability plain text alternative
+    const plainTextFallback = [
+      `Hello,`,
+      ``,
+      `Your reservation on the ${siteName} waitlist has been successfully confirmed for ${email}.`,
+      ``,
+      isVip
+        ? `Status: VIP Priority Member (${formattedMemberNumber})`
+        : `Status: Waitlist Member (${formattedMemberNumber})`,
+      ``,
+      `You have secured ${isVip ? 'complimentary VIP Priority Early Access' : 'standard early access for our public launch'}.`,
+      ``,
+      `Visit: ${clientUrl}`,
+      `Questions? Contact ${supportEmail}`,
+      ``,
+      `---`,
+      `You received this email because ${email} registered for early access updates on ${clientUrl}.`,
+      `To unsubscribe or be removed, reply to this email with "Unsubscribe".`,
+      `© ${new Date().getFullYear()} ${siteName}. All rights reserved.`,
+    ].join('\n')
+
     await sendEmail({
       to: email,
-      subject: isVip
-        ? `🎉 Congratulations! You are VIP Member ${formattedMemberNumber} on ${siteName}`
-        : `🎉 Welcome to the Waitlist! You are Member ${formattedMemberNumber} on ${siteName}`,
+      subject,
       html: htmlTemplate.html,
-      text: htmlTemplate.text,
+      text: htmlTemplate.text && htmlTemplate.text.trim().length > 20 ? htmlTemplate.text : plainTextFallback,
       fromName: siteName,
-      replyTo: configs.site.supportEmail,
+      replyTo: supportEmail,
+      headers: {
+        'List-Unsubscribe': `<mailto:${supportEmail}?subject=Unsubscribe%20Waitlist>`,
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        'X-Auto-Response-Suppress': 'All, OOF, AutoReply',
+        'Precedence': 'bulk',
+        'Feedback-ID': `${isVip ? 'vip' : 'waitlist'}:funraisingit:signup`,
+        'X-Report-Abuse': `Please report abuse to ${supportEmail}`,
+      },
     })
   } catch (error) {
     logger.error(`Failed to send waitlist welcome email to ${email}:`, error)
@@ -91,12 +126,17 @@ const sendWaitlistAdminNotificationEmailAsync = async (params: {
     await sendEmail({
       to: adminEmail,
       subject: params.isVip
-        ? `🌟 VIP Priority Upgrade: ${params.userEmail} (Member ${params.memberNumber})`
-        : `📢 New Waitlist Signup: ${params.userEmail} (Member ${params.memberNumber})`,
+        ? `[Admin Alert] VIP Priority Upgrade: ${params.userEmail} (Member ${params.memberNumber})`
+        : `[Admin Alert] New Waitlist Signup: ${params.userEmail} (Member ${params.memberNumber})`,
       html: htmlTemplate.html,
       text: htmlTemplate.text,
-      fromName: siteName,
-      replyTo: configs.site.supportEmail,
+      fromName: `${siteName} System`,
+      replyTo: configs.site.supportEmail || adminEmail,
+      headers: {
+        'X-Auto-Response-Suppress': 'All, OOF, AutoReply',
+        'Auto-Submitted': 'auto-generated',
+        'Precedence': 'bulk',
+      },
     })
   } catch (error) {
     logger.error('Failed to send waitlist admin notification email:', error)
