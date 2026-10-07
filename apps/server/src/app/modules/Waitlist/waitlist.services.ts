@@ -19,6 +19,129 @@ import configs from '@app/configs'
 import { logger } from '@app/libs/logger'
 import { AppError } from '@repo/shared'
 import httpStatus from 'http-status'
+import { sendEmail } from '@repo/email-sender'
+import {
+  renderEmail,
+  WaitlistWelcomeEmail,
+  WaitlistAdminNotificationEmail,
+} from '@repo/email-templates'
+
+const sendWaitlistWelcomeEmailAsync = async (
+  email: string,
+  formattedMemberNumber: string,
+  isVip: boolean = false
+) => {
+  try {
+    const siteName = configs.site.name || 'FunRaisingIt'
+    const supportEmail = configs.site.supportEmail || 'support@funraisingit.com'
+    const clientUrl = configs.site.clientUrl || 'https://funraisingit.com'
+
+    const htmlTemplate = await renderEmail(
+      WaitlistWelcomeEmail({
+        email,
+        memberNumber: formattedMemberNumber,
+        isVip,
+        companyName: siteName,
+        companyLogo: (configs.site.logo as string) || undefined,
+        supportEmail,
+        clientUrl,
+      })
+    )
+
+    // Deliverability-optimized subject lines: clear, transactional, free of spam-trigger keywords & emojis
+    const subject = isVip
+      ? `VIP Priority Access Confirmed: ${siteName} (#${formattedMemberNumber})`
+      : `Waitlist Confirmation: ${siteName} (#${formattedMemberNumber})`
+
+    // High deliverability plain text alternative
+    const plainTextFallback = [
+      `Hello,`,
+      ``,
+      `Your reservation on the ${siteName} waitlist has been successfully confirmed for ${email}.`,
+      ``,
+      isVip
+        ? `Status: VIP Priority Member (${formattedMemberNumber})`
+        : `Status: Waitlist Member (${formattedMemberNumber})`,
+      ``,
+      `You have secured ${isVip ? 'complimentary VIP Priority Early Access' : 'standard early access for our public launch'}.`,
+      ``,
+      `Visit: ${clientUrl}`,
+      `Questions? Contact ${supportEmail}`,
+      ``,
+      `---`,
+      `You received this email because ${email} registered for early access updates on ${clientUrl}.`,
+      `To unsubscribe or be removed, reply to this email with "Unsubscribe".`,
+      `© ${new Date().getFullYear()} ${siteName}. All rights reserved.`,
+    ].join('\n')
+
+    await sendEmail({
+      to: email,
+      subject,
+      html: htmlTemplate.html,
+      text: htmlTemplate.text && htmlTemplate.text.trim().length > 20 ? htmlTemplate.text : plainTextFallback,
+      fromName: siteName,
+      replyTo: supportEmail,
+      headers: {
+        'List-Unsubscribe': `<mailto:${supportEmail}?subject=Unsubscribe%20Waitlist>`,
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        'X-Auto-Response-Suppress': 'All, OOF, AutoReply',
+        'Precedence': 'bulk',
+        'Feedback-ID': `${isVip ? 'vip' : 'waitlist'}:funraisingit:signup`,
+        'X-Report-Abuse': `Please report abuse to ${supportEmail}`,
+      },
+    })
+  } catch (error) {
+    logger.error(`Failed to send waitlist welcome email to ${email}:`, error)
+  }
+}
+
+const sendWaitlistAdminNotificationEmailAsync = async (params: {
+  userEmail: string
+  memberNumber: string
+  phoneNumber?: string
+  status?: string
+  isVip?: boolean
+  actionType?: 'SIGNUP' | 'VIP_UPGRADE'
+}) => {
+  try {
+    const adminEmail = configs.superAdmin.email
+    if (!adminEmail) return
+
+    const siteName = configs.site.name || 'FunRaisingIt'
+    const htmlTemplate = await renderEmail(
+      WaitlistAdminNotificationEmail({
+        userEmail: params.userEmail,
+        memberNumber: params.memberNumber,
+        phoneNumber: params.phoneNumber,
+        status: params.status || 'REGISTERED',
+        isVip: params.isVip || false,
+        actionType: params.actionType || 'SIGNUP',
+        registeredAt: moment().format('MMMM Do YYYY, h:mm:ss a'),
+        companyName: siteName,
+        companyLogo: (configs.site.logo as string) || undefined,
+        adminDashboardUrl: `${configs.site.clientUrl}/admin`,
+      })
+    )
+
+    await sendEmail({
+      to: adminEmail,
+      subject: params.isVip
+        ? `[Admin Alert] VIP Priority Upgrade: ${params.userEmail} (Member ${params.memberNumber})`
+        : `[Admin Alert] New Waitlist Signup: ${params.userEmail} (Member ${params.memberNumber})`,
+      html: htmlTemplate.html,
+      text: htmlTemplate.text,
+      fromName: `${siteName} System`,
+      replyTo: configs.site.supportEmail || adminEmail,
+      headers: {
+        'X-Auto-Response-Suppress': 'All, OOF, AutoReply',
+        'Auto-Submitted': 'auto-generated',
+        'Precedence': 'bulk',
+      },
+    })
+  } catch (error) {
+    logger.error('Failed to send waitlist admin notification email:', error)
+  }
+}
 
 const submitEmail = async (payload: TSubmitEmailPayload) => {
   const email = payload.email.trim().toLowerCase()
@@ -43,6 +166,22 @@ const submitEmail = async (payload: TSubmitEmailPayload) => {
     memberNumber,
     formattedMemberNumber,
     isVip: false,
+  })
+
+  // Send congratulations email to user asynchronously
+  sendWaitlistWelcomeEmailAsync(email, formattedMemberNumber, false).catch((err) => {
+    logger.error('Error sending waitlist welcome email:', err)
+  })
+
+  // Send new signup alert to admin asynchronously
+  sendWaitlistAdminNotificationEmailAsync({
+    userEmail: email,
+    memberNumber: formattedMemberNumber,
+    status: waitlistStatus.REGISTERED,
+    isVip: false,
+    actionType: 'SIGNUP',
+  }).catch((err) => {
+    logger.error('Error sending waitlist admin notification:', err)
   })
 
   return {
@@ -110,6 +249,23 @@ const claimVip = async (payload: TClaimVipPayload) => {
       logger.error('Failed to send VIP welcome SMS:', error)
     })
   }
+
+  // Send VIP congratulations email to user asynchronously
+  sendWaitlistWelcomeEmailAsync(email, waitlist.formattedMemberNumber, true).catch((err) => {
+    logger.error('Error sending VIP welcome email:', err)
+  })
+
+  // Send VIP alert to admin asynchronously
+  sendWaitlistAdminNotificationEmailAsync({
+    userEmail: email,
+    memberNumber: waitlist.formattedMemberNumber,
+    phoneNumber: normalizedPhone,
+    status: waitlistStatus.VIP,
+    isVip: true,
+    actionType: 'VIP_UPGRADE',
+  }).catch((err) => {
+    logger.error('Error sending VIP upgrade admin notification:', err)
+  })
 
   return {
     waitlist,
