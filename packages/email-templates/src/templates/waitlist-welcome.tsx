@@ -1,5 +1,4 @@
 import {
-  Button,
   Heading,
   Hr,
   Img,
@@ -27,7 +26,6 @@ export const WaitlistWelcomeEmail = ({
   companyName = 'FunRaisingIt',
   companyLogo = 'https://funraising-it.s3.us-east-1.amazonaws.com/non_delatable_files/funraisingit-logo.png',
   supportEmail = 'support@funraisingit.com',
-  clientUrl = 'https://funraisingit.com',
 }: WaitlistWelcomeEmailProps): React.ReactElement => {
   const previewText = isVip
     ? `Your VIP priority access is confirmed: Member ${memberNumber} on ${companyName}.`
@@ -96,27 +94,6 @@ export const WaitlistWelcomeEmail = ({
           </Text>
         </Section>
 
-        {/* CTA Button */}
-        <Button
-          href={clientUrl}
-          style={{
-            backgroundColor: '#03AFA8',
-            color: '#ffffff',
-            fontSize: '15px',
-            fontWeight: '600',
-            textDecoration: 'none',
-            textAlign: 'center',
-            display: 'block',
-            width: '100%',
-            padding: '14px 20px',
-            borderRadius: '10px',
-            boxSizing: 'border-box',
-            marginBottom: '28px',
-          }}
-        >
-          Learn More About {companyName}
-        </Button>
-
         <Text className="text-slate-600 text-sm leading-relaxed m-0 mb-6">
           If you have questions or feedback, feel free to contact our team anytime at{' '}
           <Link href={`mailto:${supportEmail}`} className="text-[#03AFA8] font-semibold underline">
@@ -135,10 +112,7 @@ export const WaitlistWelcomeEmail = ({
       {/* Footer - CAN-SPAM & Mailbox Provider Compliance */}
       <Section className="px-8 py-6 bg-slate-50 text-center">
         <Text className="text-slate-500 text-xs m-0 mb-2 leading-relaxed">
-          You are receiving this confirmation because <strong>{email}</strong> was registered for early access updates on{' '}
-          <Link href={clientUrl} className="text-slate-600 underline">
-            {clientUrl.replace(/^https?:\/\//, '')}
-          </Link>.
+          You are receiving this confirmation because <strong>{email}</strong> was registered for early access updates for <strong>{companyName}</strong>.
         </Text>
         <Text className="text-slate-400 text-xs m-0 mb-2">
           If you did not request this, you can safely disregard this email or reply with &quot;Unsubscribe&quot; to be removed immediately.
