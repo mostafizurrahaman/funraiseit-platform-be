@@ -65,11 +65,10 @@ const sendWaitlistWelcomeEmailAsync = async (
       ``,
       `You have secured ${isVip ? 'complimentary VIP Priority Early Access' : 'standard early access for our public launch'}.`,
       ``,
-      `Visit: ${clientUrl}`,
       `Questions? Contact ${supportEmail}`,
       ``,
       `---`,
-      `You received this email because ${email} registered for early access updates on ${clientUrl}.`,
+      `You received this email because ${email} registered for early access updates for ${siteName}.`,
       `To unsubscribe or be removed, reply to this email with "Unsubscribe".`,
       `© ${new Date().getFullYear()} ${siteName}. All rights reserved.`,
     ].join('\n')
