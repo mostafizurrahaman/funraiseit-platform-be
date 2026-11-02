@@ -115,6 +115,9 @@ const getAllPayment = async (query: TGetAllPaymentQueryParamsType) => {
         paymentBreakdownId: { $ifNull: ['$paymentBreakdown._id', null] },
         subtotal: { $ifNull: ['$paymentBreakdown.subtotal', 0] },
         shippingFee: { $ifNull: ['$paymentBreakdown.shippingFee', 0] },
+        gstAmount: {
+          $ifNull: ['$paymentBreakdown.gstAmount', 0]
+        },
         totalAmount: { $ifNull: ['$paymentBreakdown.totalAmount', 0] },
         stripeFee: { $ifNull: ['$paymentBreakdown.stripeFee', 0] },
         platformFee: { $ifNull: ['$paymentBreakdown.platformFee', 0] },

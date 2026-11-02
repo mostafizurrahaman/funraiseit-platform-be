@@ -9,10 +9,14 @@ export interface IOrder {
   customerName: string
   customerPhone: string
   subTotal: number
-  totalAmount: number
   shippingAmount: number
+  gstAmount: number;
+  stripeFeeAmount: number;
+  totalAmount: number
   stripeFeePercentage: number
   platformFeePercentage: number
+  stripeTaxCalculationId?: string;
+  stripeTaxTransactionId?:string;
   status: TOrderStatus
 }
 

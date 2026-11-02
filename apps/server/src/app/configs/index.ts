@@ -43,6 +43,7 @@ const envSchema = z.object({
   STRIPE_RETURN_URL: z.string().url(),
 
   STRIPE_FIXED_FEE: z.string().transform(Number),
+  STRIPE_FIXED_AND_TAX_FEE: z.string().transform(Number),
   STRIPE_FEE: z.string().transform(Number),
 
   // JWT
@@ -127,6 +128,7 @@ const configs = {
     refresh_url: env.STRIPE_REFRESH_URL,
     return_url: env.STRIPE_RETURN_URL,
     fixedFee: env.STRIPE_FIXED_FEE,
+    fixedFeeWithTaxFee: env.STRIPE_FIXED_AND_TAX_FEE,
     percentage: env.STRIPE_FEE,
   },
 

@@ -36,6 +36,7 @@ import configs from '@app/configs'
 import { sendEmail } from 'packages/email-sender/src'
 import { CampaignLiveEmail, renderEmail } from 'packages/email-templates/src'
 import { sendCampaignLiveNotification } from '../Campaign/campaign.utils'
+import { logger } from '@app/libs/logger'
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -71,6 +72,8 @@ interface TOrderPaymentMetaData {
   platformFee: number
   shippingFee: number
   organizerNetAmount: number
+  calculatedTaxId: string; 
+  gstAmount: number; 
 }
 
 interface IBrandBuilderMeta {
@@ -924,6 +927,8 @@ export const handleOrderCheckoutPaymentSuccess = async (
     campaign: campaignId,
     order: orderId,
     shippingFee,
+    gstAmount,
+    calculatedTaxId,
   } = metadata as unknown as TOrderPaymentMetaData
 
   if (!campaignId || !orderId) {
@@ -974,6 +979,37 @@ export const handleOrderCheckoutPaymentSuccess = async (
    * balanceTx.net - Application Fee
    */
 
+  // Tax Calculation:  
+  let stripeTaxTxId: string | null = null; 
+  let finalGstAmount = gstAmount || 0; 
+
+  if (calculatedTaxId) {
+
+    try {
+
+    const calculation  = await stripe.tax.calculations.retrieve(calculatedTaxId)
+
+    if (calculation.tax_amount_exclusive) {
+        finalGstAmount = calculation.tax_amount_exclusive / 100     
+    }   
+
+
+    const taxTx = await stripe.tax.transactions.createFromCalculation({
+      calculation: calculatedTaxId,
+      reference: orderId,
+    })
+
+
+    if (taxTx.id) stripeTaxTxId = taxTx.id as string
+
+
+  } catch (taxError) {
+    logger.error('Failed to commit Stripe tax transaction', taxError)
+  }
+
+  }
+
+
   const grossAmount = balanceTx.amount / 100
   const stripeFee = balanceTx.fee / 100
   const stripeNetAmount = balanceTx.net / 100
@@ -989,9 +1025,11 @@ export const handleOrderCheckoutPaymentSuccess = async (
   }
 
   const shippingAmount = Number(shippingFee ?? 0)
-  const organizerNetAmount = stripeNetAmount - applicationFee
-  const organizerAmountWithoutShipping = organizerNetAmount - shippingAmount
-  const subtotal = grossAmount - shippingAmount
+  const subtotal = grossAmount - shippingAmount - finalGstAmount - stripeFee
+
+  const organizerNetAmount = Number((grossAmount - applicationFee)?.toFixed(2))
+  const organizerAmountWithoutShipping = Number((organizerNetAmount - shippingAmount)?.toFixed(2))
+  const realPlatformFee =  Number((applicationFee - stripeFee)?.toFixed(2))
 
   const mongoSession = await mongoose.startSession()
 
@@ -1021,6 +1059,7 @@ export const handleOrderCheckoutPaymentSuccess = async (
           stripeChargeId: charge.id,
           stripeApplicationFeeId: applicationFeeId,
           stripeBalanceTransactionId: balanceTx.id,
+          stripeTaxTransactionId:  stripeTaxTxId,
           paidAt: new Date(),
           checkoutUrl: null,
         },
@@ -1050,9 +1089,11 @@ export const handleOrderCheckoutPaymentSuccess = async (
         {
           payment: payment._id,
           subtotal: subtotal,
+          shippingFee: shippingAmount, 
+          gstAmount: finalGstAmount,
           totalAmount: grossAmount,
           stripeFee,
-          platformFee: applicationFee,
+          platformFee: realPlatformFee,
           organizerAmount: organizerNetAmount,
           organizerAmountWithoutShipping: organizerAmountWithoutShipping,
         },
@@ -1074,6 +1115,10 @@ export const handleOrderCheckoutPaymentSuccess = async (
           subtotal,
           shippingAmount: shippingAmount,
           totalAmount: grossAmount,
+          gstAmount: finalGstAmount, 
+          platformFee: realPlatformFee,    
+          stripeTaxCalculationId: calculatedTaxId, 
+          stripeTaxTransactionId:   stripeTaxTxId,
           status: OrderStatus.PAID,
         },
       },

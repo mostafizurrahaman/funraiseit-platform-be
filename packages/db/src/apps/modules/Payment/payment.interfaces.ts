@@ -28,6 +28,7 @@ export interface IDonationPayment extends IPayment {
 export interface IOrderPayment extends IPayment {
   supporter: Types.ObjectId
   order: Types.ObjectId
+  stripeTaxTransactionId: string;
 }
 
 export interface ILaunchPayment extends IPayment {
@@ -47,6 +48,7 @@ export interface IPaymentBreakdown {
   payment: Types.ObjectId
   subtotal: number
   shippingFee: number
+  gstAmount: number
   totalAmount: number
   stripeFee: number
   platformFee: number
