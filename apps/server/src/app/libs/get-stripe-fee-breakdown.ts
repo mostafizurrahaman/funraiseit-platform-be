@@ -15,6 +15,7 @@ interface CalculatePaymentBreakdownPayload {
   stripeFixedFee?: number // e.g. 0.30
 
   organizerAmountWithoutShipping?: number;
+  organizerRaisedAmount?: number;
 }
 
 const round = (value: number) => Number(value.toFixed(2))
@@ -67,7 +68,8 @@ export const calculatePaymentBreakdown = ({
   let stripeFee = 0
 
   let organizerNetAmount = 0
-  let organizerAmountWithoutShipping = 0
+  let organizerAmountWithoutShipping = 0;
+  let organizerRaisedAmount = 0;
   let platformRevenue = 0
   
 
@@ -101,7 +103,8 @@ export const calculatePaymentBreakdown = ({
 
       organizerNetAmount = round(amountBeforeStripe - platformFee)
 
-      organizerAmountWithoutShipping = round(productPrice+ finalGstAmount -platformFee)
+      organizerAmountWithoutShipping = round(productPrice + finalGstAmount - platformFee);
+      organizerRaisedAmount = round(productPrice - platformFee);
 
       platformRevenue = platformFee
 
@@ -128,7 +131,8 @@ export const calculatePaymentBreakdown = ({
 
 
       organizerNetAmount = round(donationAmount - platformFee)
-      organizerAmountWithoutShipping = organizerNetAmount
+      organizerAmountWithoutShipping = organizerNetAmount;
+      organizerRaisedAmount = round(donationAmount - platformFee);
 
       platformRevenue = platformFee
 
@@ -176,6 +180,7 @@ export const calculatePaymentBreakdown = ({
       platformFee,
       organizerNetAmount,
       organizerAmountWithoutShipping,
+      organizerRaisedAmount,
       platformRevenue,
     },
     stripePayload: {

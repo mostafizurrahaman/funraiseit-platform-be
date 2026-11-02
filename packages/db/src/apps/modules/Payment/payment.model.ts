@@ -187,6 +187,11 @@ const PaymentBreakDownSchema = new Schema<IPaymentBreakdownDoc>({
     min: 0,
     default: 0,
   },
+  organizerRaisedAmount: {
+    type: Number,
+    min: 0,
+    default: 0,
+  },
   organizerAmountWithoutShipping: {
     type: Number,
     min: 0,

@@ -73,7 +73,8 @@ interface TOrderPaymentMetaData {
   shippingFee: number
   organizerNetAmount: number
   calculatedTaxId: string; 
-  gstAmount: number; 
+  gstAmount: number;
+  organizerRaisedAmount?: number; 
 }
 
 interface IBrandBuilderMeta {
@@ -534,7 +535,10 @@ export const handleDonationCheckoutPaymentSuccess = async (
     applicationFee = fee.amount / 100
   }
 
-  const organizerNetAmount = stripeNetAmount - applicationFee
+  const realPlatformFee = Number((applicationFee - stripeFee)?.toFixed(2))
+  const subtotal = Number((grossAmount - stripeFee)?.toFixed(2))
+  const organizerNetAmount = Number((grossAmount - applicationFee)?.toFixed(2))
+  const organizerRaisedAmount = Number((subtotal - realPlatformFee)?.toFixed(2))
 
   const mongoSession = await mongoose.startSession()
 
@@ -595,15 +599,15 @@ export const handleDonationCheckoutPaymentSuccess = async (
           {
             payment: payment._id,
 
-            subtotal: grossAmount,
+            subtotal,
+            shippingFee: 0,
+            gstAmount: 0,
             totalAmount: grossAmount,
-
             stripeFee,
-            platformFee: applicationFee,
-
+            platformFee: realPlatformFee,
             organizerAmount: organizerNetAmount,
             organizerAmountWithoutShipping: organizerNetAmount,
-
+            organizerRaisedAmount,
             discountAmount: 0,
           },
         ],
@@ -643,7 +647,7 @@ export const handleDonationCheckoutPaymentSuccess = async (
       },
       {
         $inc: {
-          raisedAmount: organizerNetAmount,
+          raisedAmount: organizerRaisedAmount,
           raisedAmountWithShipping: organizerNetAmount,
         },
       },
@@ -1025,11 +1029,12 @@ export const handleOrderCheckoutPaymentSuccess = async (
   }
 
   const shippingAmount = Number(shippingFee ?? 0)
-  const subtotal = grossAmount - shippingAmount - finalGstAmount - stripeFee
+  const subtotal = Number((grossAmount - shippingAmount - finalGstAmount - stripeFee)?.toFixed(2))
 
   const organizerNetAmount = Number((grossAmount - applicationFee)?.toFixed(2))
   const organizerAmountWithoutShipping = Number((organizerNetAmount - shippingAmount)?.toFixed(2))
-  const realPlatformFee =  Number((applicationFee - stripeFee)?.toFixed(2))
+  const realPlatformFee = Number((applicationFee - stripeFee)?.toFixed(2))
+  const organizerRaisedAmount = Number((subtotal - realPlatformFee)?.toFixed(2))
 
   const mongoSession = await mongoose.startSession()
 
@@ -1096,6 +1101,7 @@ export const handleOrderCheckoutPaymentSuccess = async (
           platformFee: realPlatformFee,
           organizerAmount: organizerNetAmount,
           organizerAmountWithoutShipping: organizerAmountWithoutShipping,
+          organizerRaisedAmount: organizerRaisedAmount,
         },
       ],
       {
@@ -1112,13 +1118,13 @@ export const handleOrderCheckoutPaymentSuccess = async (
       { _id: orderId },
       {
         $set: {
-          subtotal,
+          subTotal: subtotal,
           shippingAmount: shippingAmount,
           totalAmount: grossAmount,
-          gstAmount: finalGstAmount, 
-          platformFee: realPlatformFee,    
-          stripeTaxCalculationId: calculatedTaxId, 
-          stripeTaxTransactionId:   stripeTaxTxId,
+          gstAmount: finalGstAmount,
+          stripeFeeAmount: stripeFee,
+          stripeTaxCalculationId: calculatedTaxId,
+          stripeTaxTransactionId: stripeTaxTxId,
           status: OrderStatus.PAID,
         },
       },
@@ -1138,7 +1144,7 @@ export const handleOrderCheckoutPaymentSuccess = async (
       },
       {
         $inc: {
-          raisedAmount: organizerAmountWithoutShipping,
+          raisedAmount: organizerRaisedAmount,
           raisedAmountWithShipping: organizerNetAmount,
         },
       },

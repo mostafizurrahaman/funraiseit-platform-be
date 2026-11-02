@@ -100,6 +100,8 @@ const getCampaignAnalyticsFromDB = async (query: TGetAnalyticsOverview) => {
         platformFee: '$paymentDetails.platformFee',
         organizerAmount: '$paymentDetails.organizerAmount',
         organizerAmountWithoutShipping: '$paymentDetails.organizerAmountWithoutShipping',
+        organizerRaisedAmount: '$paymentDetails.organizerRaisedAmount',
+        gstAmount: '$paymentDetails.gstAmount',
         discountAmount: '$paymentDetails.discountAmount',
       },
     },
@@ -126,6 +128,12 @@ const getCampaignAnalyticsFromDB = async (query: TGetAnalyticsOverview) => {
         },
         organizerAmountWithoutShipping: {
           $sum: '$organizerAmountWithoutShipping',
+        },
+        organizerRaisedAmount: {
+          $sum: '$organizerRaisedAmount',
+        },
+        gstAmount: {
+          $sum: '$gstAmount',
         },
       },
     },
@@ -327,6 +335,8 @@ const getCampaignAnalyticsFromDB = async (query: TGetAnalyticsOverview) => {
       platformFee: 0,
       organizerAmount: 0,
       organizerAmountWithoutShipping: 0,
+      organizerRaisedAmount: 0,
+      gstAmount: 0,
     },
   }
 }

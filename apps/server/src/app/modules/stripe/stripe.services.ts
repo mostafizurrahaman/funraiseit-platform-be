@@ -182,7 +182,43 @@ const listenStripeEventsForConnectedAccount = async (event: Stripe.Event) => {
   return { received: true }
 }
 
+
+const listenStripeEventsForLocal = async (event: Stripe.Event) => {
+  switch (event.type) {
+    // --- Platform Account Events ---
+    case 'checkout.session.completed':
+      await handleCheckoutSessionSuccess(event)
+      break
+    case 'checkout.session.expired':
+      await handleCheckoutSessionExpired(event)
+      break
+    case 'payment_intent.payment_failed':
+      await handlePaymentIntentFailed(event)
+      break
+
+    // --- Connected Account Events ---
+    case 'account.updated':
+      await handleAccountUpdated(event)
+      break
+    case 'payout.paid':
+      await handlePayoutPaid(event.data.object as Stripe.Payout)
+      break
+    case 'payout.failed':
+      await handlePayoutFailed(event.data.object as Stripe.Payout)
+      break
+    case 'payout.canceled':
+      await handlePayoutCanceled(event.data.object as Stripe.Payout)
+      break
+
+    default:
+      logger.warn(`[Local Webhook] Unhandled event type: ${event.type}`)
+  }
+
+  return { received: true }
+}
+
 export const stripeServices = {
   listenStripeEventsForPlatformAccount,
   listenStripeEventsForConnectedAccount,
+  listenStripeEventsForLocal,
 }

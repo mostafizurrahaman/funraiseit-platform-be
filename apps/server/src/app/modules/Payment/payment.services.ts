@@ -122,6 +122,9 @@ const getAllPayment = async (query: TGetAllPaymentQueryParamsType) => {
         stripeFee: { $ifNull: ['$paymentBreakdown.stripeFee', 0] },
         platformFee: { $ifNull: ['$paymentBreakdown.platformFee', 0] },
         organizerAmount: { $ifNull: ['$paymentBreakdown.organizerAmount', 0] },
+        organizerRaisedAmount: {
+          $ifNull: ['$paymentBreakdown.organizerRaisedAmount', 0],
+        },
         organizerAmountWithoutShipping: {
           $ifNull: ['$paymentBreakdown.organizerAmountWithoutShipping', 0],
         },

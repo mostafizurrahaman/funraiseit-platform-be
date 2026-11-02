@@ -665,7 +665,7 @@ const previewOrderPrice = async (payload: TPreviewOrderPayloadType) => {
             city: city || '',
             state: state || '',
             postal_code: postalCode?.trim() as string,
-            country: country || 'US',
+            country: 'US',
           },
           address_source: 'shipping',
         },
@@ -677,8 +677,11 @@ const previewOrderPrice = async (payload: TPreviewOrderPayloadType) => {
         },
       })
 
+      logger.info("TAX CALCUL===> ", taxCalculation)
+
       calculatedTax = Number((taxCalculation.tax_amount_exclusive / 100).toFixed(2))
     } catch (error) {
+      logger.error("===[TAX ERROR]", error)
       calculatedTax = Number(((subTotal * defaultTaxRate) / 100).toFixed(2))
     }
   } else {
@@ -923,6 +926,9 @@ const getAllOrder = async (user: IUser, query: TGetAllOrderQueryParamsType) => {
         },
         organizerAmountWithoutShipping: {
           $ifNull: ['$paymentDetails.paymentBreakingDown.organizerAmountWithoutShipping', null],
+        },
+        organizerRaisedAmount: {
+          $ifNull: ['$paymentDetails.paymentBreakingDown.organizerRaisedAmount', null],
         },
         organizerNetAmount: {
           $ifNull: ['$paymentDetails.paymentBreakingDown.organizerAmount', null],
@@ -1183,10 +1189,13 @@ const getOrderById = async (user: IUser, id: string) => {
           $ifNull: ['$paymentDetails.paymentBreakingDown.platformFee', null],
         },
         organizerAmountWithoutShipping: {
-          $ifNull: ['$paymentDetails.paymentBreakingDown.organizerAmount', null],
+          $ifNull: ['$paymentDetails.paymentBreakingDown.organizerAmountWithoutShipping', null],
         },
         organizerNetAmount: {
-          $ifNull: ['$paymentDetails.paymentBreakingDown.organizerAmountWithoutShipping', null],
+          $ifNull: ['$paymentDetails.paymentBreakingDown.organizerAmount', null],
+        },
+        organizerRaisedAmount: {
+          $ifNull: ['$paymentDetails.paymentBreakingDown.organizerRaisedAmount', null],
         },
         paymentStatus: {
           $ifNull: ['$paymentDetails.status', null],
@@ -1292,6 +1301,7 @@ const getCampaignOrderOverview = async (user: IUser, campaignId: string) => {
             platformFee: '$paymentDetails.platformFee',
             organizerAmount: '$paymentDetails.organizerAmount',
             organizerAmountWithoutShipping: '$paymentDetails.organizerAmountWithoutShipping',
+            organizerRaisedAmount: '$paymentDetails.organizerRaisedAmount',
             discountAmount: '$paymentDetails.discountAmount',
           },
         },
@@ -1321,6 +1331,9 @@ const getCampaignOrderOverview = async (user: IUser, campaignId: string) => {
             },
             organizerAmountWithoutShipping: {
               $sum: '$organizerAmountWithoutShipping',
+            },
+            organizerRaisedAmount: {
+              $sum: '$organizerRaisedAmount',
             },
           },
         },
@@ -1364,6 +1377,7 @@ const getCampaignOrderOverview = async (user: IUser, campaignId: string) => {
     platformFee: 0,
     organizerAmount: 0,
     organizerAmountWithoutShipping: 0,
+    organizerRaisedAmount: 0,
   }
   const paidOrder = paidOrders?.[0]?.total ?? 0
   const deliveredOrder = deliveredOrders?.[0]?.total ?? 0
