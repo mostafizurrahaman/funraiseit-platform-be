@@ -10,7 +10,8 @@
     "format": "prettier --write \"**/*.{ts,js,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,js,json,md}\"",
     "type-check": "turbo type-check",
-    "clean": "turbo clean && rm -rf node_modules"
+    "clean": "turbo clean && rm -rf node_modules",
+    "stripe:listen": "pnpm --filter server stripe:listen"
   },
   "dependencies": {
     "cross-env": "^10.1.0",

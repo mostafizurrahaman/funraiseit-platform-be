@@ -28,12 +28,26 @@ const orderSchema = new Schema<IOrderDoc>(
       type: Number,
       default: 0,
       min: 0,
-    },
+    },  
     shippingAmount: {
       type: Number,
       default: 0,
       min: 0,
     },
+
+    gstAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    stripeFeeAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    
+  
+
     totalAmount: {
       type: Number,
       default: 0,
@@ -49,6 +63,15 @@ const orderSchema = new Schema<IOrderDoc>(
       default: 6,
       min: 0,
     },
+    
+      stripeTaxCalculationId: {
+        type: String,
+        default: null,
+      },
+      stripeTaxTransactionId: {
+        type: String,
+        default: null,
+      },
     status: {
       type: String,
       enum: OrderStatusValues,

@@ -278,8 +278,16 @@ const verifySignupOTP = async (payload: IVerifySignupOtpType) => {
 const login = async (payload: ILoginType) => {
   const { email, password } = payload
 
+  console.log({
+    email, password
+  })
+
   // 1. check user
   const user = await User.findOne({ email }).select('+password')
+
+  console.log({ 
+    user
+  })
   if (!user) {
     throw new AppError(httpStatus.NOT_FOUND, "User doesn't exists!")
   }

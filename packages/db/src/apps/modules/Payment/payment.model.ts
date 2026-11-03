@@ -64,6 +64,7 @@ const paymentSchema = new Schema<IPaymentDoc>(
     stripeBalanceTransactionId: {
       type: String,
     },
+    
     paidAt: {
       type: Date,
     },
@@ -92,6 +93,10 @@ const orderPaymentSchema = new Schema<IOrderPaymentDoc>({
     type: Schema.Types.ObjectId,
     ref: 'Order',
     required: true,
+  },
+  stripeTaxTransactionId: {
+      type: String,
+      default: null, 
   },
 })
 
@@ -157,6 +162,11 @@ const PaymentBreakDownSchema = new Schema<IPaymentBreakdownDoc>({
     min: 0,
     default: 0,
   },
+  gstAmount: {
+     type: Number, 
+     min: 0, 
+     default: 0
+  },
   totalAmount: {
     type: Number,
     min: 0,
@@ -173,6 +183,11 @@ const PaymentBreakDownSchema = new Schema<IPaymentBreakdownDoc>({
     default: 0,
   },
   organizerAmount: {
+    type: Number,
+    min: 0,
+    default: 0,
+  },
+  organizerRaisedAmount: {
     type: Number,
     min: 0,
     default: 0,

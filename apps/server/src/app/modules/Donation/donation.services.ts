@@ -120,33 +120,32 @@ const createDonation = async (payload: TCreateDonationPayloadType) => {
   })
 
 
+  // ?? Supporter:
+  const fullName = firstName?.trim() + ' ' + lastName?.trim()
+  const newSupporter = await Supporter.findOneAndUpdate(
+    {
+      email: email?.trim(),
+    },
+    {
+      $set: {
+        name: fullName,
+        phoneNumber: phone,
+      },
+    },
+    {
+      upsert: true,
+      returnDocument: 'after',
+    }
+  )
+
+  if (!newSupporter) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Failed to updated supporter info.')
+  }
+
   const session = await mongoose.startSession()
 
   try {
     session.startTransaction()
-
-    // ?? Supporter:
-    const fullName = firstName?.trim() + ' ' + lastName?.trim()
-    const newSupporter = await Supporter.findOneAndUpdate(
-      {
-        email: email?.trim(),
-      },
-      {
-        $set: {
-          name: fullName,
-          phoneNumber: phone,
-        },
-      },
-      {
-        upsert: true,
-        returnDocument: 'after',
-        session,
-      }
-    )
-
-    if (!newSupporter) {
-      throw new AppError(httpStatus.BAD_REQUEST, 'Failed to updated supporter info.')
-    }
 
     const [donation] = await Donation.create(
       [
@@ -180,11 +179,7 @@ const createDonation = async (payload: TCreateDonationPayloadType) => {
         campaign: campaign?._id.toString(),
         donation: donation?._id.toString(),
         supporter: newSupporter?._id.toString(),
-        paymentType: paymentBreakdown.databaseRecord.paymentType as unknown as string,
-        grossAmount: paymentBreakdown.databaseRecord.grossAmount, // Customer pays this
-        stripeFee: paymentBreakdown.databaseRecord.stripeFee,
-        platformFee: paymentBreakdown.databaseRecord.platformFee,
-        organizerNetAmount: paymentBreakdown.databaseRecord.organizerNetAmount,
+        ...paymentBreakdown.databaseRecord,
       },
     })
 
@@ -365,7 +360,10 @@ const getAllDonation = async (user: IUser, query: TGetAllDonationQueryParamsType
 
         // Amounts
         subTotal: {
-          $ifNull: ['$paymentDetails.paymentBreakingDown.subTotal', '$subTotal', 0],
+          $ifNull: ['$paymentDetails.paymentBreakingDown.subtotal', '$subTotal', 0],
+        },
+        organizerRaisedAmount: {
+          $ifNull: ['$paymentDetails.paymentBreakingDown.organizerRaisedAmount', null],
         },
         totalAmount: {
           $ifNull: ['$paymentDetails.paymentBreakingDown.totalAmount', '$totalAmount', 0],
@@ -522,6 +520,7 @@ const getDonationOverviewByCampaignId = async (user: IUser, campaignId: string) 
             platformFee: '$paymentDetails.platformFee',
             organizerAmount: '$paymentDetails.organizerAmount',
             organizerAmountWithoutShipping: '$paymentDetails.organizerAmountWithoutShipping',
+            organizerRaisedAmount: '$paymentDetails.organizerRaisedAmount',
             discountAmount: '$paymentDetails.discountAmount',
           },
         },
@@ -548,6 +547,9 @@ const getDonationOverviewByCampaignId = async (user: IUser, campaignId: string) 
             },
             organizerAmountWithoutShipping: {
               $sum: '$organizerAmountWithoutShipping',
+            },
+            organizerRaisedAmount: {
+              $sum: '$organizerRaisedAmount',
             },
           },
         },
@@ -664,6 +666,7 @@ const getDonationOverviewByCampaignId = async (user: IUser, campaignId: string) 
     platformFee: 0,
     organizerAmount: 0,
     organizerAmountWithoutShipping: 0,
+    organizerRaisedAmount: 0,
   }
 
   return {

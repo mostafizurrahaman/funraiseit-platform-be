@@ -13,6 +13,7 @@
     "lint:fix": "eslint . --fix",
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist .turbo node_modules",
+    "stripe:listen": "stripe listen --forward-to localhost:8080/api/v1/stripe/local/webhook --forward-connect-to localhost:8080/api/v1/stripe/local/webhook",
     "prettier": "prettier --ignore-path .gitignore --write \"./src/**/*.+(js|ts|json)\"",
     "prettier:fix": " npx prettier  --write src"
   },

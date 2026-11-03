@@ -38,6 +38,12 @@ app.use(
 )
 
 app.use(
+  '/api/v1/stripe/local/webhook',
+  express.raw({ type: 'application/json' }),
+  stripeController.handleStripeWebhookForLocal
+)
+
+app.use(
   '/api/v1/stripe/connected-account/webhook',
   express.raw({ type: 'application/json' }),
   stripeController.handleStripeWebhookForConnectedAccount

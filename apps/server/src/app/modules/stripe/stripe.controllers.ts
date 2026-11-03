@@ -74,7 +74,46 @@ const handleStripeWebhookForConnectedAccount = catchAsync(async (req, res) => {
   })
 })
 
+
+const handleStripeWebhookForLocal = catchAsync(async (req, res) => {
+  const secretKey =
+    configs.stripe.webhookLocalKey ||
+    process.env.STRIPE_WEBHOOK_KEY_LOCAL ||
+    configs.stripe.webhookPlatformKey ||
+    configs.stripe.webhookConnectedAccountKey
+
+  const event = verifyWebHookSignature(secretKey, req)
+
+  const isAlreadyProcessed = await ProcessedStripeEvent.findOne({
+    eventId: event?.id,
+  })
+
+  if (isAlreadyProcessed) {
+    return sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: 'Webhook already processed (Idempotency skip).',
+      data: null,
+    })
+  }
+
+  await stripeServices.listenStripeEventsForLocal(event)
+
+  await ProcessedStripeEvent.create({
+    eventId: event.id,
+    createdAt: moment().utc().toDate(),
+  })
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Local webhook triggered successfully!',
+    data: null,
+  })
+})
+
 export const stripeController = {
   handleStripeWebhookForPlatform,
   handleStripeWebhookForConnectedAccount,
+  handleStripeWebhookForLocal,
 }

@@ -37,12 +37,14 @@ const envSchema = z.object({
   STRIPE_PUBLISHABLE_KEY: z.string(),
   STRIPE_WEBHOOK_KEY_PLATFORM: z.string(),
   STRIPE_WEBHOOK_KEY_CONNECTED_ACCOUNT: z.string(),
+  STRIPE_WEBHOOK_KEY_LOCAL: z.string().optional(),
   STRIPE_SUCCESS_URL: z.string().url(),
   STRIPE_CANCEL_URL: z.string().url(),
   STRIPE_REFRESH_URL: z.string().url(),
   STRIPE_RETURN_URL: z.string().url(),
 
   STRIPE_FIXED_FEE: z.string().transform(Number),
+  STRIPE_FIXED_AND_TAX_FEE: z.string().transform(Number),
   STRIPE_FEE: z.string().transform(Number),
 
   // JWT
@@ -122,11 +124,13 @@ const configs = {
     publishableKey: env.STRIPE_PUBLISHABLE_KEY,
     webhookPlatformKey: env.STRIPE_WEBHOOK_KEY_PLATFORM,
     webhookConnectedAccountKey: env.STRIPE_WEBHOOK_KEY_CONNECTED_ACCOUNT,
+    webhookLocalKey: env.STRIPE_WEBHOOK_KEY_LOCAL,
     successUrl: env.STRIPE_SUCCESS_URL,
     cancelUrl: env.STRIPE_CANCEL_URL,
     refresh_url: env.STRIPE_REFRESH_URL,
     return_url: env.STRIPE_RETURN_URL,
     fixedFee: env.STRIPE_FIXED_FEE,
+    fixedFeeWithTaxFee: env.STRIPE_FIXED_AND_TAX_FEE,
     percentage: env.STRIPE_FEE,
   },
 

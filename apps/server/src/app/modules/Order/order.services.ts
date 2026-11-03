@@ -35,7 +35,7 @@ import { AppError } from '@repo/shared'
 import type { PipelineStage } from 'mongoose'
 import mongoose, { Types } from 'mongoose'
 import { calculatePaymentBreakdown } from '@app/libs/get-stripe-fee-breakdown'
-import { stripeCheckoutSessionWithApplicationFee } from '@app/libs/stripe'
+import { stripe, stripeCheckoutSessionWithApplicationFee } from '@app/libs/stripe'
 import { logger } from '@app/libs/logger'
 import { sendEmail } from '@repo/email-sender'
 
@@ -132,7 +132,7 @@ const createOrder = async (payload: TCreateOrderPayloadType) => {
     throw new AppError(httpStatus.NOT_FOUND, 'Local delivery not allowed')
   }
 
-  if (shippingType === 'local_pickup' && !campaign.allowLocalDelivery) {
+  if (shippingType === 'local_pickup' && !campaign.allowLocalPickup) {
     throw new AppError(httpStatus.NOT_FOUND, 'Local pickup not allowed')
   }
 
@@ -219,39 +219,88 @@ const createOrder = async (payload: TCreateOrderPayloadType) => {
   const siteFee = await SiteInfo.findOne({})
   const platformFee = siteFee?.platformFee || 6
 
+  // do tax calculation:
+  const defaultTaxRate = 0
+  let calculatedTax = 0
+  let calculatedTaxId = ""
+
+  if (state && postalCode) {
+    const lineItemsForTax = products?.map((p) => {
+      const qty = orderedQuantityMap.get(p._id?.toString()) as number
+      const taxCode = p.productType === productType.DIGITAL ? 'txcd_10000000' : 'txcd_99999999'
+      return {
+        amount: Math.max(0, Math.round(p.price * qty * 100)),
+        reference: p._id?.toString(),
+        tax_code: taxCode,
+        tax_behavior: 'exclusive' as const,
+      }
+    })
+
+    try {
+      const taxCalculation = await stripe.tax.calculations.create({
+        currency: 'usd',
+        customer_details: {
+          address: {
+            line1: addressLine1 || '123 Customer St',
+            city: city || '',
+            state: state || '',
+            postal_code: postalCode?.trim() as string,
+            country: country || 'US',
+          },
+          address_source: 'shipping',
+        },
+        line_items: lineItemsForTax || [],
+        shipping_cost: {
+          amount: Math.round(shippingPrice * 100),
+          tax_code: 'txcd_92010001',
+          tax_behavior: 'exclusive',
+        },
+      })
+
+      calculatedTax = Number((taxCalculation.tax_amount_exclusive / 100).toFixed(2))
+      calculatedTaxId =  taxCalculation?.id as string; 
+    } catch (error) {
+      calculatedTax = Number(((subTotal * defaultTaxRate) / 100).toFixed(2))
+      calculatedTaxId = ''
+    }
+  } else {
+    calculatedTax = Number(((subTotal * defaultTaxRate) / 100).toFixed(2))
+    calculatedTaxId = '' 
+  }
+
   const paymentBreakdown = calculatePaymentBreakdown({
     paymentType: paymentType.ORDER,
     productPrice: subTotal,
     shippingFee: shippingPrice,
     platformFeePercent: platformFee,
+    gstAmount: calculatedTax
   })
+
+  // ?? Supporter:
+  const newSupporter = await Supporter.findOneAndUpdate(
+    {
+      email: email?.trim(),
+    },
+    {
+      $set: {
+        name: fullName,
+        phoneNumber: phone,
+      },
+    },
+    {
+      upsert: true,
+      returnDocument: 'after',
+    }
+  )
+
+  if (!newSupporter) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Failed to updated supporter info.')
+  }
 
   const mongoSession = await mongoose.startSession()
 
   try {
     mongoSession.startTransaction()
-    // ?? Supporter:
-
-    const newSupporter = await Supporter.findOneAndUpdate(
-      {
-        email: email?.trim(),
-      },
-      {
-        $set: {
-          name: fullName,
-          phoneNumber: phone,
-        },
-      },
-      {
-        upsert: true,
-        returnDocument: 'after',
-        session: mongoSession,
-      }
-    )
-
-    if (!newSupporter) {
-      throw new AppError(httpStatus.BAD_REQUEST, 'Failed to updated supporter info.')
-    }
 
     // ?? Order :
     const [order] = await Order.create(
@@ -263,10 +312,13 @@ const createOrder = async (payload: TCreateOrderPayloadType) => {
           customerPhone: newSupporter.phoneNumber!,
           shippingType: shippingType!,
           subTotal: paymentBreakdown.databaseRecord.subtotal,
+          shippingAmount: paymentBreakdown.databaseRecord.shippingFee,  
           totalAmount: paymentBreakdown.databaseRecord.grossAmount,
-          shippingAmount: paymentBreakdown.databaseRecord.shippingFee,
+          gstAmount: paymentBreakdown.databaseRecord.gstAmount,
+          stripeFeeAmount: paymentBreakdown.databaseRecord.stripeFee,
           stripeFeePercentage: 2.9,
           platformFeePercentage: platformFee,
+          stripeTaxCalculationId: calculatedTaxId,     
           status: OrderStatus.PENDING,
         },
       ],
@@ -374,7 +426,9 @@ const createOrder = async (payload: TCreateOrderPayloadType) => {
         campaign: campaign?._id.toString(),
         order: order?._id.toString(),
         supporter: newSupporter?._id.toString(),
+        calculatedTaxId,
         ...paymentBreakdown.databaseRecord,
+
       },
     })
 
@@ -418,6 +472,11 @@ const previewOrderPrice = async (payload: TPreviewOrderPayloadType) => {
   const {
     campaignId,
     orderItems,
+    city,
+    country,
+    state,
+    addressLine1,
+    postalCode,
 
     shippingType,
   } = payload
@@ -493,7 +552,7 @@ const previewOrderPrice = async (payload: TPreviewOrderPayloadType) => {
     throw new AppError(httpStatus.NOT_FOUND, 'Local delivery not allowed')
   }
 
-  if (shippingType === 'local_pickup' && !campaign.allowLocalDelivery) {
+  if (shippingType === 'local_pickup' && !campaign.allowLocalPickup) {
     throw new AppError(httpStatus.NOT_FOUND, 'Local pickup not allowed')
   }
 
@@ -580,14 +639,66 @@ const previewOrderPrice = async (payload: TPreviewOrderPayloadType) => {
   const siteFee = await SiteInfo.findOne({})
   const platformFee = siteFee?.platformFee || 6
 
+  // do tax calculation:
+  const defaultTaxRate = 0
+  let calculatedTax = 0
+
+  if (state && postalCode) {
+    const lineItemsForTax = products?.map((p) => {
+      const qty = orderedQuantityMap.get(p._id?.toString()) as number
+      const taxCode = p.productType === productType.DIGITAL ? 'txcd_10000000' : 'txcd_99999999'
+      return {
+        amount: Math.max(0, Math.round(p.price * qty * 100)),
+        reference: p._id?.toString(),
+        tax_code: taxCode,
+        tax_behavior: 'exclusive' as const,
+      }
+    })
+
+    try {
+      const taxCalculation = await stripe.tax.calculations.create({
+        currency: 'usd',
+        customer_details: {
+          address: {
+            line1: addressLine1 || '123 Customer St',
+            city: city || '',
+            state: state || '',
+            postal_code: postalCode?.trim() as string,
+            country: 'US',
+          },
+          address_source: 'shipping',
+        },
+        line_items: lineItemsForTax || [],
+        shipping_cost: {
+          amount: Math.round(shippingPrice * 100),
+          tax_code: 'txcd_92010001',
+          tax_behavior: 'exclusive',
+        },
+      })
+
+      logger.info("TAX CALCUL===> ", taxCalculation)
+
+      calculatedTax = Number((taxCalculation.tax_amount_exclusive / 100).toFixed(2))
+    } catch (error) {
+      logger.error("===[TAX ERROR]", error)
+      calculatedTax = Number(((subTotal * defaultTaxRate) / 100).toFixed(2))
+    }
+  } else {
+    calculatedTax = Number(((subTotal * defaultTaxRate) / 100).toFixed(2))
+  }
+
   const paymentBreakdown = calculatePaymentBreakdown({
     paymentType: paymentType.ORDER,
     productPrice: subTotal,
     shippingFee: shippingPrice,
     platformFeePercent: platformFee,
+    gstAmount: calculatedTax
   })
 
-  return paymentBreakdown.databaseRecord
+  return { 
+    ...paymentBreakdown.databaseRecord, 
+    taxRateApplied: calculatedTax > 0 ? Number(((calculatedTax / subTotal) * 100).toFixed(2)) : 0,
+  }
 }
 
 const getAllOrder = async (user: IUser, query: TGetAllOrderQueryParamsType) => {
@@ -794,10 +905,14 @@ const getAllOrder = async (user: IUser, query: TGetAllOrderQueryParamsType) => {
 
         // Amounts
         subTotal: {
-          $ifNull: ['$paymentDetails.paymentBreakingDown.subTotal', '$subTotal', 0],
+          $ifNull: ['$paymentDetails.paymentBreakingDown.subtotal', '$subTotal', 0],
         },
+        
         shippingAmount: {
           $ifNull: ['$paymentDetails.paymentBreakingDown.shippingFee', '$shippingAmount', 0],
+        },
+        gstAmount: {
+          $ifNull: ['$paymentDetails.paymentBreakingDown.gstAmount', '$gstAmount', 0],
         },
         totalAmount: {
           $ifNull: ['$paymentDetails.paymentBreakingDown.totalAmount', '$totalAmount', 0],
@@ -809,7 +924,10 @@ const getAllOrder = async (user: IUser, query: TGetAllOrderQueryParamsType) => {
           $ifNull: ['$paymentDetails.paymentBreakingDown.platformFee', null],
         },
         organizerAmountWithoutShipping: {
-          $ifNull: ['$paymentDetails.paymentBreakingDown.organizerAmount', null],
+          $ifNull: ['$paymentDetails.paymentBreakingDown.organizerAmountWithoutShipping', null],
+        },
+        organizerRaisedAmount: {
+          $ifNull: ['$paymentDetails.paymentBreakingDown.organizerRaisedAmount', null],
         },
         organizerNetAmount: {
           $ifNull: ['$paymentDetails.paymentBreakingDown.organizerAmount', null],
@@ -1040,6 +1158,7 @@ const getOrderById = async (user: IUser, id: string) => {
         paymentId: { $ifNull: ['$paymentDetails._id', null] },
         paymentBreakDownId: { $ifNull: ['$paymentDetails.paymentBreakingDown._id', null] },
 
+
         paidAt: {
           $ifNull: ['$paymentDetails.paidAt', null],
         },
@@ -1050,11 +1169,15 @@ const getOrderById = async (user: IUser, id: string) => {
 
         // Amounts
         subTotal: {
-          $ifNull: ['$paymentDetails.paymentBreakingDown.subTotal', '$subTotal', 0],
+          $ifNull: ['$paymentDetails.paymentBreakingDown.subtotal', '$subTotal', 0],
         },
         shippingAmount: {
           $ifNull: ['$paymentDetails.paymentBreakingDown.shippingFee', '$shippingAmount', 0],
         },
+        gstAmount: {
+          $ifNull: ['$paymentDetails.paymentBreakingDown.gstAmount', '$gstAmount', 0],
+        },
+
         totalAmount: {
           $ifNull: ['$paymentDetails.paymentBreakingDown.totalAmount', '$totalAmount', 0],
         },
@@ -1065,10 +1188,13 @@ const getOrderById = async (user: IUser, id: string) => {
           $ifNull: ['$paymentDetails.paymentBreakingDown.platformFee', null],
         },
         organizerAmountWithoutShipping: {
-          $ifNull: ['$paymentDetails.paymentBreakingDown.organizerAmount', null],
+          $ifNull: ['$paymentDetails.paymentBreakingDown.organizerAmountWithoutShipping', null],
         },
         organizerNetAmount: {
           $ifNull: ['$paymentDetails.paymentBreakingDown.organizerAmount', null],
+        },
+        organizerRaisedAmount: {
+          $ifNull: ['$paymentDetails.paymentBreakingDown.organizerRaisedAmount', null],
         },
         paymentStatus: {
           $ifNull: ['$paymentDetails.status', null],
@@ -1168,11 +1294,13 @@ const getCampaignOrderOverview = async (user: IUser, campaignId: string) => {
             paymentBreakdownId: '$paymentDetails._id',
             subtotal: '$paymentDetails.subtotal',
             shippingFee: '$paymentDetails.shippingFee',
+            gstAmount: "$paymentDetails.gstAmount",
             totalAmount: '$paymentDetails.totalAmount',
             stripeFee: '$paymentDetails.stripeFee',
             platformFee: '$paymentDetails.platformFee',
             organizerAmount: '$paymentDetails.organizerAmount',
             organizerAmountWithoutShipping: '$paymentDetails.organizerAmountWithoutShipping',
+            organizerRaisedAmount: '$paymentDetails.organizerRaisedAmount',
             discountAmount: '$paymentDetails.discountAmount',
           },
         },
@@ -1188,6 +1316,9 @@ const getCampaignOrderOverview = async (user: IUser, campaignId: string) => {
             totalAmount: {
               $sum: '$totalAmount',
             },
+            gstAmount: {
+               $sum: '$gstAmount',
+            },
             stripeFee: {
               $sum: '$stripeFee',
             },
@@ -1199,6 +1330,9 @@ const getCampaignOrderOverview = async (user: IUser, campaignId: string) => {
             },
             organizerAmountWithoutShipping: {
               $sum: '$organizerAmountWithoutShipping',
+            },
+            organizerRaisedAmount: {
+              $sum: '$organizerRaisedAmount',
             },
           },
         },
@@ -1236,11 +1370,13 @@ const getCampaignOrderOverview = async (user: IUser, campaignId: string) => {
     _id: null,
     subTotal: 0,
     shippingFee: 0,
+    gstAmount:0,
     totalAmount: 0,
     stripeFee: 0,
     platformFee: 0,
     organizerAmount: 0,
     organizerAmountWithoutShipping: 0,
+    organizerRaisedAmount: 0,
   }
   const paidOrder = paidOrders?.[0]?.total ?? 0
   const deliveredOrder = deliveredOrders?.[0]?.total ?? 0

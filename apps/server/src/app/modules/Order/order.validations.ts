@@ -116,6 +116,15 @@ const previewOrderSchema = z.object({
       campaignId: requiredMongooseId('Campaign ID'),
       shippingType: enumString(shippingTypesValues, 'Shipping type').optional(),
 
+
+      // Need for tax calculation: 
+      addressLine1: optionalString("Address line 1"),
+      city: optionalString('City'),
+      state: optionalString('State'),
+      postalCode: optionalString('Postal code'),
+      country: optionalString('Country'),
+
+
       // Product:
       orderItems: z
         .array(orderItemSchema, {
