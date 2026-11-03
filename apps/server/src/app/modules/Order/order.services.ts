@@ -132,7 +132,7 @@ const createOrder = async (payload: TCreateOrderPayloadType) => {
     throw new AppError(httpStatus.NOT_FOUND, 'Local delivery not allowed')
   }
 
-  if (shippingType === 'local_pickup' && !campaign.allowLocalDelivery) {
+  if (shippingType === 'local_pickup' && !campaign.allowLocalPickup) {
     throw new AppError(httpStatus.NOT_FOUND, 'Local pickup not allowed')
   }
 
@@ -552,7 +552,7 @@ const previewOrderPrice = async (payload: TPreviewOrderPayloadType) => {
     throw new AppError(httpStatus.NOT_FOUND, 'Local delivery not allowed')
   }
 
-  if (shippingType === 'local_pickup' && !campaign.allowLocalDelivery) {
+  if (shippingType === 'local_pickup' && !campaign.allowLocalPickup) {
     throw new AppError(httpStatus.NOT_FOUND, 'Local pickup not allowed')
   }
 

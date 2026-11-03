@@ -27,6 +27,7 @@ import {
   productType,
   PromoCode,
   PromoCodeUsage,
+  Supporter,
   User,
   type TPaymentType,
 } from '@repo/db'
@@ -465,6 +466,213 @@ export const handleCampaignCheckoutSessionExpired = async (
   }
 }
 
+
+const sendDonationSuccessEmail = async ({
+  to,
+  donorName,
+  campaignName,
+  amount,
+  donationId,
+}: {
+  to: string
+  donorName: string
+  campaignName: string
+  amount: number
+  donationId: string
+}) => {
+  const logo = configs.site.logo || 'https://funraising-it.s3.us-east-1.amazonaws.com/non_delatable_files/funraisingit-logo.png'
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Donation Confirmation</title>
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f6f9fc; margin: 0; padding: 30px 10px;">
+      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+        <div style="background: linear-gradient(135deg, #03AFA8 0%, #029690 100%); padding: 35px 20px; text-align: center; border-bottom: 4px solid #FE7B01;">
+          <img src="${logo}" alt="${configs.site.name || 'FunRaisingIt'}" style="max-width: 170px; height: auto; margin-bottom: 12px; background: #ffffff; padding: 8px 16px; border-radius: 8px;" />
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700;">Thank You for Your Donation! ❤️</h1>
+        </div>
+        <div style="padding: 30px 25px;">
+          <p style="font-size: 16px; color: #1e293b; margin-top: 0;">Hi <strong>${donorName}</strong>,</p>
+          <p style="font-size: 15px; color: #475569; line-height: 1.6;">
+            We received your generous donation to support <strong>${campaignName}</strong>. Your contribution makes a real difference in helping them reach their goal!
+          </p>
+          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 25px 0;">
+            <div style="font-size: 13px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 15px;">
+              Donation Receipt
+            </div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+              <tr>
+                <td style="padding: 6px 0; color: #64748b;">Campaign:</td>
+                <td style="padding: 6px 0; text-align: right; font-weight: 600; color: #1e293b;">${campaignName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 0; color: #64748b;">Receipt ID:</td>
+                <td style="padding: 6px 0; text-align: right; color: #64748b; font-family: monospace;">#${donationId.slice(-8).toUpperCase()}</td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 0; color: #64748b;">Date:</td>
+                <td style="padding: 6px 0; text-align: right; color: #1e293b;">${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+              </tr>
+              <tr style="border-top: 1px dashed #cbd5e1;">
+                <td style="padding: 12px 0 0 0; font-size: 16px; font-weight: 700; color: #0f172a;">Total Donated:</td>
+                <td style="padding: 12px 0 0 0; text-align: right; font-size: 18px; font-weight: 700; color: #03AFA8;">$${amount.toFixed(2)}</td>
+              </tr>
+            </table>
+          </div>
+          <p style="font-size: 14px; color: #64748b; line-height: 1.5;">
+            Thank you once again for empowering community dreams. If you have any questions, feel free to contact us at <a href="mailto:${configs.site.supportEmail}" style="color: #03AFA8; text-decoration: none;">${configs.site.supportEmail}</a>.
+          </p>
+        </div>
+        <div style="background-color: #f1f5f9; padding: 18px; text-align: center; border-top: 1px solid #e2e8f0;">
+          <p style="margin: 0; font-size: 12px; color: #94a3b8;">
+            © ${new Date().getFullYear()} ${configs.site.name || 'FunRaisingIt'}. All rights reserved.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `
+  await sendEmail({
+    to,
+    subject: `Thank you for supporting "${campaignName}"!`,
+    html,
+  })
+}
+
+const sendOrderSuccessEmail = async ({
+  to,
+  customerName,
+  campaignName,
+  order,
+  items,
+}: {
+  to: string
+  customerName: string
+  campaignName: string
+  order: {
+    id: string
+    subTotal: number
+    shippingAmount: number
+    gstAmount: number
+    stripeFeeAmount: number
+    totalAmount: number
+    shippingType: string
+  }
+  items: Array<{
+    name: string
+    quantity: number
+    unitPrice: number
+    total: number
+  }>
+}) => {
+  const logo = configs.site.logo || 'https://funraising-it.s3.us-east-1.amazonaws.com/non_delatable_files/funraisingit-logo.png'
+  const deliveryLabel =
+    order.shippingType === 'local_pickup'
+      ? 'Local Pickup'
+      : order.shippingType === 'local_delivery'
+        ? 'Local Delivery'
+        : 'Shipping'
+
+  const itemsHtml = items
+    .map(
+      (item) => `
+      <tr style="border-bottom: 1px solid #f1f5f9;">
+        <td style="padding: 10px 0; color: #1e293b; font-weight: 500;">
+          ${item.name}
+          <div style="font-size: 12px; color: #64748b; font-weight: normal;">Qty: ${item.quantity} × $${item.unitPrice.toFixed(2)}</div>
+        </td>
+        <td style="padding: 10px 0; text-align: right; color: #1e293b; font-weight: 600;">
+          $${item.total.toFixed(2)}
+        </td>
+      </tr>
+    `
+    )
+    .join('')
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Order Confirmation</title>
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f6f9fc; margin: 0; padding: 30px 10px;">
+      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+        <div style="background: linear-gradient(135deg, #03AFA8 0%, #029690 100%); padding: 35px 20px; text-align: center; border-bottom: 4px solid #FE7B01;">
+          <img src="${logo}" alt="${configs.site.name || 'FunRaisingIt'}" style="max-width: 170px; height: auto; margin-bottom: 12px; background: #ffffff; padding: 8px 16px; border-radius: 8px;" />
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700;">Order Confirmed! 🎉</h1>
+        </div>
+        <div style="padding: 30px 25px;">
+          <p style="font-size: 16px; color: #1e293b; margin-top: 0;">Hi <strong>${customerName}</strong>,</p>
+          <p style="font-size: 15px; color: #475569; line-height: 1.6;">
+            Thank you for supporting <strong>${campaignName}</strong>! Your order has been placed and confirmed successfully.
+          </p>
+          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px 20px; margin: 20px 0;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+              <tr>
+                <td><span style="color: #64748b;">Order #:</span> <strong style="color: #0f172a;">${order.id.slice(-8).toUpperCase()}</strong></td>
+                <td style="text-align: right;"><span style="color: #64748b;">Delivery:</span> <strong style="color: #03AFA8;">${deliveryLabel}</strong></td>
+              </tr>
+            </table>
+          </div>
+          <div style="margin: 25px 0;">
+            <div style="font-size: 13px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 10px;">
+              Items Ordered
+            </div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+              ${itemsHtml}
+            </table>
+          </div>
+          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px 20px; margin: 20px 0;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+              <tr>
+                <td style="padding: 4px 0; color: #64748b;">Subtotal:</td>
+                <td style="padding: 4px 0; text-align: right; color: #1e293b;">$${order.subTotal.toFixed(2)}</td>
+              </tr>
+              ${order.shippingAmount > 0 ? `
+                <tr>
+                  <td style="padding: 4px 0; color: #64748b;">Shipping Fee:</td>
+                  <td style="padding: 4px 0; text-align: right; color: #1e293b;">$${order.shippingAmount.toFixed(2)}</td>
+                </tr>` : ''}
+              ${order.gstAmount > 0 ? `
+                <tr>
+                  <td style="padding: 4px 0; color: #64748b;">Estimated Tax:</td>
+                  <td style="padding: 4px 0; text-align: right; color: #1e293b;">$${order.gstAmount.toFixed(2)}</td>
+                </tr>` : ''}
+              ${order.stripeFeeAmount > 0 ? `
+                <tr>
+                  <td style="padding: 4px 0; color: #64748b;">Processing Fee:</td>
+                  <td style="padding: 4px 0; text-align: right; color: #1e293b;">$${order.stripeFeeAmount.toFixed(2)}</td>
+                </tr>` : ''}
+              <tr style="border-top: 1px dashed #cbd5e1;">
+                <td style="padding: 12px 0 0 0; font-size: 16px; font-weight: 700; color: #0f172a;">Total Paid:</td>
+                <td style="padding: 12px 0 0 0; text-align: right; font-size: 18px; font-weight: 700; color: #03AFA8;">$${order.totalAmount.toFixed(2)}</td>
+              </tr>
+            </table>
+          </div>
+          <p style="font-size: 14px; color: #64748b; line-height: 1.5;">
+            If you ordered physical items for shipping or delivery, the organizer will handle the fulfillment. If you have any questions, you can contact us at <a href="mailto:${configs.site.supportEmail}" style="color: #03AFA8; text-decoration: none;">${configs.site.supportEmail}</a>.
+          </p>
+        </div>
+        <div style="background-color: #f1f5f9; padding: 18px; text-align: center; border-top: 1px solid #e2e8f0;">
+          <p style="margin: 0; font-size: 12px; color: #94a3b8;">
+            © ${new Date().getFullYear()} ${configs.site.name || 'FunRaisingIt'}. All rights reserved.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `
+  await sendEmail({
+    to,
+    subject: `Your order confirmation for "${campaignName}" (#${order.id.slice(-8).toUpperCase()})`,
+    html,
+  })
+}
+
 export const handleDonationCheckoutPaymentSuccess = async (
   checkoutSession: Stripe.Checkout.Session
 ) => {
@@ -662,6 +870,24 @@ export const handleDonationCheckoutPaymentSuccess = async (
     }
 
     await mongoSession.commitTransaction()
+
+    try {
+      const supporter = await Supporter.findById(donation.supporter)
+      const recipientEmail =
+        supporter?.email || (checkoutSession.customer_details?.email as string)
+
+      if (recipientEmail) {
+        await sendDonationSuccessEmail({
+          to: recipientEmail,
+          donorName: donation.donorName || supporter?.name || 'Valued Supporter',
+          campaignName: campaign.name,
+          amount: grossAmount,
+          donationId: donation._id.toString(),
+        })
+      }
+    } catch (emailErr) {
+      logger.error('Failed to send donation confirmation email:', emailErr)
+    }
 
     return payment
   } catch (error) {
@@ -1159,6 +1385,42 @@ export const handleOrderCheckoutPaymentSuccess = async (
     }
 
     await mongoSession.commitTransaction()
+
+    try {
+      const supporter = await Supporter.findById(order.supporter)
+      const recipientEmail =
+        supporter?.email || (checkoutSession.customer_details?.email as string)
+
+      if (recipientEmail) {
+        const orderItems = await OrderItem.find({ order: order._id }).populate({
+          path: 'product',
+          select: 'name price productImage',
+        })
+
+        await sendOrderSuccessEmail({
+          to: recipientEmail,
+          customerName: order.customerName || supporter?.name || 'Valued Customer',
+          campaignName: campaign.name,
+          order: {
+            id: order._id.toString(),
+            subTotal: order.subTotal,
+            shippingAmount: order.shippingAmount,
+            gstAmount: order.gstAmount || 0,
+            stripeFeeAmount: order.stripeFeeAmount || 0,
+            totalAmount: order.totalAmount,
+            shippingType: order.shippingType,
+          },
+          items: orderItems.map((item: any) => ({
+            name: item.product?.name || 'Product',
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            total: Number((item.quantity * item.unitPrice).toFixed(2)),
+          })),
+        })
+      }
+    } catch (emailErr) {
+      logger.error('Failed to send order confirmation email:', emailErr)
+    }
 
     return payment
   } catch (error) {
