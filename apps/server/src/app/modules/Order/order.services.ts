@@ -276,32 +276,31 @@ const createOrder = async (payload: TCreateOrderPayloadType) => {
     gstAmount: calculatedTax
   })
 
+  // ?? Supporter:
+  const newSupporter = await Supporter.findOneAndUpdate(
+    {
+      email: email?.trim(),
+    },
+    {
+      $set: {
+        name: fullName,
+        phoneNumber: phone,
+      },
+    },
+    {
+      upsert: true,
+      returnDocument: 'after',
+    }
+  )
+
+  if (!newSupporter) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Failed to updated supporter info.')
+  }
+
   const mongoSession = await mongoose.startSession()
 
   try {
     mongoSession.startTransaction()
-    // ?? Supporter:
-
-    const newSupporter = await Supporter.findOneAndUpdate(
-      {
-        email: email?.trim(),
-      },
-      {
-        $set: {
-          name: fullName,
-          phoneNumber: phone,
-        },
-      },
-      {
-        upsert: true,
-        returnDocument: 'after',
-        session: mongoSession,
-      }
-    )
-
-    if (!newSupporter) {
-      throw new AppError(httpStatus.BAD_REQUEST, 'Failed to updated supporter info.')
-    }
 
     // ?? Order :
     const [order] = await Order.create(

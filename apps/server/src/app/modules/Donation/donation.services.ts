@@ -120,33 +120,32 @@ const createDonation = async (payload: TCreateDonationPayloadType) => {
   })
 
 
+  // ?? Supporter:
+  const fullName = firstName?.trim() + ' ' + lastName?.trim()
+  const newSupporter = await Supporter.findOneAndUpdate(
+    {
+      email: email?.trim(),
+    },
+    {
+      $set: {
+        name: fullName,
+        phoneNumber: phone,
+      },
+    },
+    {
+      upsert: true,
+      returnDocument: 'after',
+    }
+  )
+
+  if (!newSupporter) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Failed to updated supporter info.')
+  }
+
   const session = await mongoose.startSession()
 
   try {
     session.startTransaction()
-
-    // ?? Supporter:
-    const fullName = firstName?.trim() + ' ' + lastName?.trim()
-    const newSupporter = await Supporter.findOneAndUpdate(
-      {
-        email: email?.trim(),
-      },
-      {
-        $set: {
-          name: fullName,
-          phoneNumber: phone,
-        },
-      },
-      {
-        upsert: true,
-        returnDocument: 'after',
-        session,
-      }
-    )
-
-    if (!newSupporter) {
-      throw new AppError(httpStatus.BAD_REQUEST, 'Failed to updated supporter info.')
-    }
 
     const [donation] = await Donation.create(
       [
