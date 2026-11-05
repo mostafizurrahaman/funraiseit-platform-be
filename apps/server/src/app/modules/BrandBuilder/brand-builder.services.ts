@@ -9,8 +9,10 @@ import {
   paymentStatus,
   paymentType,
   SiteInfo,
+  User,
   type IUser,
 } from '@repo/db'
+import { notifyBrandBuilderCompleted } from '@app/libs/notification-emails'
 import httpStatus from 'http-status'
 import { AppError } from '@repo/shared'
 import type { PipelineStage } from 'mongoose'
@@ -400,6 +402,15 @@ const completeBrandBuilder = async (id: string) => {
   brandBuilder.status = brandBuilderStatus.COMPLETED
 
   await brandBuilder.save()
+
+  const organizer = await User.findById(brandBuilder.organizer)
+  if (organizer?.email) {
+    await notifyBrandBuilderCompleted({
+      organizerName: organizer.name || 'Organizer',
+      organizerEmail: organizer.email,
+      businessName: brandBuilder.businessName || 'Brand Project',
+    })
+  }
 
   return brandBuilder
 }

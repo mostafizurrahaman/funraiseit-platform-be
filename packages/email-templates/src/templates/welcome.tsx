@@ -8,7 +8,7 @@ import {
   Section,
   Text,
 } from '@react-email/components'
-import { EmailLayout } from '../layouts/email-layout' // Adjust path based on your folder structure
+import { EmailLayout } from '../layouts/email-layout'
 
 export interface WelcomeEmailProps {
   firstName: string
@@ -34,7 +34,6 @@ export const WelcomeEmail = ({
   logoSrc,
   greeting = 'Welcome aboard!',
   supportEmail = 'support@funraisingit.com',
-  companyAddress,
   footer,
 }: WelcomeEmailProps): React.ReactElement => {
   const finalProductName = productName || companyName
@@ -43,7 +42,7 @@ export const WelcomeEmail = ({
   return (
     <EmailLayout previewText={previewText}>
       {/* Header */}
-      <Section className="px-8 pt-10 pb-6 text-center">
+      <Section className="email-header px-5 sm:px-8 pt-8 sm:pt-10 pb-6 text-center">
         {logoSrc && (
           <div className="bg-white inline-block p-3 rounded-xl shadow-md border border-slate-100 mb-5">
             <Img
@@ -51,7 +50,8 @@ export const WelcomeEmail = ({
               width="180"
               height="60"
               alt={companyName}
-              className="mx-auto object-contain rounded-md "
+              className="mx-auto object-contain rounded-md"
+              style={{ maxWidth: '100%', height: 'auto' }}
             />
           </div>
         )}
@@ -62,7 +62,7 @@ export const WelcomeEmail = ({
       </Section>
 
       {/* Main Content */}
-      <Section className="px-8 pb-8">
+      <Section className="email-content px-5 sm:px-8 pb-8">
         <Text className="text-slate-800 text-base font-semibold mb-4 m-0">
           Hi {firstName},
         </Text>
@@ -76,16 +76,19 @@ export const WelcomeEmail = ({
         </Text>
 
         {/* Temporary Password Box */}
-        <Section className="bg-[#f6f9fc] rounded-xl border-2 border-dashed border-[#03AFA8]/50 my-8 p-6 text-center">
+        <Section className="email-card bg-[#f6f9fc] rounded-xl border-2 border-dashed border-[#03AFA8]/50 my-6 sm:my-8 p-4 sm:p-6 text-center">
           <Text className="text-xs uppercase tracking-widest text-[#FE7B01] font-bold mb-3 m-0">
             Temporary Password
           </Text>
-          <Text className="text-2xl font-mono font-bold tracking-[2px] text-[#03AFA8] m-0 bg-white inline-block px-4 py-2 rounded-lg shadow-sm">
+          <Text
+            className="text-xl sm:text-2xl font-mono font-bold tracking-[2px] text-[#03AFA8] m-0 bg-white inline-block px-4 py-2 rounded-lg shadow-sm"
+            style={{ wordBreak: 'break-all' }}
+          >
             {password}
           </Text>
         </Section>
 
-        <Text className="text-slate-600 text-base leading-relaxed m-0 mb-8">
+        <Text className="text-slate-600 text-base leading-relaxed m-0 mb-6 sm:mb-8">
           For your security, please change your password immediately after logging in for the first time.
         </Text>
 
@@ -104,9 +107,9 @@ export const WelcomeEmail = ({
             padding: '14px 20px',
             borderRadius: '8px',
             boxSizing: 'border-box',
-            marginBottom: '32px',
+            marginBottom: '28px',
           }}
-          className="bg-[#03AFA8] w-full text-white text-base font-semibold py-4 rounded-lg text-center shadow-sm mb-8 block"
+          className="email-btn bg-[#03AFA8] w-full text-white text-base font-semibold py-4 rounded-lg text-center shadow-sm mb-7 block"
         >
           Login to Your Account
         </Button>
@@ -130,6 +133,7 @@ export const WelcomeEmail = ({
             width="120"
             height="auto"
             className="mt-4"
+            style={{ maxWidth: '100%', height: 'auto' }}
           />
         )}
       </Section>
@@ -137,7 +141,7 @@ export const WelcomeEmail = ({
       <Hr className="border-slate-100 m-0" />
 
       {/* Footer */}
-      <Section className="px-8 py-6 bg-slate-50 text-center">
+      <Section className="email-content px-5 sm:px-8 py-6 bg-slate-50 text-center">
         {footer ? (
           footer
         ) : (

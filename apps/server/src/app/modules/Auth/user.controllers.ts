@@ -24,7 +24,7 @@ const resendSignupOTP = catchAsync(async (req, res) => {
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
-    message: `A new OTP has been sent to your email.`,
+    message: `A new OTP has been sent to your email. Please check your spam or junk mail. If the code does not work, request another one.`,
     data: result,
   })
 })
@@ -111,7 +111,7 @@ const resendOTP = catchAsync(async (req, res) => {
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
-    message: `A new password reset OTP has been sent to your email.`,
+    message: `A new password reset OTP has been sent to your email. Please check your spam or junk mail. If the code does not work, request another one.`,
     data: result,
   })
 })

@@ -35,7 +35,18 @@ import { AppError } from '@repo/shared'
 import type Stripe from 'stripe'
 import configs from '@app/configs'
 import { sendEmail } from 'packages/email-sender/src'
-import { CampaignLiveEmail, renderEmail } from 'packages/email-templates/src'
+import {
+  CampaignLiveEmail,
+  renderEmail,
+  CampaignContributionOwnerNotificationEmail,
+  BrandBuilderAdminNotificationEmail,
+} from 'packages/email-templates/src'
+import { getAdminEmails } from '@app/libs/get-admin-emails'
+import {
+  notifyBrandBuilderPaidOrganizer,
+  notifyPayoutFailed,
+  notifyPayoutPaid,
+} from '@app/libs/notification-emails'
 import { sendCampaignLiveNotification } from '../Campaign/campaign.utils'
 import { logger } from '@app/libs/logger'
 
@@ -223,7 +234,10 @@ export const handleCampaignCheckoutPaymentSuccess = async (session: Stripe.Check
       const organizer = await User.findById(campaign?.organizer)
 
       if (organizer && campaign) {
-        await sendCampaignLiveNotification(campaign, organizer)
+        await sendCampaignLiveNotification(campaign, organizer, {
+          isFreeLaunch: false,
+          launchFee: stripeOriginalAmount as number,
+        })
       }
     } catch (error) {
       await session.abortTransaction()
@@ -341,7 +355,7 @@ export const handleBrandBuilderCheckoutPaymentSuccess = async (
       )
     }
 
-    await BrandBuilder.findOneAndUpdate(
+    const updatedBrandBuilder = await BrandBuilder.findOneAndUpdate(
       {
         _id: brandBuilderId,
       },
@@ -354,10 +368,64 @@ export const handleBrandBuilderCheckoutPaymentSuccess = async (
       },
       {
         session: mongoSession,
+        new: true,
       }
     )
 
     await mongoSession.commitTransaction()
+
+    try {
+      if (updatedBrandBuilder) {
+        const organizer = await User.findById(updatedBrandBuilder.organizer)
+        if (organizer?.email) {
+          await notifyBrandBuilderPaidOrganizer({
+            organizerName: organizer.name || 'Organizer',
+            organizerEmail: organizer.email,
+            businessName: updatedBrandBuilder.businessName || 'Brand Project',
+            amountPaid: amount,
+            sellingItem: updatedBrandBuilder.sellingItem,
+            brandStyle: updatedBrandBuilder.brandStyle,
+          })
+        }
+        const adminEmails = await getAdminEmails()
+
+        if (adminEmails && adminEmails.length > 0) {
+          const siteName = configs.site.name || 'FunRaisingIt'
+          const adminTemplate = await renderEmail(
+            BrandBuilderAdminNotificationEmail({
+              businessName: updatedBrandBuilder.businessName || 'Brand Project',
+              organizerName: organizer?.name || 'Organizer',
+              organizerEmail: organizer?.email || '',
+              organizerPhone: organizer?.phoneNumber,
+              amountPaid: amount,
+              sellingItem: updatedBrandBuilder.sellingItem,
+              brandStyle: updatedBrandBuilder.brandStyle,
+              budget: updatedBrandBuilder.budget,
+              colors: updatedBrandBuilder.colors,
+              placedAt: new Date().toLocaleString(),
+              adminDashboardUrl: `${configs.site.clientUrl}/admin`,
+              companyName: siteName,
+              companyLogo: (configs.site.logo as string) || undefined,
+            })
+          )
+
+          await Promise.allSettled(
+            adminEmails.map((adminEmail) =>
+              sendEmail({
+                to: adminEmail,
+                subject: `🎨 [Admin Alert] New Brand Builder Order: "${updatedBrandBuilder.businessName}" (${amount.toFixed(2)})`,
+                html: adminTemplate.html,
+                text: adminTemplate.text,
+                fromName: `${siteName} System`,
+                replyTo: configs.site.supportEmail || undefined,
+              })
+            )
+          )
+        }
+      }
+    } catch (emailErr) {
+      logger.error('Failed to send brand builder order notification to admin:', emailErr)
+    }
   } catch (error) {
     await mongoSession.abortTransaction()
     console.log(error)
@@ -486,39 +554,50 @@ const sendDonationSuccessEmail = async ({
     <html>
     <head>
       <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="x-apple-disable-message-reformatting">
       <title>Donation Confirmation</title>
+      <style>
+        @media only screen and (max-width: 600px) {
+          .email-body { padding: 12px 8px !important; }
+          .email-container { width: 100% !important; max-width: 100% !important; border-radius: 10px !important; }
+          .email-header { padding: 24px 16px !important; }
+          .email-content { padding: 20px 16px !important; }
+          .email-card { padding: 14px !important; }
+        }
+      </style>
     </head>
-    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f6f9fc; margin: 0; padding: 30px 10px;">
-      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
-        <div style="background: linear-gradient(135deg, #03AFA8 0%, #029690 100%); padding: 35px 20px; text-align: center; border-bottom: 4px solid #FE7B01;">
-          <img src="${logo}" alt="${configs.site.name || 'FunRaisingIt'}" style="max-width: 170px; height: auto; margin-bottom: 12px; background: #ffffff; padding: 8px 16px; border-radius: 8px;" />
-          <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700;">Thank You for Your Donation! ❤️</h1>
+    <body class="email-body" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f6f9fc; margin: 0; padding: 30px 10px;">
+      <div class="email-container" style="max-width: 600px; width: 100%; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+        <div class="email-header" style="background: linear-gradient(135deg, #03AFA8 0%, #029690 100%); padding: 35px 20px; text-align: center; border-bottom: 4px solid #FE7B01;">
+          <img src="${logo}" alt="${configs.site.name || 'FunRaisingIt'}" style="max-width: 170px; width: 100%; height: auto; margin-bottom: 12px; background: #ffffff; padding: 8px 16px; border-radius: 8px;" />
+          <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 700;">Thank You for Your Donation! ❤️</h1>
         </div>
-        <div style="padding: 30px 25px;">
+        <div class="email-content" style="padding: 30px 25px;">
           <p style="font-size: 16px; color: #1e293b; margin-top: 0;">Hi <strong>${donorName}</strong>,</p>
           <p style="font-size: 15px; color: #475569; line-height: 1.6;">
             We received your generous donation to support <strong>${campaignName}</strong>. Your contribution makes a real difference in helping them reach their goal!
           </p>
-          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 25px 0;">
+          <div class="email-card" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 25px 0;">
             <div style="font-size: 13px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 15px;">
               Donation Receipt
             </div>
             <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
               <tr>
-                <td style="padding: 6px 0; color: #64748b;">Campaign:</td>
-                <td style="padding: 6px 0; text-align: right; font-weight: 600; color: #1e293b;">${campaignName}</td>
+                <td style="padding: 6px 12px 6px 0; color: #64748b; vertical-align: top; white-space: nowrap;">Campaign:</td>
+                <td style="padding: 6px 0; text-align: right; font-weight: 600; color: #1e293b; word-break: break-word;">${campaignName}</td>
               </tr>
               <tr>
-                <td style="padding: 6px 0; color: #64748b;">Receipt ID:</td>
-                <td style="padding: 6px 0; text-align: right; color: #64748b; font-family: monospace;">#${donationId.slice(-8).toUpperCase()}</td>
+                <td style="padding: 6px 12px 6px 0; color: #64748b; white-space: nowrap;">Receipt ID:</td>
+                <td style="padding: 6px 0; text-align: right; color: #64748b; font-family: monospace; white-space: nowrap;">#${donationId.slice(-8).toUpperCase()}</td>
               </tr>
               <tr>
-                <td style="padding: 6px 0; color: #64748b;">Date:</td>
-                <td style="padding: 6px 0; text-align: right; color: #1e293b;">${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                <td style="padding: 6px 12px 6px 0; color: #64748b; white-space: nowrap;">Date:</td>
+                <td style="padding: 6px 0; text-align: right; color: #1e293b; white-space: nowrap;">${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
               </tr>
               <tr style="border-top: 1px dashed #cbd5e1;">
-                <td style="padding: 12px 0 0 0; font-size: 16px; font-weight: 700; color: #0f172a;">Total Donated:</td>
-                <td style="padding: 12px 0 0 0; text-align: right; font-size: 18px; font-weight: 700; color: #03AFA8;">$${amount.toFixed(2)}</td>
+                <td style="padding: 12px 12px 0 0; font-size: 16px; font-weight: 700; color: #0f172a; white-space: nowrap;">Total Donated:</td>
+                <td style="padding: 12px 0 0 0; text-align: right; font-size: 18px; font-weight: 700; color: #03AFA8; white-space: nowrap;">$${amount.toFixed(2)}</td>
               </tr>
             </table>
           </div>
@@ -539,6 +618,8 @@ const sendDonationSuccessEmail = async ({
     to,
     subject: `Thank you for supporting "${campaignName}"!`,
     html,
+    fromName: configs.site.name || 'FunRaisingIt',
+    replyTo: configs.site.supportEmail || undefined,
   })
 }
 
@@ -597,24 +678,36 @@ const sendOrderSuccessEmail = async ({
     <html>
     <head>
       <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="x-apple-disable-message-reformatting">
       <title>Order Confirmation</title>
+      <style>
+        @media only screen and (max-width: 600px) {
+          .email-body { padding: 12px 8px !important; }
+          .email-container { width: 100% !important; max-width: 100% !important; border-radius: 10px !important; }
+          .email-header { padding: 24px 16px !important; }
+          .email-content { padding: 20px 16px !important; }
+          .email-card { padding: 14px !important; }
+          .stack-col { display: block !important; width: 100% !important; text-align: left !important; padding-bottom: 4px !important; }
+        }
+      </style>
     </head>
-    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f6f9fc; margin: 0; padding: 30px 10px;">
-      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
-        <div style="background: linear-gradient(135deg, #03AFA8 0%, #029690 100%); padding: 35px 20px; text-align: center; border-bottom: 4px solid #FE7B01;">
-          <img src="${logo}" alt="${configs.site.name || 'FunRaisingIt'}" style="max-width: 170px; height: auto; margin-bottom: 12px; background: #ffffff; padding: 8px 16px; border-radius: 8px;" />
-          <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700;">Order Confirmed! 🎉</h1>
+    <body class="email-body" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f6f9fc; margin: 0; padding: 30px 10px;">
+      <div class="email-container" style="max-width: 600px; width: 100%; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+        <div class="email-header" style="background: linear-gradient(135deg, #03AFA8 0%, #029690 100%); padding: 35px 20px; text-align: center; border-bottom: 4px solid #FE7B01;">
+          <img src="${logo}" alt="${configs.site.name || 'FunRaisingIt'}" style="max-width: 170px; width: 100%; height: auto; margin-bottom: 12px; background: #ffffff; padding: 8px 16px; border-radius: 8px;" />
+          <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 700;">Order Confirmed! 🎉</h1>
         </div>
-        <div style="padding: 30px 25px;">
+        <div class="email-content" style="padding: 30px 25px;">
           <p style="font-size: 16px; color: #1e293b; margin-top: 0;">Hi <strong>${customerName}</strong>,</p>
           <p style="font-size: 15px; color: #475569; line-height: 1.6;">
             Thank you for supporting <strong>${campaignName}</strong>! Your order has been placed and confirmed successfully.
           </p>
-          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px 20px; margin: 20px 0;">
+          <div class="email-card" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px 20px; margin: 20px 0;">
             <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
               <tr>
-                <td><span style="color: #64748b;">Order #:</span> <strong style="color: #0f172a;">${order.id.slice(-8).toUpperCase()}</strong></td>
-                <td style="text-align: right;"><span style="color: #64748b;">Delivery:</span> <strong style="color: #03AFA8;">${deliveryLabel}</strong></td>
+                <td class="stack-col" style="white-space: nowrap;"><span style="color: #64748b;">Order #:</span> <strong style="color: #0f172a;">${order.id.slice(-8).toUpperCase()}</strong></td>
+                <td class="stack-col" style="text-align: right; white-space: nowrap;"><span style="color: #64748b;">Delivery:</span> <strong style="color: #03AFA8;">${deliveryLabel}</strong></td>
               </tr>
             </table>
           </div>
@@ -626,30 +719,30 @@ const sendOrderSuccessEmail = async ({
               ${itemsHtml}
             </table>
           </div>
-          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px 20px; margin: 20px 0;">
+          <div class="email-card" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px 20px; margin: 20px 0;">
             <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
               <tr>
-                <td style="padding: 4px 0; color: #64748b;">Subtotal:</td>
-                <td style="padding: 4px 0; text-align: right; color: #1e293b;">$${order.subTotal.toFixed(2)}</td>
+                <td style="padding: 4px 12px 4px 0; color: #64748b; white-space: nowrap;">Subtotal:</td>
+                <td style="padding: 4px 0; text-align: right; color: #1e293b; white-space: nowrap;">$${order.subTotal.toFixed(2)}</td>
               </tr>
               ${order.shippingAmount > 0 ? `
                 <tr>
-                  <td style="padding: 4px 0; color: #64748b;">Shipping Fee:</td>
-                  <td style="padding: 4px 0; text-align: right; color: #1e293b;">$${order.shippingAmount.toFixed(2)}</td>
+                  <td style="padding: 4px 12px 4px 0; color: #64748b; white-space: nowrap;">Shipping Fee:</td>
+                  <td style="padding: 4px 0; text-align: right; color: #1e293b; white-space: nowrap;">$${order.shippingAmount.toFixed(2)}</td>
                 </tr>` : ''}
               ${order.gstAmount > 0 ? `
                 <tr>
-                  <td style="padding: 4px 0; color: #64748b;">Estimated Tax:</td>
-                  <td style="padding: 4px 0; text-align: right; color: #1e293b;">$${order.gstAmount.toFixed(2)}</td>
+                  <td style="padding: 4px 12px 4px 0; color: #64748b; white-space: nowrap;">Estimated Tax:</td>
+                  <td style="padding: 4px 0; text-align: right; color: #1e293b; white-space: nowrap;">$${order.gstAmount.toFixed(2)}</td>
                 </tr>` : ''}
               ${order.stripeFeeAmount > 0 ? `
                 <tr>
-                  <td style="padding: 4px 0; color: #64748b;">Processing Fee:</td>
-                  <td style="padding: 4px 0; text-align: right; color: #1e293b;">$${order.stripeFeeAmount.toFixed(2)}</td>
+                  <td style="padding: 4px 12px 4px 0; color: #64748b; white-space: nowrap;">Processing Fee:</td>
+                  <td style="padding: 4px 0; text-align: right; color: #1e293b; white-space: nowrap;">$${order.stripeFeeAmount.toFixed(2)}</td>
                 </tr>` : ''}
               <tr style="border-top: 1px dashed #cbd5e1;">
-                <td style="padding: 12px 0 0 0; font-size: 16px; font-weight: 700; color: #0f172a;">Total Paid:</td>
-                <td style="padding: 12px 0 0 0; text-align: right; font-size: 18px; font-weight: 700; color: #03AFA8;">$${order.totalAmount.toFixed(2)}</td>
+                <td style="padding: 12px 12px 0 0; font-size: 16px; font-weight: 700; color: #0f172a; white-space: nowrap;">Total Paid:</td>
+                <td style="padding: 12px 0 0 0; text-align: right; font-size: 18px; font-weight: 700; color: #03AFA8; white-space: nowrap;">$${order.totalAmount.toFixed(2)}</td>
               </tr>
             </table>
           </div>
@@ -670,6 +763,8 @@ const sendOrderSuccessEmail = async ({
     to,
     subject: `Your order confirmation for "${campaignName}" (#${order.id.slice(-8).toUpperCase()})`,
     html,
+    fromName: configs.site.name || 'FunRaisingIt',
+    replyTo: configs.site.supportEmail || undefined,
   })
 }
 
@@ -883,6 +978,38 @@ export const handleDonationCheckoutPaymentSuccess = async (
           campaignName: campaign.name,
           amount: grossAmount,
           donationId: donation._id.toString(),
+        })
+      }
+
+      // Notify Campaign Organizer
+      const organizer = await User.findById(campaign.organizer)
+      if (organizer && organizer.email) {
+        const ownerTemplate = await renderEmail(
+          CampaignContributionOwnerNotificationEmail({
+            organizerName: organizer.name || 'Organizer',
+            campaignName: campaign.name,
+            campaignCode: campaign.campaignCode,
+            contributionType: 'donation',
+            contributorName: donation.donorName || supporter?.name || 'A Generous Supporter',
+            contributorEmail: recipientEmail,
+            amountContributed: grossAmount,
+            totalRaisedSoFar: campaign.raisedAmount,
+            goalAmount: campaign.goalAmount,
+            dashboardUrl: `${configs.site.clientUrl}/dashboard`,
+            campaignUrl: `${configs.site.clientUrl}/campaign/${campaign.campaignCode}`,
+            companyName: configs.site.name || 'FunRaisingIt',
+            companyLogo: (configs.site.logo as string) || undefined,
+            supportEmail: configs.site.supportEmail || undefined,
+          })
+        )
+
+        await sendEmail({
+          to: organizer.email,
+          subject: `🎉 New Donation: ${grossAmount.toFixed(2)} received for "${campaign.name}"!`,
+          html: ownerTemplate.html,
+          text: ownerTemplate.text,
+          fromName: configs.site.name || 'FunRaisingIt',
+          replyTo: configs.site.supportEmail || undefined,
         })
       }
     } catch (emailErr) {
@@ -1391,12 +1518,12 @@ export const handleOrderCheckoutPaymentSuccess = async (
       const recipientEmail =
         supporter?.email || (checkoutSession.customer_details?.email as string)
 
-      if (recipientEmail) {
-        const orderItems = await OrderItem.find({ order: order._id }).populate({
-          path: 'product',
-          select: 'name price productImage',
-        })
+      const orderItems = await OrderItem.find({ order: order._id }).populate({
+        path: 'product',
+        select: 'name price productImage',
+      })
 
+      if (recipientEmail) {
         await sendOrderSuccessEmail({
           to: recipientEmail,
           customerName: order.customerName || supporter?.name || 'Valued Customer',
@@ -1416,6 +1543,47 @@ export const handleOrderCheckoutPaymentSuccess = async (
             unitPrice: item.unitPrice,
             total: Number((item.quantity * item.unitPrice).toFixed(2)),
           })),
+        })
+      }
+
+      // Notify Campaign Organizer
+      const organizer = await User.findById(campaign.organizer)
+      if (organizer && organizer.email) {
+        const orderItemsSummary = orderItems.map((item: any) => ({
+          name: item.product?.name || 'Product',
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          total: Number((item.quantity * item.unitPrice).toFixed(2)),
+        }))
+
+        const ownerTemplate = await renderEmail(
+          CampaignContributionOwnerNotificationEmail({
+            organizerName: organizer.name || 'Organizer',
+            campaignName: campaign.name,
+            campaignCode: campaign.campaignCode,
+            contributionType: 'order',
+            contributorName: order.customerName || supporter?.name || 'A Customer',
+            contributorEmail: recipientEmail,
+            amountContributed: order.totalAmount,
+            totalRaisedSoFar: campaign.raisedAmount,
+            goalAmount: campaign.goalAmount,
+            orderItems: orderItemsSummary,
+            deliveryType: order.shippingType,
+            dashboardUrl: `${configs.site.clientUrl}/dashboard`,
+            campaignUrl: `${configs.site.clientUrl}/campaign/${campaign.campaignCode}`,
+            companyName: configs.site.name || 'FunRaisingIt',
+            companyLogo: (configs.site.logo as string) || undefined,
+            supportEmail: configs.site.supportEmail || undefined,
+          })
+        )
+
+        await sendEmail({
+          to: organizer.email,
+          subject: `🛍️ New Order: ${order.totalAmount.toFixed(2)} received for "${campaign.name}"!`,
+          html: ownerTemplate.html,
+          text: ownerTemplate.text,
+          fromName: configs.site.name || 'FunRaisingIt',
+          replyTo: configs.site.supportEmail || undefined,
         })
       }
     } catch (emailErr) {
@@ -1682,16 +1850,27 @@ export const handlePayoutPaid = async (payout: Stripe.Payout) => {
       { session }
     )
 
-    await Campaign.findByIdAndUpdate(
+    const updatedCampaign = await Campaign.findByIdAndUpdate(
       dbPayout.campaign,
       {
         status: CampaignStatus.PAID_OUT,
         paidOutAt: new Date(),
       },
-      { session }
+      { session, new: true }
     )
 
     await session.commitTransaction()
+
+    const organizer = await User.findById(dbPayout.organizer)
+    if (organizer?.email && updatedCampaign) {
+      await notifyPayoutPaid({
+        organizerName: organizer.name || 'Organizer',
+        organizerEmail: organizer.email,
+        campaignName: updatedCampaign.name,
+        campaignCode: updatedCampaign.campaignCode,
+        amount: dbPayout.amount ?? (payout.amount / 100),
+      })
+    }
   } catch (error) {
     await session.abortTransaction()
     throw error
@@ -1729,16 +1908,28 @@ export const handlePayoutFailed = async (payout: Stripe.Payout) => {
       { session }
     )
 
-    await Campaign.findByIdAndUpdate(
+    const updatedCampaign = await Campaign.findByIdAndUpdate(
       dbPayout.campaign,
       {
         status: CampaignStatus.COMPLETED,
         expectedPayoutDate: moment().add(1, 'days').toDate(),
       },
-      { session }
+      { session, new: true }
     )
 
     await session.commitTransaction()
+
+    const organizer = await User.findById(dbPayout.organizer)
+    if (updatedCampaign) {
+      await notifyPayoutFailed({
+        organizerName: organizer?.name || 'Organizer',
+        organizerEmail: organizer?.email || '',
+        campaignName: updatedCampaign.name,
+        campaignCode: updatedCampaign.campaignCode,
+        amount: dbPayout.amount ?? (payout.amount / 100),
+        failureMessage: payout.failure_message ?? 'Payout transfer failed',
+      })
+    }
   } catch (error) {
     await session.abortTransaction()
     throw error

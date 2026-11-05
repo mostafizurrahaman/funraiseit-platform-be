@@ -1,4 +1,4 @@
-import { Button, Column, Hr, Img, Link, Row, Section, Text, Heading } from '@react-email/components'
+import { Column, Hr, Img, Link, Row, Section, Text, Heading } from '@react-email/components'
 import * as React from 'react'
 import { EmailLayout } from '../layouts/email-layout'
 
@@ -19,14 +19,13 @@ export const SignupOTPEmail = ({
   companyName = 'FunRaisingIt',
   companyLogo,
   supportEmail = 'support@funraisingit.com',
-  expirationMinutes = 1,
-  actionUrl,
+  expirationMinutes = 5,
   companyAddress,
 }: SignupOTPEmailProps): React.ReactElement => {
   return (
     <EmailLayout previewText={`Your verification code is ${otpCode}`}>
       {/* Header */}
-      <Section className="px-8 pt-10 pb-6 text-center">
+      <Section className="email-header px-5 sm:px-8 pt-8 sm:pt-10 pb-6 text-center">
         {companyLogo ? (
           <div className="bg-white inline-block p-3 rounded-xl shadow-md border border-slate-100 mb-5">
             <Img
@@ -35,6 +34,7 @@ export const SignupOTPEmail = ({
               height="60"
               alt={companyName}
               className="mx-auto object-contain rounded-md"
+              style={{ maxWidth: '100%', height: 'auto' }}
             />
           </div>
         ) : (
@@ -49,7 +49,7 @@ export const SignupOTPEmail = ({
       </Section>
 
       {/* Main Content */}
-      <Section className="px-8 pb-8">
+      <Section className="email-content px-5 sm:px-8 pb-8">
         <Text className="text-slate-600 text-base leading-relaxed font-semibold m-0 mb-4">
           Hi {userFirstName},
         </Text>
@@ -59,39 +59,21 @@ export const SignupOTPEmail = ({
         </Text>
 
         {/* OTP Box */}
-        <Section className="bg-[#f6f9fc] rounded-xl border-2 border-dashed border-[#03AFA8]/50 my-8 p-6 text-center">
+        <Section className="email-card bg-[#f6f9fc] rounded-xl border-2 border-dashed border-[#03AFA8]/50 my-6 sm:my-8 p-4 sm:p-6 text-center">
           <Text className="text-xs uppercase tracking-widest text-[#FE7B01] font-bold mb-3 m-0">
             Your Code
           </Text>
           <Row>
             <Column>
-              <Text className="text-4xl font-mono font-bold tracking-[12px] text-[#03AFA8] m-0">
+              <Text className="email-otp text-3xl sm:text-4xl font-mono font-bold tracking-[6px] sm:tracking-[12px] text-[#03AFA8] m-0">
                 {otpCode}
               </Text>
             </Column>
           </Row>
+          <Text className="text-slate-500 text-xs mt-3 mb-0">
+            Please check your spam or junk mail. If this code does not work, request another one.
+          </Text>
         </Section>
-
-        {/* Primary Color Button */}
-        {/* <Button
-          href={actionUrl || '#'}
-          style={{
-            backgroundColor: '#03AFA8',
-            color: '#ffffff',
-            fontSize: '16px',
-            fontWeight: '600',
-            textDecoration: 'none',
-            textAlign: 'center',
-            display: 'block',
-            width: '100%',
-            padding: '14px 20px',
-            borderRadius: '8px',
-            boxSizing: 'border-box',
-          }}
-          className="bg-[#03AFA8] w-full text-white text-base font-semibold py-4 rounded-lg text-center shadow-sm block"
-        >
-          Confirm Email Address
-        </Button> */}
 
         <Text className="text-slate-400 text-sm mt-6 text-center italic m-0">
           If you didn't request this, you can safely ignore this email.
@@ -101,7 +83,7 @@ export const SignupOTPEmail = ({
       <Hr className="border-slate-100 m-0" />
 
       {/* Footer */}
-      <Section className="px-8 py-6 bg-slate-50 text-center">
+      <Section className="email-content px-5 sm:px-8 py-6 bg-slate-50 text-center">
         {supportEmail && (
           <Text className="text-slate-500 text-sm m-0 mb-3">
             Questions?{' '}

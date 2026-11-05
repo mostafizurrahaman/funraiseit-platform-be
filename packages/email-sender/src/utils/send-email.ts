@@ -27,7 +27,7 @@ const htmlToTextFallback = (html: string): string => {
 
 export const sendEmail = async (params: SendEmailParams) => {
   const fromEmail = params.fromEmail || process.env.NODE_APP_EMAIL || ''
-  const fromName = params.fromName || process.env.SITE_NAME
+  const fromName = params.fromName || process.env.SITE_NAME || 'FunRaisingIt'
 
   const from =
     params.from ||

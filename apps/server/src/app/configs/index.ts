@@ -69,6 +69,7 @@ const envSchema = z.object({
     .regex(usaPhoneRegex, { error: 'Provide a valid usa number!' }),
   OTP_EXPIRES_IN: z.string().transform(Number).default(5),
   OTP_DIGITS: z.string().transform(Number).default(6),
+  OTP_RESEND_IN_MINUTES: z.string().transform(Number).default(1),
   OPEN_API_KEY: z.string(),
 
   // Telnyx Apies:
@@ -165,6 +166,7 @@ const configs = {
   otpSettings: {
     expiresIn: env.OTP_EXPIRES_IN,
     digits: env.OTP_DIGITS,
+    resendCooldown: env.OTP_RESEND_IN_MINUTES,
   },
 
   telnyxSettings: {

@@ -38,6 +38,12 @@ import type {
 } from './campaign.validations'
 import { uploadSingleFileToS3, type IMulterFile } from 'packages/media-hub/src'
 import { generateCampaignCode, sendCampaignLiveNotification } from './campaign.utils'
+import {
+  notifyCampaignCancelled,
+  notifyCampaignCompleted,
+  notifyCampaignRejected,
+  notifyPayoutFailed,
+} from '@app/libs/notification-emails'
 import mongoose, { Types } from 'mongoose'
 import { createStripePayout, stripe, stripeCheckoutSession } from '@app/libs/stripe'
 import { logger } from '@app/libs/logger'
@@ -1863,11 +1869,18 @@ const launchCampaignByID = async (user: IUser, campaignId: string, promoCode?: s
       await session.commitTransaction()
       await session.endSession()
 
+      await sendCampaignLiveNotification(updatedCampaign, user, {
+        isFreeLaunch: true,
+        promoCode: appliedPromoCode?.code,
+        launchFee: originalAmount,
+      })
 
       return {
         url: null,
         expiresAt: null,
         payment_required: false,
+        campaignId: updatedCampaign?._id,
+        campaignCode: updatedCampaign?.campaignCode,
       }
     }
 
@@ -2308,6 +2321,17 @@ const earlyCompleteCampaignById = async (user: IUser, campaignId: string) => {
     await User.findByIdAndUpdate(user._id, {
       $set: { hasSkippedReview: false },
     })
+
+    await notifyCampaignCompleted({
+      organizerName: user.name || 'Organizer',
+      organizerEmail: user.email,
+      campaignName: result.name,
+      campaignCode: result.campaignCode,
+      raisedAmount: result.raisedAmount ?? 0,
+      goalAmount: result.goalAmount,
+      expectedPayoutDate: result.expectedPayoutDate,
+      earlyCompleted: true,
+    })
   }
 
   return result
@@ -2350,6 +2374,16 @@ const cancelCampaignByOrganizerByCampaignID = async (
     }
   )
 
+  if (result) {
+    await notifyCampaignCancelled({
+      organizerName: user.name || 'Organizer',
+      organizerEmail: user.email,
+      campaignName: result.name,
+      campaignCode: result.campaignCode,
+      cancelledReason,
+    })
+  }
+
   return result
 }
 
@@ -2386,6 +2420,19 @@ const flaggedCampaignByOrganizerByCampaignID = async (
       returnDocument: 'after',
     }
   )
+
+  if (result) {
+    const organizer = await User.findById(result.organizer)
+    if (organizer?.email) {
+      await notifyCampaignRejected({
+        organizerName: organizer.name || 'Organizer',
+        organizerEmail: organizer.email,
+        campaignName: result.name,
+        campaignCode: result.campaignCode,
+        rejectionReason: rejectedReason,
+      })
+    }
+  }
 
   return result
 }
@@ -2428,6 +2475,23 @@ const cronJobToCompleteCampaign = async () => {
           },
         }
       )
+    }
+
+    const expectedPayoutDate = now.clone().add(2, 'days').toDate()
+    for (const c of campaignsToComplete) {
+      const organizer = await User.findById(c.organizer)
+      if (organizer?.email) {
+        await notifyCampaignCompleted({
+          organizerName: organizer.name || 'Organizer',
+          organizerEmail: organizer.email,
+          campaignName: c.name,
+          campaignCode: c.campaignCode,
+          raisedAmount: c.raisedAmount ?? 0,
+          goalAmount: c.goalAmount,
+          expectedPayoutDate,
+          earlyCompleted: false,
+        })
+      }
     }
 
     logger.info(`Completed ${result.modifiedCount} campaigns at ${now.toISOString()}`)
@@ -2568,6 +2632,16 @@ const cronJobToGetPayoutReadyCampaign = async () => {
         await Campaign.findByIdAndUpdate(campaign._id, {
           status: CampaignStatus.COMPLETED,
           expectedPayoutDate: moment().add(1, 'days').toDate(),
+        })
+
+        const organizer = await User.findById(campaign.organizer)
+        await notifyPayoutFailed({
+          organizerName: organizer?.name || 'Organizer',
+          organizerEmail: organizer?.email || '',
+          campaignName: campaign.name,
+          campaignCode: campaign.campaignCode,
+          amount: campaign.raisedAmountWithShipping ?? 0,
+          failureMessage: stripeError?.message || 'Stripe payout initiation failed',
         })
         continue
       }

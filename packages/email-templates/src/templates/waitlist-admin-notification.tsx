@@ -42,7 +42,7 @@ export const WaitlistAdminNotificationEmail = ({
   return (
     <EmailLayout previewText={previewText}>
       {/* Header */}
-      <Section className="bg-gradient-to-tr from-[#03AFA8] to-[#029690] p-8 text-center border-b-[5px] border-[#FE7B01]">
+      <Section className="email-header bg-gradient-to-tr from-[#03AFA8] to-[#029690] p-6 sm:p-8 text-center border-b-[5px] border-[#FE7B01]">
         {companyLogo && (
           <div className="bg-white inline-block p-3 rounded-xl shadow-lg mb-4 border border-white/20">
             <Img
@@ -51,6 +51,7 @@ export const WaitlistAdminNotificationEmail = ({
               height="60"
               alt={companyName}
               className="mx-auto object-contain rounded-md"
+              style={{ maxWidth: '100%', height: 'auto' }}
             />
           </div>
         )}
@@ -61,8 +62,7 @@ export const WaitlistAdminNotificationEmail = ({
       </Section>
 
       {/* Main Content */}
-      <Section className="px-8 pt-8 pb-6">
-        {/* Status Badge */}
+      <Section className="email-content px-5 sm:px-8 pt-6 sm:pt-8 pb-6">
         <div className="inline-block px-3 py-1 bg-[#FE7B01]/10 text-[#FE7B01] text-xs font-mono font-bold rounded-full mb-3">
           {isUpgrade ? '⭐ VIP PRIORITY UPGRADE' : '📢 NEW WAITING LIST ENTRY'}
         </div>
@@ -78,10 +78,12 @@ export const WaitlistAdminNotificationEmail = ({
         </Text>
 
         {/* Details Card */}
-        <Section className="bg-[#f6f9fc] rounded-xl border border-slate-200/80 p-5 my-4">
+        <Section className="email-card bg-[#f6f9fc] rounded-xl border border-slate-200/80 p-4 sm:p-5 my-4">
           <div className="mb-3">
             <Text className="text-xs uppercase text-slate-400 font-bold m-0">Email Address</Text>
-            <Text className="text-base text-slate-900 font-semibold m-0">{userEmail}</Text>
+            <Text className="text-base text-slate-900 font-semibold m-0" style={{ wordBreak: 'break-all' }}>
+              {userEmail}
+            </Text>
           </div>
 
           <div className="mb-3">
@@ -118,6 +120,7 @@ export const WaitlistAdminNotificationEmail = ({
         {adminDashboardUrl && (
           <Button
             href={adminDashboardUrl}
+            className="email-btn"
             style={{
               backgroundColor: '#03AFA8',
               color: '#ffffff',
@@ -142,7 +145,7 @@ export const WaitlistAdminNotificationEmail = ({
       <Hr className="border-slate-100 m-0" />
 
       {/* Footer */}
-      <Section className="px-8 py-5 bg-slate-50 text-center">
+      <Section className="email-content px-5 sm:px-8 py-5 bg-slate-50 text-center">
         <Text className="text-slate-400 text-xs m-0">
           This is an automated administrative notification from {companyName}.
         </Text>
