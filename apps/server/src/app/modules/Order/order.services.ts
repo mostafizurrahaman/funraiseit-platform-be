@@ -37,7 +37,9 @@ import mongoose, { Types } from 'mongoose'
 import { calculatePaymentBreakdown } from '@app/libs/get-stripe-fee-breakdown'
 import { stripe, stripeCheckoutSessionWithApplicationFee } from '@app/libs/stripe'
 import { logger } from '@app/libs/logger'
+import configs from '@app/configs'
 import { sendEmail } from '@repo/email-sender'
+import { notifyOrderCancelled, notifyOrderShipped } from '@app/libs/notification-emails'
 
 import type {
   TCreateOrderPayloadType,
@@ -1444,23 +1446,42 @@ const sendDigitalDeliveryEmail = async (
 ) => {
   try {
     const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
-        <h2 style="color: #333;">Your Digital Product is Ready!</h2>
-        <p>Hi ${customerName || 'there'},</p>
-        <p>Thank you for supporting <strong>${campaignName}</strong>. Your digital product is ready for download:</p>
-        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 6px; margin: 20px 0;">
-          <p style="margin: 0 0 10px 0; font-size: 16px; font-weight: bold; color: #222;">${productName}</p>
-          <a href="${downloadUrl}" style="display: inline-block; background-color: #0070f3; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;" target="_blank">Download Product</a>
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="x-apple-disable-message-reformatting">
+        <title>Digital Product Download</title>
+        <style>
+          @media only screen and (max-width: 600px) {
+            .email-container { width: 100% !important; max-width: 100% !important; padding: 16px !important; }
+            .email-btn { display: block !important; width: 100% !important; box-sizing: border-box !important; text-align: center !important; }
+          }
+        </style>
+      </head>
+      <body style="margin: 0; padding: 16px 8px; background-color: #f6f9fc;">
+        <div class="email-container" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; max-width: 600px; width: 100%; box-sizing: border-box; margin: 0 auto; padding: 24px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; word-break: break-word;">
+          <h2 style="color: #03AFA8; margin-top: 0;">Your Digital Product is Ready!</h2>
+          <p style="color: #1e293b;">Hi ${customerName || 'there'},</p>
+          <p style="color: #475569; line-height: 1.6;">Thank you for supporting <strong>${campaignName}</strong>. Your digital product is ready for download:</p>
+          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0 0 12px 0; font-size: 16px; font-weight: bold; color: #0f172a;">${productName}</p>
+            <a href="${downloadUrl}" class="email-btn" style="display: inline-block; background-color: #03AFA8; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 600;" target="_blank">Download Product</a>
+          </div>
+          <p style="color: #64748b; font-size: 14px;">If the button above does not work, copy and paste this link into your browser:</p>
+          <p style="color: #03AFA8; word-break: break-all; font-size: 13px;">${downloadUrl}</p>
+          <p style="color: #94a3b8; font-size: 12px; margin-top: 30px;">Thank you for your support!</p>
         </div>
-        <p style="color: #666; font-size: 14px;">If the button above does not work, copy and paste this link into your browser:</p>
-        <p style="color: #0070f3; word-break: break-all; font-size: 13px;">${downloadUrl}</p>
-        <p style="color: #888; font-size: 12px; margin-top: 30px;">Thank you for your support!</p>
-      </div>
+      </body>
+      </html>
     `
     await sendEmail({
       to: recipientEmail,
       subject: `Your digital download for "${productName}" is ready!`,
       html,
+      fromName: configs.site.name || 'FunRaisingIt',
+      replyTo: configs.site.supportEmail || undefined,
     })
   } catch (error) {
     logger.error('Failed to send digital delivery email', error)
@@ -1548,6 +1569,30 @@ const cancelOrder = async (user: IUser, orderId: string, reason?: string) => {
   order.status = OrderStatus.CANCELLED
   await order.save()
 
+  const supporter = await Supporter.findById(order.supporter)
+  const campaign = await Campaign.findById(order.campaign)
+  if (supporter?.email) {
+    const cancelledRows = await Promise.all(
+      items.map(async (it) => {
+        const prod = await Product.findById(it.product)
+        return {
+          name: prod?.name || 'Item',
+          quantity: it.quantity,
+          total: `${Number((it.quantity * it.unitPrice).toFixed(2)).toFixed(2)}`,
+        }
+      })
+    )
+    await notifyOrderCancelled({
+      customerName: order.customerName || supporter.name || 'Valued Supporter',
+      customerEmail: supporter.email,
+      campaignName: campaign?.name || 'Campaign',
+      orderId: order._id.toString(),
+      reason,
+      items: cancelledRows,
+      isPartialItem: false,
+    })
+  }
+
   return {
     order,
     items,
@@ -1585,6 +1630,27 @@ const cancelOrderItem = async (user: IUser, itemId: string, reason?: string) => 
   await restockPhysicalProduct(item.product, item.quantity)
 
   const updatedOrder = await syncParentOrderStatus(order._id)
+
+  const supporter = await Supporter.findById(order.supporter)
+  const campaign = await Campaign.findById(order.campaign)
+  const prod = await Product.findById(item.product)
+  if (supporter?.email) {
+    await notifyOrderCancelled({
+      customerName: order.customerName || supporter.name || 'Valued Supporter',
+      customerEmail: supporter.email,
+      campaignName: campaign?.name || 'Campaign',
+      orderId: order._id.toString(),
+      reason,
+      items: [
+        {
+          name: prod?.name || 'Item',
+          quantity: item.quantity,
+          total: `${Number((item.quantity * item.unitPrice).toFixed(2)).toFixed(2)}`,
+        },
+      ],
+      isPartialItem: true,
+    })
+  }
 
   return {
     item,
@@ -1634,6 +1700,25 @@ const deliverPhysicalItem = async (user: IUser, itemId: string) => {
 
   const updatedOrder = await syncParentOrderStatus(order._id)
 
+  const supporter = await Supporter.findById(order.supporter)
+  const campaign = await Campaign.findById(order.campaign)
+  if (supporter?.email) {
+    await notifyOrderShipped({
+      customerName: order.customerName || supporter.name || 'Valued Supporter',
+      customerEmail: supporter.email,
+      campaignName: campaign?.name || 'Campaign',
+      orderId: order._id.toString(),
+      shippingType: order.shippingType,
+      items: [
+        {
+          name: product.name,
+          quantity: item.quantity,
+          total: `${Number((item.quantity * item.unitPrice).toFixed(2)).toFixed(2)}`,
+        },
+      ],
+    })
+  }
+
   return {
     item,
     order: updatedOrder,
@@ -1660,7 +1745,7 @@ const fulfillDigitalItem = async (user: IUser, itemId: string) => {
     )
   }
 
-  const product = (await Product.findById(item.product)) as IDigitalProduct | null
+  const product = (await Product.findById(item.product)) as unknown as IDigitalProduct | null
   if (!product) {
     throw new AppError(httpStatus.NOT_FOUND, 'Product not found.')
   }
@@ -1739,7 +1824,7 @@ const deliverAllOrderItems = async (user: IUser, orderId: string) => {
       item.status = OrderItemStatus.FULFILLED
       await item.save()
 
-      const digitalProd = product as IDigitalProduct
+      const digitalProd = product as unknown as IDigitalProduct
       if (targetEmail && digitalProd?.digitalFileUrl) {
         await sendDigitalDeliveryEmail(
           targetEmail,
@@ -1752,6 +1837,22 @@ const deliverAllOrderItems = async (user: IUser, orderId: string) => {
     } else {
       item.status = OrderItemStatus.SHIPPED
       await item.save()
+      if (targetEmail) {
+        await notifyOrderShipped({
+          customerName: order.customerName || supporter?.name || 'Valued Supporter',
+          customerEmail: targetEmail,
+          campaignName: campaign?.name || 'Campaign',
+          orderId: order._id.toString(),
+          shippingType: order.shippingType,
+          items: [
+            {
+              name: product?.name || 'Item',
+              quantity: item.quantity,
+              total: `${Number((item.quantity * item.unitPrice).toFixed(2)).toFixed(2)}`,
+            },
+          ],
+        })
+      }
     }
   }
 
@@ -1790,18 +1891,53 @@ const updateOrderItemStatus = async (user: IUser, itemId: string, status: TOrder
   item.status = status
   await item.save()
 
+  const supporter = await Supporter.findById(order.supporter)
+  const campaign = await Campaign.findById(order.campaign)
+  const product = await Product.findById(item.product)
+  const targetEmail = supporter?.email
+
   if (status === OrderItemStatus.CANCELLED && previousStatus !== OrderItemStatus.CANCELLED) {
     await restockPhysicalProduct(item.product, item.quantity)
+    if (targetEmail) {
+      await notifyOrderCancelled({
+        customerName: order.customerName || supporter?.name || 'Valued Supporter',
+        customerEmail: targetEmail,
+        campaignName: campaign?.name || 'Campaign',
+        orderId: order._id.toString(),
+        items: [
+          {
+            name: product?.name || 'Item',
+            quantity: item.quantity,
+            total: `${Number((item.quantity * item.unitPrice).toFixed(2)).toFixed(2)}`,
+          },
+        ],
+        isPartialItem: true,
+      })
+    }
+  }
+
+  if (status === OrderItemStatus.SHIPPED && previousStatus !== OrderItemStatus.SHIPPED) {
+    if (targetEmail) {
+      await notifyOrderShipped({
+        customerName: order.customerName || supporter?.name || 'Valued Supporter',
+        customerEmail: targetEmail,
+        campaignName: campaign?.name || 'Campaign',
+        orderId: order._id.toString(),
+        shippingType: order.shippingType,
+        items: [
+          {
+            name: product?.name || 'Item',
+            quantity: item.quantity,
+            total: `${Number((item.quantity * item.unitPrice).toFixed(2)).toFixed(2)}`,
+          },
+        ],
+      })
+    }
   }
 
   if (status === OrderItemStatus.FULFILLED && previousStatus !== OrderItemStatus.FULFILLED) {
-    const product = await Product.findById(item.product)
     if (product?.productType === productType.DIGITAL) {
-      const supporter = await Supporter.findById(order.supporter)
-      const campaign = await Campaign.findById(order.campaign)
-      const targetEmail = supporter?.email
       const digitalProd = product as unknown as IDigitalProduct
-
       if (targetEmail && digitalProd?.digitalFileUrl) {
         await sendDigitalDeliveryEmail(
           targetEmail,
@@ -1837,6 +1973,10 @@ const updateOrderStatus = async (user: IUser, orderId: string, status: TOrderSta
     throw new AppError(httpStatus.BAD_REQUEST, 'Cannot mark unpaid order as delivered.')
   }
 
+  const supporter = await Supporter.findById(order.supporter)
+  const campaign = await Campaign.findById(order.campaign)
+  const targetEmail = supporter?.email
+
   if (status === OrderStatus.DELIVERED) {
     const pendingItems = await OrderItem.find({
       order: order._id,
@@ -1845,17 +1985,13 @@ const updateOrderStatus = async (user: IUser, orderId: string, status: TOrderSta
       },
     })
 
-    const supporter = await Supporter.findById(order.supporter)
-    const campaign = await Campaign.findById(order.campaign)
-    const targetEmail = supporter?.email
-
     for (const item of pendingItems) {
       const product = await Product.findById(item.product)
       if (product?.productType === productType.DIGITAL) {
         item.status = OrderItemStatus.FULFILLED
         await item.save()
 
-        const digitalProd = product as IDigitalProduct
+        const digitalProd = product as unknown as IDigitalProduct
         if (targetEmail && digitalProd?.digitalFileUrl) {
           await sendDigitalDeliveryEmail(
             targetEmail,
@@ -1868,6 +2004,22 @@ const updateOrderStatus = async (user: IUser, orderId: string, status: TOrderSta
       } else {
         item.status = OrderItemStatus.SHIPPED
         await item.save()
+        if (targetEmail) {
+          await notifyOrderShipped({
+            customerName: order.customerName || supporter?.name || 'Valued Supporter',
+            customerEmail: targetEmail,
+            campaignName: campaign?.name || 'Campaign',
+            orderId: order._id.toString(),
+            shippingType: order.shippingType,
+            items: [
+              {
+                name: product?.name || 'Item',
+                quantity: item.quantity,
+                total: `${Number((item.quantity * item.unitPrice).toFixed(2)).toFixed(2)}`,
+              },
+            ],
+          })
+        }
       }
     }
   } else if (status === OrderStatus.CANCELLED) {
@@ -1876,10 +2028,28 @@ const updateOrderStatus = async (user: IUser, orderId: string, status: TOrderSta
       status: { $ne: OrderItemStatus.CANCELLED },
     })
 
+    const cancelledRows = []
     for (const item of nonCancelledItems) {
       item.status = OrderItemStatus.CANCELLED
       await item.save()
       await restockPhysicalProduct(item.product, item.quantity)
+      const prod = await Product.findById(item.product)
+      cancelledRows.push({
+        name: prod?.name || 'Item',
+        quantity: item.quantity,
+        total: `${Number((item.quantity * item.unitPrice).toFixed(2)).toFixed(2)}`,
+      })
+    }
+
+    if (targetEmail && cancelledRows.length > 0) {
+      await notifyOrderCancelled({
+        customerName: order.customerName || supporter?.name || 'Valued Supporter',
+        customerEmail: targetEmail,
+        campaignName: campaign?.name || 'Campaign',
+        orderId: order._id.toString(),
+        items: cancelledRows,
+        isPartialItem: false,
+      })
     }
   }
 

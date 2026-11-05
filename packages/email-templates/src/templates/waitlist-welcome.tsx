@@ -34,7 +34,7 @@ export const WaitlistWelcomeEmail = ({
   return (
     <EmailLayout previewText={previewText}>
       {/* Header */}
-      <Section className="px-8 pt-10 pb-6 text-center">
+      <Section className="email-header px-5 sm:px-8 pt-8 sm:pt-10 pb-6 text-center">
         {companyLogo && (
           <div className="bg-white inline-block p-3 rounded-xl shadow-md border border-slate-100 mb-5">
             <Img
@@ -54,21 +54,21 @@ export const WaitlistWelcomeEmail = ({
       </Section>
 
       {/* Main Content */}
-      <Section className="px-8 pb-8">
+      <Section className="email-content px-5 sm:px-8 pb-8">
         <Text className="text-slate-800 text-base font-semibold mb-4 m-0">
           Hi there,
         </Text>
 
-        <Text className="text-slate-600 text-base leading-relaxed m-0 mb-4">
+        <Text className="text-slate-600 text-base leading-relaxed m-0 mb-4" style={{ wordBreak: 'break-word' }}>
           Your reservation on the <strong className="text-slate-800">{companyName}</strong> waitlist has been successfully confirmed for <strong className="text-slate-800">{email}</strong>.
         </Text>
 
         {/* Member Badge & Number Box */}
-        <Section className="bg-[#f6f9fc] rounded-2xl border-2 border-dashed border-[#03AFA8]/50 my-6 p-6 text-center">
+        <Section className="email-card bg-[#f6f9fc] rounded-2xl border-2 border-dashed border-[#03AFA8]/50 my-6 p-4 sm:p-6 text-center">
           <Text className="text-xs uppercase tracking-widest text-[#FE7B01] font-bold mb-2 m-0">
             {isVip ? 'VIP Priority Member' : 'Waitlist Member'}
           </Text>
-          <Text className="text-3xl font-mono font-bold tracking-[2px] text-[#03AFA8] m-0 bg-white inline-block px-5 py-2.5 rounded-xl shadow-sm border border-slate-100">
+          <Text className="text-2xl sm:text-3xl font-mono font-bold tracking-[2px] text-[#03AFA8] m-0 bg-white inline-block px-4 sm:px-5 py-2.5 rounded-xl shadow-sm border border-slate-100">
             Member {memberNumber}
           </Text>
           <Text className="text-slate-500 text-xs mt-3 m-0">
@@ -79,7 +79,7 @@ export const WaitlistWelcomeEmail = ({
         </Section>
 
         {/* Perks overview */}
-        <Section className="bg-white rounded-xl border border-slate-200/80 p-5 mb-6">
+        <Section className="email-card bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 mb-6">
           <Text className="text-slate-800 font-bold text-sm mb-3 m-0">
             What happens next:
           </Text>
@@ -110,8 +110,8 @@ export const WaitlistWelcomeEmail = ({
       <Hr className="border-slate-100 m-0" />
 
       {/* Footer - CAN-SPAM & Mailbox Provider Compliance */}
-      <Section className="px-8 py-6 bg-slate-50 text-center">
-        <Text className="text-slate-500 text-xs m-0 mb-2 leading-relaxed">
+      <Section className="email-content px-5 sm:px-8 py-6 bg-slate-50 text-center">
+        <Text className="text-slate-500 text-xs m-0 mb-2 leading-relaxed" style={{ wordBreak: 'break-word' }}>
           You are receiving this confirmation because <strong>{email}</strong> was registered for early access updates for <strong>{companyName}</strong>.
         </Text>
         <Text className="text-slate-400 text-xs m-0 mb-2">

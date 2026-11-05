@@ -38,7 +38,7 @@ export const SupportReplyEmail = ({
   return (
     <EmailLayout previewText={`Support Ticket #${ticketNo}: ${subject}`}>
       {/* Header with Logo */}
-      <Section className="bg-gradient-to-tr from-[#03AFA8] to-[#029690] p-8 text-center border-b-[5px] border-[#FE7B01]">
+      <Section className="email-header bg-gradient-to-tr from-[#03AFA8] to-[#029690] p-6 sm:p-8 text-center border-b-[5px] border-[#FE7B01]">
         <div className="bg-white inline-block p-3 rounded-xl shadow-lg mb-4 border border-white/20">
           <Img
             src={logoUrl}
@@ -46,6 +46,7 @@ export const SupportReplyEmail = ({
             height="60"
             alt={companyName}
             className="mx-auto object-contain rounded-md"
+            style={{ maxWidth: '100%', height: 'auto' }}
           />
         </div>
 
@@ -55,8 +56,7 @@ export const SupportReplyEmail = ({
       </Section>
 
       {/* Ticket Details & Main Body */}
-      <Section className="px-8 pt-8 pb-6">
-        {/* Ticket Badge */}
+      <Section className="email-content px-5 sm:px-8 pt-6 sm:pt-8 pb-6">
         <div className="inline-block px-3 py-1 bg-[#03AFA8]/10 text-[#03AFA8] text-xs font-mono font-bold rounded-full mb-3">
           Ticket #{ticketNo}
         </div>
@@ -74,25 +74,26 @@ export const SupportReplyEmail = ({
         </Text>
 
         {/* Support Team Reply Box */}
-        <Section className="bg-[#f6f9fc] rounded-xl border-l-4 border-[#03AFA8] p-5 my-4">
+        <Section className="email-card bg-[#f6f9fc] rounded-xl border-l-4 border-[#03AFA8] p-4 sm:p-5 my-4">
           <Text className="text-xs uppercase tracking-wider text-[#03AFA8] font-bold m-0 mb-2">
             Support Team Response:
           </Text>
           <div
             className="text-slate-700 text-base leading-relaxed"
+            style={{ wordBreak: 'break-word' }}
             dangerouslySetInnerHTML={{
               __html: replyMessage,
             }}
           />
         </Section>
 
-        {/* Customer Original Request (Quoted if present) */}
+        {/* Customer Original Request */}
         {originalMessage && (
-          <Section className="bg-slate-50 rounded-xl border border-slate-200 p-4 mt-6">
+          <Section className="email-card bg-slate-50 rounded-xl border border-slate-200 p-4 mt-6">
             <Text className="text-xs uppercase tracking-wider text-slate-400 font-bold m-0 mb-2">
               Your Original Message:
             </Text>
-            <Text className="text-slate-600 text-sm leading-relaxed italic m-0">
+            <Text className="text-slate-600 text-sm leading-relaxed italic m-0" style={{ wordBreak: 'break-word' }}>
               "{originalMessage}"
             </Text>
           </Section>
@@ -100,7 +101,7 @@ export const SupportReplyEmail = ({
 
         {/* Optional Action Button */}
         {actionUrl && (
-          <Section className="mt-8 text-center">
+          <Section className="mt-6 sm:mt-8 text-center">
             <Button
               href={actionUrl}
               style={{
@@ -116,14 +117,14 @@ export const SupportReplyEmail = ({
                 borderRadius: '8px',
                 boxSizing: 'border-box',
               }}
-              className="bg-[#03AFA8] w-full text-white text-base font-semibold py-3 rounded-lg text-center shadow-sm block"
+              className="email-btn bg-[#03AFA8] w-full text-white text-base font-semibold py-3 rounded-lg text-center shadow-sm block"
             >
               View Ticket Status
             </Button>
           </Section>
         )}
 
-        <Text className="text-slate-500 text-sm mt-8 m-0">
+        <Text className="text-slate-500 text-sm mt-6 sm:mt-8 m-0">
           If you have further questions or if this issue is not resolved, simply reply to this email or contact us at{' '}
           <Link href={`mailto:${supportEmail}`} className="text-[#03AFA8] font-semibold underline">
             {supportEmail}
@@ -134,7 +135,7 @@ export const SupportReplyEmail = ({
       <Hr className="border-slate-100 m-0" />
 
       {/* Footer */}
-      <Section className="bg-slate-50 px-8 py-6 text-center">
+      <Section className="email-content bg-slate-50 px-5 sm:px-8 py-6 text-center">
         <Text className="text-slate-400 text-xs m-0">
           © {new Date().getFullYear()} {companyName}. All rights reserved.
         </Text>

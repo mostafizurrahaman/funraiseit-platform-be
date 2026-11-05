@@ -56,6 +56,7 @@ otpSchema.statics.verifyAndConsumeOtp = function (
 }
 
 otpSchema.index({ user: 1, type: 1 }, { unique: true })
+otpSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 })
 
 // otp model:
 export const Otp = model<IOtpDocument, IOtpModel>('Otp', otpSchema)

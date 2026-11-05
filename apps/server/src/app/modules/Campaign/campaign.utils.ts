@@ -1,10 +1,15 @@
 import { customAlphabet } from 'nanoid'
 import { Campaign } from 'packages/db/src'
 import configs from '@app/configs'
-import { renderEmail, CampaignLiveEmail } from 'packages/email-templates/src'
+import {
+  renderEmail,
+  CampaignLiveEmail,
+  CampaignLaunchedAdminNotificationEmail,
+} from 'packages/email-templates/src'
 import { sendEmail } from 'packages/email-sender/src'
 import { sendSms } from '@app/libs/send-sms'
 import { logger } from '@app/libs/logger'
+import { getAdminEmails } from '@app/libs/get-admin-emails'
 
 const nanoid = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 7)
 
@@ -22,9 +27,22 @@ export const generateUniqueCampaignCode = async (): Promise<string> => {
   return code
 }
 
+export interface SendCampaignLiveOptions {
+  isFreeLaunch?: boolean | undefined
+  promoCode?: string | undefined
+  launchFee?: number | undefined
+}
+
 export const sendCampaignLiveNotification = async (
-  campaign: { name?: string; campaignCode?: string },
-  organizer: { name?: string; email?: string; phoneNumber?: string }
+  campaign: {
+    name?: string | undefined
+    campaignCode?: string | undefined
+    goalAmount?: number | undefined
+    launchFee?: number | undefined
+    finalLaunchFee?: number | undefined
+  },
+  organizer: { name?: string; email?: string; phoneNumber?: string },
+  options?: SendCampaignLiveOptions
 ) => {
   try {
     const siteLogo = configs.site.logo as string | undefined
@@ -36,17 +54,17 @@ export const sendCampaignLiveNotification = async (
 
     const promises: Promise<unknown>[] = []
 
-    // 1. Send Campaign Live Email
+    // 1. Send Campaign Live Email to Organizer
     if (organizer.email) {
       promises.push(
         (async () => {
           try {
             const htmlTemplate = await renderEmail(
               CampaignLiveEmail({
-                organizerName: organizer.name!,
-                campaignName: campaign.name!,
-                campaignCode: campaign.campaignCode!,
-                companyLogo: siteLogo!,
+                organizerName: organizer.name || 'Organizer',
+                campaignName: campaign.name || 'Your Campaign',
+                campaignCode: campaign.campaignCode || '',
+                companyLogo: siteLogo,
               })
             )
 
@@ -55,15 +73,17 @@ export const sendCampaignLiveNotification = async (
               subject: '🎉 YOUR CAMPAIGN IS LIVE!',
               html: htmlTemplate.html,
               text: htmlTemplate.text,
+              fromName: siteName,
+              replyTo: configs.site.supportEmail || undefined,
             })
           } catch (emailErr) {
-            logger.error('Failed to send CampaignLiveEmail:', emailErr)
+            logger.error('Failed to send CampaignLiveEmail to organizer:', emailErr)
           }
         })()
       )
     }
 
-    // 2. Send Campaign Live SMS
+    // 2. Send Campaign Live SMS to Organizer
     if (organizer.phoneNumber) {
       const smsText = `🎉 Hi ${organizer.name || 'there'}, your campaign "${campaign.name}" is officially LIVE on ${siteName}! Campaign Code: ${campaign.campaignCode}. Start sharing: ${campaignLink}`
       promises.push(
@@ -76,6 +96,50 @@ export const sendCampaignLiveNotification = async (
         })()
       )
     }
+
+    // 3. Send Notification to Admin(s)
+    promises.push(
+      (async () => {
+        try {
+          const adminEmails = await getAdminEmails()
+          if (!adminEmails || adminEmails.length === 0) return
+
+          const adminTemplate = await renderEmail(
+            CampaignLaunchedAdminNotificationEmail({
+              campaignName: campaign.name || 'Campaign',
+              campaignCode: campaign.campaignCode || '',
+              organizerName: organizer.name || 'Organizer',
+              organizerEmail: organizer.email || '',
+              organizerPhone: organizer.phoneNumber,
+              goalAmount: campaign.goalAmount,
+              launchFee: options?.launchFee ?? campaign.finalLaunchFee ?? campaign.launchFee ?? 0,
+              isFreeLaunch: options?.isFreeLaunch || false,
+              promoCode: options?.promoCode,
+              launchedAt: new Date().toLocaleString(),
+              campaignUrl: campaignLink,
+              adminDashboardUrl: `${clientUrl}/admin`,
+              companyName: siteName,
+              companyLogo: siteLogo,
+            })
+          )
+
+          await Promise.allSettled(
+            adminEmails.map((adminEmail) =>
+              sendEmail({
+                to: adminEmail,
+                subject: `🚀 [Admin Alert] New Campaign Launched: "${campaign.name}" (${campaign.campaignCode})`,
+                html: adminTemplate.html,
+                text: adminTemplate.text,
+                fromName: `${siteName} System`,
+                replyTo: configs.site.supportEmail || undefined,
+              })
+            )
+          )
+        } catch (adminErr) {
+          logger.error('Failed to send campaign launched email to admin:', adminErr)
+        }
+      })()
+    )
 
     await Promise.allSettled(promises)
   } catch (err) {

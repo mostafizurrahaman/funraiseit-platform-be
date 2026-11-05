@@ -5,7 +5,7 @@ import {
   Img,
 } from '@react-email/components'
 import * as React from 'react'
-import { EmailLayout } from '../layouts/email-layout' // Adjust this path based on your folder structure
+import { EmailLayout } from '../layouts/email-layout'
 
 export interface SupporterUpdateEmailProps {
   supporterName: string
@@ -22,20 +22,12 @@ export const SupporterUpdateEmail = ({
   supporterName = 'Supporter',
   campaignTitle = 'Campaign Update',
   message = '<p>Thank you for your support!</p>',
-  // Your permanent S3 bucket logo URL
   logoUrl = 'https://funraising-it.s3.us-east-1.amazonaws.com/non_delatable_files/funraisingit-logo.png',
-  companyName = 'FunRaisingIt',
-  supportEmail = 'support@funraisingit.com',
-  companyAddress,
-  unsubscribeUrl,
 }: SupporterUpdateEmailProps): React.ReactElement => {
   return (
     <EmailLayout previewText={`An update regarding ${campaignTitle}`}>
       {/* --- BRANDED HERO BANNER --- */}
-      {/* Using Primary color (#03AFA8) as the main background and Secondary (#FE7B01) as a pop-out accent border */}
-      <Section className="bg-gradient-to-tr from-[#03AFA8] to-[#029690] p-10 text-center border-b-[5px] border-[#FE7B01]">
-        
-        {/* White card wrapper for the logo to preserve aspect ratio */}
+      <Section className="email-header bg-gradient-to-tr from-[#03AFA8] to-[#029690] p-6 sm:p-10 text-center border-b-[5px] border-[#FE7B01]">
         <div className="bg-white inline-block p-3 rounded-xl shadow-lg mb-5 border border-white/20">
           <Img
             src={logoUrl}
@@ -43,49 +35,46 @@ export const SupporterUpdateEmail = ({
             height="60"
             alt="Campaign Logo"
             className="mx-auto object-contain rounded-md"
+            style={{ maxWidth: '100%', height: 'auto' }}
           />
         </div>
 
-        <Text className="text-black text-lg font-semibold m-0 tracking-wide">
+        <Text className="text-black text-base sm:text-lg font-semibold m-0 tracking-wide">
           Making a Difference <span className="text-[#FE7B01]">Together</span> 🌟
         </Text>
       </Section>
-      {/* ---------------------------------- */}
 
       {/* --- MAIN CONTENT --- */}
-      <Section className="px-10 pt-8 pb-6">
-        {/* Using Primary color for the heading to tie the branding together */}
-        <Heading className="text-2xl font-bold text-[#03AFA8] m-0 mb-6 tracking-tight">
+      <Section className="email-content px-5 sm:px-10 pt-6 sm:pt-8 pb-6">
+        <Heading className="text-2xl font-bold text-[#03AFA8] m-0 mb-5 sm:mb-6 tracking-tight">
           {campaignTitle}
         </Heading>
 
         <Section>
-          <Text className="text-base text-slate-800 mb-5 font-semibold m-0">
+          <Text className="text-base text-slate-800 mb-4 sm:mb-5 font-semibold m-0">
             Hi {supporterName} 👋,
           </Text>
 
-          {/* Render HTML message */}
           <div
             className="text-slate-600 leading-relaxed text-base mt-4"
+            style={{ wordBreak: 'break-word' }}
             dangerouslySetInnerHTML={{
               __html: message,
             }}
           />
         </Section>
       </Section>
-      {/* ---------------------------------- */}
 
       {/* --- MODERN FOOTER --- */}
-      <Section className="bg-slate-50 px-10 py-8 border-t border-slate-100 text-center">
+      <Section className="email-content bg-slate-50 px-5 sm:px-10 py-6 sm:py-8 border-t border-slate-100 text-center">
         <Text className="text-sm text-slate-600 font-medium m-0 mb-2">
           Thank you for being the heart of our campaign. ❤️
         </Text>
-        
+
         <Text className="text-xs text-slate-400 leading-5 m-0 max-w-sm mx-auto mt-3">
           You are receiving this email because you previously made a contribution or placed an order with us.
         </Text>
       </Section>
-      {/* ---------------------------------- */}
     </EmailLayout>
   )
 }

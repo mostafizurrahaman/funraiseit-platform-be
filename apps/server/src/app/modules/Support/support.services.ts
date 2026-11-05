@@ -12,6 +12,7 @@ import type { PipelineStage } from 'mongoose'
 import { renderEmail, SupportReplyEmail } from '@repo/email-templates'
 import { sendEmail } from '@repo/email-sender'
 import configs from '@app/configs'
+import { notifySupportTicketCreated } from '@app/libs/notification-emails'
 
 import type {
   TCreateSupportPayloadType,
@@ -50,6 +51,15 @@ const createSupport = async (payload: TCreateSupportPayloadType) => {
   }
 
   const result = await Support.create(newPayload)
+
+  await notifySupportTicketCreated({
+    ticketNo,
+    userEmail: email,
+    subject,
+    message,
+    campaignName: existingCampaign?.name,
+  })
+
   return result
 }
 

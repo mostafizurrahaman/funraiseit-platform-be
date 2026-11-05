@@ -3,39 +3,37 @@ import * as React from 'react'
 import { EmailLayout } from '../layouts/email-layout'
 
 interface CampaignLiveEmailProps {
-  organizerName?: string
-  campaignName?: string
-  campaignCode?: string // 👈 Now accepts campaignCode directly
-  companyLogo?: string
+  organizerName?: string | undefined
+  campaignName?: string | undefined
+  campaignCode?: string | undefined
+  companyLogo?: string | undefined
 }
 
 export const CampaignLiveEmail = ({
   organizerName = 'Organizer',
   campaignName = 'Your Campaign',
-  campaignCode = 'CPN-ABC1234', // Default for preview
+  campaignCode = 'CPN-ABC1234',
   companyLogo = 'https://funraising-it.s3.us-east-1.amazonaws.com/non_delatable_files/funraisingit-logo.png',
 }: CampaignLiveEmailProps) => {
-  // Construct the exact campaign link
   const campaignLink = `https://funraisingit.com/campaign/${campaignCode}`
 
   const button = {
-    display: "inline-block",
-    backgroundColor: "#03AFA8",
-    color: "#FFFFFF",
-    fontSize: "16px",
+    display: 'inline-block',
+    backgroundColor: '#03AFA8',
+    color: '#FFFFFF',
+    fontSize: '16px',
     fontWeight: 600,
-    padding: "12px 32px",
-    borderRadius: "8px",
-    textAlign: "center",
-    textDecoration: "none",
-    boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+    padding: '12px 32px',
+    borderRadius: '8px',
+    textAlign: 'center' as const,
+    textDecoration: 'none',
+    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
   }
 
   return (
     <EmailLayout previewText={`🎉 ${campaignName} is officially LIVE! Ready to share.`}>
       {/* --- HEADER --- */}
-      <Section className="px-8 pt-10 pb-6 text-center">
-        {/* Modern Logo Wrapper */}
+      <Section className="email-header px-5 sm:px-8 pt-8 sm:pt-10 pb-6 text-center">
         <div className="bg-white inline-block p-3 rounded-xl shadow-md border border-slate-100 mb-5">
           <Img
             src={companyLogo}
@@ -43,17 +41,17 @@ export const CampaignLiveEmail = ({
             height="60"
             alt="FunRaisingIt"
             className="mx-auto object-contain rounded-md"
+            style={{ maxWidth: '100%', height: 'auto' }}
           />
         </div>
 
-        {/* Primary Color Heading */}
         <Heading className="text-2xl font-bold text-[#03AFA8] m-0 tracking-tight uppercase">
           🎉 YOUR CAMPAIGN IS LIVE!
         </Heading>
       </Section>
 
       {/* --- MAIN CONTENT --- */}
-      <Section className="px-8 pb-8">
+      <Section className="email-content px-5 sm:px-8 pb-8">
         <Text className="text-slate-800 text-base font-semibold mb-4 m-0">Hi {organizerName},</Text>
 
         <Text className="text-slate-600 text-base leading-relaxed m-0 mb-6">
@@ -62,31 +60,31 @@ export const CampaignLiveEmail = ({
         </Text>
 
         {/* --- CAMPAIGN LINK CTA --- */}
-        <Section className="bg-[#f6f9fc] rounded-xl border-2 border-[#03AFA8]/30 my-6 p-6 text-center">
+        <Section className="email-card bg-[#f6f9fc] rounded-xl border-2 border-[#03AFA8]/30 my-6 p-4 sm:p-6 text-center">
           <Text className="text-xs uppercase tracking-widest text-[#03AFA8] font-bold mb-3 m-0">
             🔗 Your Campaign Link
           </Text>
           <Link
             href={campaignLink}
-            className="text-lg font-semibold text-slate-800 break-all underline decoration-[#03AFA8] decoration-2 underline-offset-4 m-0 block mb-6"
+            className="text-base sm:text-lg font-semibold text-slate-800 break-all underline decoration-[#03AFA8] decoration-2 underline-offset-4 m-0 block mb-5"
+            style={{ wordBreak: 'break-all' }}
           >
             {campaignLink}
           </Link>
 
-          {/* CTA Button */}
-          <Section style={{ textAlign: 'center', margin: '32px 0' }}>
-            <Button href={`${campaignLink}`} style={button}>
+          <Section style={{ textAlign: 'center', margin: '24px 0 8px 0' }}>
+            <Button href={campaignLink} style={button} className="email-btn">
               View Your Campaign
             </Button>
           </Section>
         </Section>
 
-        <Text className="text-slate-600 text-base leading-relaxed m-0 mb-8 text-center">
+        <Text className="text-slate-600 text-base leading-relaxed m-0 mb-6 sm:mb-8 text-center">
           The more people who see your campaign, the more opportunities you have to reach your goal.
         </Text>
 
         {/* --- START STRONG HIGHLIGHT BOX --- */}
-        <Section className="bg-[#FE7B01]/10 border border-[#FE7B01]/30 rounded-lg p-5 mb-8">
+        <Section className="email-card bg-[#FE7B01]/10 border border-[#FE7B01]/30 rounded-lg p-4 sm:p-5 mb-6 sm:mb-8">
           <Text className="text-[#FE7B01] font-bold text-base m-0 mb-2">🚀 START STRONG:</Text>
           <Text className="text-slate-700 text-sm m-0 leading-relaxed">
             Share your campaign with at least{' '}
@@ -96,7 +94,7 @@ export const CampaignLiveEmail = ({
         </Section>
 
         {/* --- CHECKLIST SECTION --- */}
-        <Section className="mb-8 bg-slate-50 p-6 rounded-lg border border-slate-100">
+        <Section className="email-card mb-6 sm:mb-8 bg-slate-50 p-4 sm:p-6 rounded-lg border border-slate-100">
           <Text className="text-slate-800 text-base font-semibold m-0 mb-4">
             📱 Don't forget to post your link on:
           </Text>
@@ -116,7 +114,7 @@ export const CampaignLiveEmail = ({
         </Section>
 
         {/* --- TIP SECTION --- */}
-        <Text className="text-slate-600 text-sm leading-relaxed m-0 mb-8 p-4 bg-slate-50 border-l-4 border-[#03AFA8] italic">
+        <Text className="text-slate-600 text-sm leading-relaxed m-0 mb-6 sm:mb-8 p-4 bg-slate-50 border-l-4 border-[#03AFA8] italic">
           <strong className="text-slate-800 not-italic block mb-1">
             Remember: Don't just post it — SEND IT!
           </strong>
@@ -133,7 +131,7 @@ export const CampaignLiveEmail = ({
       <Hr className="border-slate-100 m-0" />
 
       {/* --- FOOTER --- */}
-      <Section className="px-8 py-6 bg-slate-50 text-center">
+      <Section className="email-content px-5 sm:px-8 py-6 bg-slate-50 text-center">
         <Text className="text-slate-500 text-sm m-0 mb-4">
           Need help?{' '}
           <Link

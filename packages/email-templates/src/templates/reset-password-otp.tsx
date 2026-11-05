@@ -1,16 +1,13 @@
 import {
-  Button,
   Img,
   Link,
   Section,
   Text,
   Heading,
   Hr,
-  Row,
-  Column,
 } from '@react-email/components'
 import * as React from 'react'
-import { EmailLayout } from '../layouts/email-layout' // Adjust path if necessary
+import { EmailLayout } from '../layouts/email-layout'
 
 export interface ResetPasswordOTPEmailProps {
   userFirstName?: string | undefined
@@ -28,32 +25,15 @@ export const ResetPasswordOTPEmail = ({
   userFirstName = 'User',
   otpCode = '123456',
   userEmail = 'user@example.com',
-  expirationMinutes = 1,
+  expirationMinutes = 5,
   companyName = 'FunRaisingIt',
   companyLogo = 'https://funraising-it.s3.us-east-1.amazonaws.com/non_delatable_files/funraisingit-logo.png',
-  // actionUrl,
   supportEmail = 'support@funraisingit.com',
-  companyAddress,
 }: ResetPasswordOTPEmailProps): React.ReactElement => {
-  
-    const button = {
-    backgroundColor: "#ff7600",
-    borderRadius: '8px',
-    color: "white",
-    display: 'inline-block',
-    fontSize: '16px',
-    fontWeight: '600',
-    lineHeight: '48px',
-    padding: '0 24px',
-    textAlign: 'center' as const,
-    textDecoration: 'none',
-  }
-  
   return (
     <EmailLayout previewText={`Your password reset code is ${otpCode}`}>
       {/* Header */}
-      <Section className="px-8 pt-10 pb-6 text-center">
-        {/* Modern Logo Wrapper (Same styling to preserve aspect ratio) */}
+      <Section className="email-header px-5 sm:px-8 pt-8 sm:pt-10 pb-6 text-center">
         <div className="bg-white inline-block p-3 rounded-xl shadow-md border border-slate-100 mb-5">
           <Img
             src={companyLogo}
@@ -61,22 +41,22 @@ export const ResetPasswordOTPEmail = ({
             height="60"
             alt={companyName}
             className="mx-auto object-contain rounded-md"
+            style={{ maxWidth: '100%', height: 'auto' }}
           />
         </div>
 
-        {/* Primary Color Heading */}
         <Heading className="text-2xl font-bold text-[#03AFA8] m-0 tracking-tight">
           Reset Your Password
         </Heading>
       </Section>
 
       {/* Main Content */}
-      <Section className="px-8 pb-8">
+      <Section className="email-content px-5 sm:px-8 pb-8">
         <Text className="text-slate-800 text-base font-semibold mb-4 m-0">
           Hi {userFirstName},
         </Text>
 
-        <Text className="text-slate-600 text-base leading-relaxed m-0 mb-4">
+        <Text className="text-slate-600 text-base leading-relaxed m-0 mb-4" style={{ wordBreak: 'break-word' }}>
           We received a request to reset your password for your account associated with{' '}
           <strong className="text-slate-800">{userEmail}</strong>.
         </Text>
@@ -86,29 +66,23 @@ export const ResetPasswordOTPEmail = ({
         </Text>
 
         {/* OTP Box */}
-        {/* Using Primary Color for border and text */}
-        <Section className="bg-[#f6f9fc] rounded-xl border-2 border-dashed border-[#03AFA8]/50 my-8 p-6 text-center">
+        <Section className="email-card bg-[#f6f9fc] rounded-xl border-2 border-dashed border-[#03AFA8]/50 my-6 sm:my-8 p-4 sm:p-6 text-center">
           <Text className="text-xs uppercase tracking-widest text-[#03AFA8] font-bold mb-3 m-0">
             Verification Code
           </Text>
-          <Text className="text-4xl font-mono font-bold tracking-[8px] text-[#03AFA8] m-0">
+          <Text className="email-otp text-3xl sm:text-4xl font-mono font-bold tracking-[6px] sm:tracking-[8px] text-[#03AFA8] m-0">
             {otpCode}
           </Text>
           <Text className="text-slate-500 text-sm mt-3 mb-0 font-medium">
             Valid for {expirationMinutes} minutes
           </Text>
+          <Text className="text-slate-500 text-xs mt-2 mb-0">
+            Please check your spam or junk mail. If this code does not work, request another one.
+          </Text>
         </Section>
 
-        {/* CTA Button */}
-                     {/* <Section style={{ textAlign: 'center', margin: '32px 0' }}>
-                <Button href="https://funraisingit.com/reset-password" style={button}>
-                  Reset Password
-                </Button>
-              </Section> */}
-
-
-        {/* Warning Alert - Using Secondary Color (#FE7B01) */}
-        <Section className="bg-[#FE7B01]/10 border border-[#FE7B01]/30 rounded-lg p-4 mb-8">
+        {/* Warning Alert */}
+        <Section className="email-card bg-[#FE7B01]/10 border border-[#FE7B01]/30 rounded-lg p-4 mb-6 sm:mb-8">
           <Text className="text-[#FE7B01] font-semibold text-sm m-0 mb-1">
             ⚠️ Didn't request this?
           </Text>
@@ -134,14 +108,14 @@ export const ResetPasswordOTPEmail = ({
       <Hr className="border-slate-100 m-0" />
 
       {/* Footer */}
-      <Section className="px-8 py-6 bg-slate-50 text-center">
+      <Section className="email-content px-5 sm:px-8 py-6 bg-slate-50 text-center">
         <Text className="text-slate-500 text-sm m-0 mb-4">
           Need help?{' '}
           <Link href={`mailto:${supportEmail}`} className="text-[#03AFA8] font-semibold underline">
             Contact Support
           </Link>
         </Text>
-        
+
         <Text className="text-slate-400 text-xs m-0">
           © {new Date().getFullYear()} {companyName}. All rights reserved.
         </Text>
@@ -149,5 +123,3 @@ export const ResetPasswordOTPEmail = ({
     </EmailLayout>
   )
 }
-
-
