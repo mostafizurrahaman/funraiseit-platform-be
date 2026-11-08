@@ -660,14 +660,9 @@ const sendOrderSuccessEmail = async ({
   const itemsHtml = items
     .map(
       (item) => `
-      <tr style="border-bottom: 1px solid #f1f5f9;">
-        <td style="padding: 10px 0; color: #1e293b; font-weight: 500;">
-          ${item.name}
-          <div style="font-size: 12px; color: #64748b; font-weight: normal;">Qty: ${item.quantity} × $${item.unitPrice.toFixed(2)}</div>
-        </td>
-        <td style="padding: 10px 0; text-align: right; color: #1e293b; font-weight: 600;">
-          $${item.total.toFixed(2)}
-        </td>
+      <tr>
+        <td style="padding: 6px 12px 6px 0; color: #64748b; vertical-align: top;">${item.name} (×${item.quantity}):</td>
+        <td style="padding: 6px 0; text-align: right; color: #1e293b; font-weight: 600; white-space: nowrap;">$${item.total.toFixed(2)}</td>
       </tr>
     `
     )
@@ -688,7 +683,6 @@ const sendOrderSuccessEmail = async ({
           .email-header { padding: 24px 16px !important; }
           .email-content { padding: 20px 16px !important; }
           .email-card { padding: 14px !important; }
-          .stack-col { display: block !important; width: 100% !important; text-align: left !important; padding-bottom: 4px !important; }
         }
       </style>
     </head>
@@ -696,58 +690,49 @@ const sendOrderSuccessEmail = async ({
       <div class="email-container" style="max-width: 600px; width: 100%; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
         <div class="email-header" style="background: linear-gradient(135deg, #03AFA8 0%, #029690 100%); padding: 35px 20px; text-align: center; border-bottom: 4px solid #FE7B01;">
           <img src="${logo}" alt="${configs.site.name || 'FunRaisingIt'}" style="max-width: 170px; width: 100%; height: auto; margin-bottom: 12px; background: #ffffff; padding: 8px 16px; border-radius: 8px;" />
-          <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 700;">Order Confirmed! 🎉</h1>
+          <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 700;">Thank You for Your Order! ❤️</h1>
         </div>
         <div class="email-content" style="padding: 30px 25px;">
           <p style="font-size: 16px; color: #1e293b; margin-top: 0;">Hi <strong>${customerName}</strong>,</p>
           <p style="font-size: 15px; color: #475569; line-height: 1.6;">
-            Thank you for supporting <strong>${campaignName}</strong>! Your order has been placed and confirmed successfully.
+            We received your order to support <strong>${campaignName}</strong>. Thank you for helping them reach their fundraising goal!
           </p>
-          <div class="email-card" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px 20px; margin: 20px 0;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-              <tr>
-                <td class="stack-col" style="white-space: nowrap;"><span style="color: #64748b;">Order #:</span> <strong style="color: #0f172a;">${order.id.slice(-8).toUpperCase()}</strong></td>
-                <td class="stack-col" style="text-align: right; white-space: nowrap;"><span style="color: #64748b;">Delivery:</span> <strong style="color: #03AFA8;">${deliveryLabel}</strong></td>
-              </tr>
-            </table>
-          </div>
-          <div style="margin: 25px 0;">
-            <div style="font-size: 13px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 10px;">
-              Items Ordered
+          <div class="email-card" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 25px 0;">
+            <div style="font-size: 13px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 15px;">
+              Order Summary
             </div>
             <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-              ${itemsHtml}
-            </table>
-          </div>
-          <div class="email-card" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px 20px; margin: 20px 0;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
               <tr>
-                <td style="padding: 4px 12px 4px 0; color: #64748b; white-space: nowrap;">Subtotal:</td>
-                <td style="padding: 4px 0; text-align: right; color: #1e293b; white-space: nowrap;">$${order.subTotal.toFixed(2)}</td>
+                <td style="padding: 6px 12px 6px 0; color: #64748b; vertical-align: top; white-space: nowrap;">Campaign:</td>
+                <td style="padding: 6px 0; text-align: right; font-weight: 600; color: #1e293b; word-break: break-word;">${campaignName}</td>
               </tr>
+              <tr>
+                <td style="padding: 6px 12px 6px 0; color: #64748b; white-space: nowrap;">Order Reference:</td>
+                <td style="padding: 6px 0; text-align: right; color: #64748b; font-family: monospace; white-space: nowrap;">${order.id.slice(-8).toUpperCase()}</td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 12px 6px 0; color: #64748b; white-space: nowrap;">Delivery Method:</td>
+                <td style="padding: 6px 0; text-align: right; color: #1e293b; font-weight: 600; white-space: nowrap;">${deliveryLabel}</td>
+              </tr>
+              ${itemsHtml}
               ${order.shippingAmount > 0 ? `
                 <tr>
-                  <td style="padding: 4px 12px 4px 0; color: #64748b; white-space: nowrap;">Shipping Fee:</td>
-                  <td style="padding: 4px 0; text-align: right; color: #1e293b; white-space: nowrap;">$${order.shippingAmount.toFixed(2)}</td>
+                  <td style="padding: 6px 12px 6px 0; color: #64748b; white-space: nowrap;">Shipping:</td>
+                  <td style="padding: 6px 0; text-align: right; color: #1e293b; white-space: nowrap;">$${order.shippingAmount.toFixed(2)}</td>
                 </tr>` : ''}
               ${order.gstAmount > 0 ? `
                 <tr>
-                  <td style="padding: 4px 12px 4px 0; color: #64748b; white-space: nowrap;">Estimated Tax:</td>
-                  <td style="padding: 4px 0; text-align: right; color: #1e293b; white-space: nowrap;">$${order.gstAmount.toFixed(2)}</td>
+                  <td style="padding: 6px 12px 6px 0; color: #64748b; white-space: nowrap;">Tax:</td>
+                  <td style="padding: 6px 0; text-align: right; color: #1e293b; white-space: nowrap;">$${order.gstAmount.toFixed(2)}</td>
                 </tr>` : ''}
-              ${order.stripeFeeAmount > 0 ? `
-                <tr>
-                  <td style="padding: 4px 12px 4px 0; color: #64748b; white-space: nowrap;">Processing Fee:</td>
-                  <td style="padding: 4px 0; text-align: right; color: #1e293b; white-space: nowrap;">$${order.stripeFeeAmount.toFixed(2)}</td>
-                </tr>` : ''}
-              <tr style="border-top: 1px dashed #cbd5e1;">
+              <tr style="border-top: 1px solid #cbd5e1;">
                 <td style="padding: 12px 12px 0 0; font-size: 16px; font-weight: 700; color: #0f172a; white-space: nowrap;">Total Paid:</td>
                 <td style="padding: 12px 0 0 0; text-align: right; font-size: 18px; font-weight: 700; color: #03AFA8; white-space: nowrap;">$${order.totalAmount.toFixed(2)}</td>
               </tr>
             </table>
           </div>
           <p style="font-size: 14px; color: #64748b; line-height: 1.5;">
-            If you ordered physical items for shipping or delivery, the organizer will handle the fulfillment. If you have any questions, you can contact us at <a href="mailto:${configs.site.supportEmail}" style="color: #03AFA8; text-decoration: none;">${configs.site.supportEmail}</a>.
+            Thank you once again for supporting community dreams. If you have any questions, feel free to contact us at <a href="mailto:${configs.site.supportEmail}" style="color: #03AFA8; text-decoration: none;">${configs.site.supportEmail}</a>.
           </p>
         </div>
         <div style="background-color: #f1f5f9; padding: 18px; text-align: center; border-top: 1px solid #e2e8f0;">
@@ -761,7 +746,7 @@ const sendOrderSuccessEmail = async ({
   `
   await sendEmail({
     to,
-    subject: `Your order confirmation for "${campaignName}" (#${order.id.slice(-8).toUpperCase()})`,
+    subject: `Thank you for your order supporting "${campaignName}"!`,
     html,
     fromName: configs.site.name || 'FunRaisingIt',
     replyTo: configs.site.supportEmail || undefined,

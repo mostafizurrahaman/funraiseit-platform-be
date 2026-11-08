@@ -27,9 +27,7 @@ export const WaitlistWelcomeEmail = ({
   companyLogo = 'https://funraising-it.s3.us-east-1.amazonaws.com/non_delatable_files/funraisingit-logo.png',
   supportEmail = 'support@funraisingit.com',
 }: WaitlistWelcomeEmailProps): React.ReactElement => {
-  const previewText = isVip
-    ? `Your VIP priority access is confirmed: Member ${memberNumber} on ${companyName}.`
-    : `Your waitlist registration is confirmed: Member ${memberNumber} on ${companyName}.`
+  const previewText = `Your early access registration on ${companyName} is confirmed (${memberNumber}).`
 
   return (
     <EmailLayout previewText={previewText}>
@@ -49,7 +47,7 @@ export const WaitlistWelcomeEmail = ({
         )}
 
         <Heading className="text-2xl font-bold text-[#03AFA8] m-0 tracking-tight">
-          {isVip ? "You're on the VIP Priority List" : 'Welcome to the Waitlist'}
+          Early Access Registration Confirmed
         </Heading>
       </Section>
 
@@ -60,63 +58,48 @@ export const WaitlistWelcomeEmail = ({
         </Text>
 
         <Text className="text-slate-600 text-base leading-relaxed m-0 mb-4" style={{ wordBreak: 'break-word' }}>
-          Your reservation on the <strong className="text-slate-800">{companyName}</strong> waitlist has been successfully confirmed for <strong className="text-slate-800">{email}</strong>.
+          Thank you for registering with <strong className="text-slate-800">{companyName}</strong>. Your spot on our early access list has been confirmed for <strong className="text-slate-800">{email}</strong>.
         </Text>
 
-        {/* Member Badge & Number Box */}
-        <Section className="email-card bg-[#f6f9fc] rounded-2xl border-2 border-dashed border-[#03AFA8]/50 my-6 p-4 sm:p-6 text-center">
-          <Text className="text-xs uppercase tracking-widest text-[#FE7B01] font-bold mb-2 m-0">
-            {isVip ? 'VIP Priority Member' : 'Waitlist Member'}
+        {/* Member Badge Box */}
+        <Section className="email-card bg-[#f6f9fc] rounded-xl border border-slate-200 my-6 p-4 sm:p-6 text-center">
+          <Text className="text-xs uppercase tracking-widest text-[#03AFA8] font-bold mb-2 m-0">
+            {isVip ? 'Priority Access Member' : 'Early Access Member'}
           </Text>
           <Text className="text-2xl sm:text-3xl font-mono font-bold tracking-[2px] text-[#03AFA8] m-0 bg-white inline-block px-4 sm:px-5 py-2.5 rounded-xl shadow-sm border border-slate-100">
             Member {memberNumber}
           </Text>
-          <Text className="text-slate-500 text-xs mt-3 m-0">
-            {isVip
-              ? 'You have secured complimentary VIP Priority Early Access.'
-              : 'You have secured standard early access for public launch.'}
-          </Text>
         </Section>
 
-        {/* Perks overview */}
-        <Section className="email-card bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 mb-6">
+        <Section className="email-card bg-slate-50 rounded-xl border border-slate-200 p-4 sm:p-5 mb-6">
           <Text className="text-slate-800 font-bold text-sm mb-3 m-0">
             What happens next:
           </Text>
           <Text className="text-slate-600 text-sm leading-relaxed m-0 mb-2">
-            <strong>Priority Early Access:</strong> You will be notified ahead of public launch to set up your account and explore the platform.
-          </Text>
-          <Text className="text-slate-600 text-sm leading-relaxed m-0 mb-2">
-            <strong>Platform Updates:</strong> You will receive occasional updates as development milestones are achieved.
+            <strong>Early Onboarding:</strong> We will notify you as soon as your account access is ready so you can explore the platform.
           </Text>
           <Text className="text-slate-600 text-sm leading-relaxed m-0">
-            <strong>Creator Community:</strong> Early members gain direct access to our founding community and onboarding team.
+            <strong>Community Support:</strong> Our onboarding team is available anytime if you need help planning your first fundraiser.
           </Text>
         </Section>
 
         <Text className="text-slate-600 text-sm leading-relaxed m-0 mb-6">
-          If you have questions or feedback, feel free to contact our team anytime at{' '}
+          If you have any questions, feel free to contact our team at{' '}
           <Link href={`mailto:${supportEmail}`} className="text-[#03AFA8] font-semibold underline">
             {supportEmail}
           </Link>.
         </Text>
 
         <Text className="text-slate-600 text-sm leading-relaxed m-0">
-          Warm regards,<br />
+          Best regards,
+          <br />
           <span className="font-semibold text-slate-800">The {companyName} Team</span>
         </Text>
       </Section>
 
       <Hr className="border-slate-100 m-0" />
 
-      {/* Footer - CAN-SPAM & Mailbox Provider Compliance */}
       <Section className="email-content px-5 sm:px-8 py-6 bg-slate-50 text-center">
-        <Text className="text-slate-500 text-xs m-0 mb-2 leading-relaxed" style={{ wordBreak: 'break-word' }}>
-          You are receiving this confirmation because <strong>{email}</strong> was registered for early access updates for <strong>{companyName}</strong>.
-        </Text>
-        <Text className="text-slate-400 text-xs m-0 mb-2">
-          If you did not request this, you can safely disregard this email or reply with &quot;Unsubscribe&quot; to be removed immediately.
-        </Text>
         <Text className="text-slate-400 text-xs m-0">
           © {new Date().getFullYear()} {companyName}. All rights reserved.
         </Text>

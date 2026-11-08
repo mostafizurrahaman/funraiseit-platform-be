@@ -250,7 +250,7 @@ const SupportIssueReply = async (payload: TReplySupportMessagePayloadType) => {
     to: existingSupport.email,
     fromName: configs.site.name,
     replyTo: configs.site.supportEmail,
-    subject: `[Ticket #${ticketNumber}] Re: ${existingSupport.subject}`,
+    subject: `Support update regarding "${existingSupport.subject}"`,
     html: htmlTemplate.html,
     text: htmlTemplate.text,
   })

@@ -70,7 +70,7 @@ export const sendCampaignLiveNotification = async (
 
             await sendEmail({
               to: organizer.email!,
-              subject: '🎉 YOUR CAMPAIGN IS LIVE!',
+              subject: `Your campaign "${campaign.name}" is now live on ${siteName}`,
               html: htmlTemplate.html,
               text: htmlTemplate.text,
               fromName: siteName,
@@ -127,10 +127,10 @@ export const sendCampaignLiveNotification = async (
             adminEmails.map((adminEmail) =>
               sendEmail({
                 to: adminEmail,
-                subject: `🚀 [Admin Alert] New Campaign Launched: "${campaign.name}" (${campaign.campaignCode})`,
+                subject: `New campaign published on ${siteName}: "${campaign.name}"`,
                 html: adminTemplate.html,
                 text: adminTemplate.text,
-                fromName: `${siteName} System`,
+                fromName: siteName,
                 replyTo: configs.site.supportEmail || undefined,
               })
             )

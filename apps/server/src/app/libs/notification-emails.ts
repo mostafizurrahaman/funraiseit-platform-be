@@ -13,7 +13,7 @@ const sendTransactionalTemplate = async (
   to: string | string[],
   subject: string,
   props: Omit<SystemTransactionalEmailProps, 'companyName' | 'companyLogo' | 'supportEmail'>,
-  isSystemAlert = false
+  _isSystemAlert = false
 ) => {
   try {
     const siteName = configs.site.name || 'FunRaisingIt'
@@ -39,7 +39,7 @@ const sendTransactionalTemplate = async (
           subject,
           html: rendered.html,
           text: rendered.text,
-          fromName: isSystemAlert ? `${siteName} System` : siteName,
+          fromName: siteName,
           replyTo: supportEmail,
         })
       )
@@ -62,26 +62,25 @@ export const notifyBrandBuilderPaidOrganizer = async (params: {
 
   await sendTransactionalTemplate(
     params.organizerEmail,
-    `🎨 Brand Builder Order Confirmed: "${params.businessName}"`,
+    `Thank you for your Brand Builder order for "${params.businessName}"`,
     {
       previewText: `Your Brand Builder order for "${params.businessName}" is confirmed!`,
-      headerSubTitle: 'Brand Builder • Order Confirmation',
-      badgeText: '✅ PAYMENT CONFIRMED',
+      headerSubTitle: 'Brand Builder Confirmation',
+      badgeText: 'Confirmed',
       badgeTone: 'teal',
-      heading: 'Your Brand Builder request is in progress!',
+      heading: 'Brand Builder Order Confirmed',
       greeting: `Hi ${params.organizerName || 'Organizer'},`,
-      introText: `Thank you for placing your Brand Builder order for "${params.businessName}". Our team has received your specifications and payment.`,
+      introText: `Thank you for placing your Brand Builder order for "${params.businessName}". Our team has received your specifications and payment, and we have started working on your package.`,
       details: [
-        { label: 'Business / Project Name', value: params.businessName },
+        { label: 'Business Name', value: params.businessName },
         { label: 'Amount Paid', value: `$${params.amountPaid.toFixed(2)}`, highlight: true },
         ...(params.sellingItem ? [{ label: 'Selling Item', value: params.sellingItem }] : []),
         ...(params.brandStyle ? [{ label: 'Brand Style', value: params.brandStyle }] : []),
-        { label: 'Status', value: 'Paid & In Review' },
+        { label: 'Status', value: 'In Production' },
       ],
       outroText: 'We will notify you by email as soon as your Brand Builder package is completed.',
       ctaText: 'Go to Dashboard',
       ctaUrl: `${clientUrl}/dashboard`,
-      footerReason: `You received this receipt because you placed a Brand Builder order on ${configs.site.name || 'FunRaisingIt'}.`,
     }
   )
 }
@@ -96,23 +95,22 @@ export const notifyBrandBuilderCompleted = async (params: {
 
   await sendTransactionalTemplate(
     params.organizerEmail,
-    `🎉 Your Brand Builder Package for "${params.businessName}" is Complete!`,
+    `Your Brand Builder package for "${params.businessName}" is ready`,
     {
       previewText: `Great news! Your Brand Builder project "${params.businessName}" is ready.`,
-      headerSubTitle: 'Brand Builder • Project Complete',
-      badgeText: '🎉 COMPLETED',
+      headerSubTitle: 'Brand Builder Delivery',
+      badgeText: 'Completed',
       badgeTone: 'teal',
-      heading: 'Your Brand Builder project is ready!',
+      heading: 'Your Brand Builder Package is Ready',
       greeting: `Hi ${params.organizerName || 'Organizer'},`,
-      introText: `Great news! Our team has completed your Brand Builder package for "${params.businessName}".`,
+      introText: `Great news! Our team has completed your Brand Builder package for "${params.businessName}". You can now view and download your files directly from your dashboard.`,
       details: [
-        { label: 'Business / Project Name', value: params.businessName, highlight: true },
+        { label: 'Business Name', value: params.businessName, highlight: true },
         { label: 'Status', value: 'Completed' },
-        { label: 'Completed Date', value: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) },
+        { label: 'Date', value: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) },
       ],
       ctaText: 'View in Dashboard',
       ctaUrl: `${clientUrl}/dashboard`,
-      footerReason: `You received this update regarding your Brand Builder order for "${params.businessName}".`,
     }
   )
 }
@@ -129,25 +127,24 @@ export const notifyPayoutPaid = async (params: {
 
   await sendTransactionalTemplate(
     params.organizerEmail,
-    `💸 Payout Sent: $${params.amount.toFixed(2)} for "${params.campaignName}"`,
+    `Transfer completed for "${params.campaignName}"`,
     {
-      previewText: `Your payout of $${params.amount.toFixed(2)} for "${params.campaignName}" has been sent!`,
-      headerSubTitle: 'Payout Confirmation',
-      badgeText: '💸 PAYOUT COMPLETED',
+      previewText: `Your fundraising transfer for "${params.campaignName}" has been processed.`,
+      headerSubTitle: 'Transfer Confirmation',
+      badgeText: 'Completed',
       badgeTone: 'teal',
-      heading: `$${params.amount.toFixed(2)} is on its way to your bank!`,
+      heading: 'Fundraising Transfer Completed',
       greeting: `Hi ${params.organizerName || 'Organizer'},`,
-      introText: `Your fundraising payout for campaign "${params.campaignName}" has been successfully processed and transferred to your connected bank account.`,
+      introText: `Your fundraising transfer for campaign "${params.campaignName}" has been processed and sent to your connected bank account.`,
       details: [
         { label: 'Campaign', value: `${params.campaignName} (${params.campaignCode})` },
-        { label: 'Payout Amount', value: `$${params.amount.toFixed(2)}`, highlight: true },
-        { label: 'Status', value: 'Paid Out' },
+        { label: 'Transfer Amount', value: `$${params.amount.toFixed(2)}`, highlight: true },
+        { label: 'Status', value: 'Completed' },
         { label: 'Date', value: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) },
       ],
-      outroText: 'Please allow 1–3 business days for the funds to reflect on your bank statement depending on your financial institution.',
-      ctaText: 'View Payout History',
+      outroText: 'Please allow 1 to 3 business days for the funds to appear on your bank statement depending on your financial institution.',
+      ctaText: 'View Dashboard',
       ctaUrl: `${clientUrl}/dashboard/payouts`,
-      footerReason: `You received this payout confirmation for your campaign "${params.campaignName}".`,
     }
   )
 }
@@ -165,24 +162,23 @@ export const notifyPayoutFailed = async (params: {
   if (params.organizerEmail) {
     await sendTransactionalTemplate(
       params.organizerEmail,
-      `⚠️ Action Required: Payout issue for "${params.campaignName}"`,
+      `Update regarding your transfer for "${params.campaignName}"`,
       {
-        previewText: `Important update regarding your payout of $${params.amount.toFixed(2)} for "${params.campaignName}".`,
-        headerSubTitle: 'Payout Status Alert',
-        badgeText: '⚠️ PAYOUT DELAYED / FAILED',
+        previewText: `Update regarding your fundraising transfer for "${params.campaignName}".`,
+        headerSubTitle: 'Transfer Update',
+        badgeText: 'Update',
         badgeTone: 'red',
-        heading: 'We encountered an issue processing your payout',
+        heading: 'Transfer Status Update',
         greeting: `Hi ${params.organizerName || 'Organizer'},`,
-        introText: `We attempted to transfer your payout of $${params.amount.toFixed(2)} for "${params.campaignName}", but your bank or payment processor reported an issue.`,
+        introText: `We attempted to send your fundraising transfer for "${params.campaignName}", but your bank reported that the transfer could not be completed at this time.`,
         details: [
           { label: 'Campaign', value: `${params.campaignName} (${params.campaignCode})` },
-          { label: 'Payout Amount', value: `$${params.amount.toFixed(2)}` },
-          { label: 'Reason Reported', value: params.failureMessage || 'Bank transfer could not be completed' },
+          { label: 'Transfer Amount', value: `$${params.amount.toFixed(2)}` },
+          { label: 'Note', value: params.failureMessage || 'Bank transfer could not be completed' },
         ],
-        outroText: 'Please verify your connected bank account and payout settings in your dashboard, or contact our support team for assistance.',
-        ctaText: 'Check Payout Settings',
+        outroText: 'Please review your connected bank details in your dashboard settings or reply to this email so our team can assist you.',
+        ctaText: 'Review Account Settings',
         ctaUrl: `${clientUrl}/dashboard/settings`,
-        footerReason: `You received this critical account alert regarding your campaign payout for "${params.campaignName}".`,
       }
     )
   }
@@ -191,21 +187,22 @@ export const notifyPayoutFailed = async (params: {
   if (adminEmails.length > 0) {
     await sendTransactionalTemplate(
       adminEmails,
-      `⚠️ [Admin Alert] Payout Failed for "${params.campaignName}" (${params.campaignCode})`,
+      `Transfer update for campaign "${params.campaignName}"`,
       {
-        previewText: `Payout of $${params.amount.toFixed(2)} failed for campaign "${params.campaignName}".`,
-        headerSubTitle: 'Admin Alert • Payout Failure',
-        badgeText: '⚠️ PAYOUT FAILED',
+        previewText: `Transfer update for campaign "${params.campaignName}".`,
+        headerSubTitle: 'Transfer Update',
+        badgeText: 'Update',
         badgeTone: 'red',
-        heading: 'A campaign payout failed to process',
-        introText: `A payout transfer for campaign "${params.campaignName}" failed via Stripe.`,
+        heading: 'Campaign Transfer Update',
+        greeting: 'Hi Team,',
+        introText: `A scheduled transfer for campaign "${params.campaignName}" could not be completed automatically.`,
         details: [
           { label: 'Campaign', value: `${params.campaignName} (${params.campaignCode})` },
-          { label: 'Organizer', value: `${params.organizerName} <${params.organizerEmail}>` },
+          { label: 'Organizer', value: `${params.organizerName} (${params.organizerEmail})` },
           { label: 'Amount', value: `$${params.amount.toFixed(2)}`, highlight: true },
-          { label: 'Failure Reason', value: params.failureMessage || 'Unknown error' },
+          { label: 'Note', value: params.failureMessage || 'Unknown error' },
         ],
-        ctaText: 'Open Admin Dashboard',
+        ctaText: 'Open Dashboard',
         ctaUrl: `${clientUrl}/admin`,
       },
       true
@@ -235,27 +232,26 @@ export const notifyCampaignCompleted = async (params: {
   if (params.organizerEmail) {
     await sendTransactionalTemplate(
       params.organizerEmail,
-      `🏁 Campaign Completed: "${params.campaignName}" Raised $${params.raisedAmount.toFixed(2)}!`,
+      `Campaign summary for "${params.campaignName}"`,
       {
-        previewText: `Your campaign "${params.campaignName}" has officially completed! Total raised: $${params.raisedAmount.toFixed(2)}.`,
+        previewText: `Your campaign "${params.campaignName}" has completed.`,
         headerSubTitle: 'Campaign Summary',
-        badgeText: '🏁 CAMPAIGN COMPLETED',
+        badgeText: 'Completed',
         badgeTone: 'teal',
         heading: `Congratulations on completing "${params.campaignName}"!`,
         greeting: `Hi ${params.organizerName || 'Organizer'},`,
         introText: params.earlyCompleted
-          ? `You have marked your campaign "${params.campaignName}" as completed. Thank you for making a difference with ${configs.site.name || 'FunRaisingIt'}!`
+          ? `You have marked your campaign "${params.campaignName}" as completed. Thank you for fundraising with ${configs.site.name || 'FunRaisingIt'}!`
           : `Your campaign "${params.campaignName}" has reached its completion date. Thank you for fundraising with ${configs.site.name || 'FunRaisingIt'}!`,
         details: [
           { label: 'Campaign', value: `${params.campaignName} (${params.campaignCode})` },
           { label: 'Total Raised', value: `$${params.raisedAmount.toFixed(2)}`, highlight: true },
           ...(params.goalAmount ? [{ label: 'Fundraising Goal', value: `$${params.goalAmount.toLocaleString()}` }] : []),
-          { label: 'Expected Payout Date', value: payoutDateStr },
+          { label: 'Scheduled Transfer Date', value: payoutDateStr },
         ],
-        outroText: 'Make sure your connected bank account is active in Settings so your payout can be processed smoothly.',
+        outroText: 'Please ensure your connected bank account is active in your dashboard so your transfer can be processed smoothly.',
         ctaText: 'View Campaign Summary',
         ctaUrl: `${clientUrl}/dashboard`,
-        footerReason: `You received this summary because you are the organizer of "${params.campaignName}".`,
       }
     )
   }
@@ -264,21 +260,22 @@ export const notifyCampaignCompleted = async (params: {
   if (adminEmails.length > 0) {
     await sendTransactionalTemplate(
       adminEmails,
-      `🏁 [Admin Alert] Campaign Completed: "${params.campaignName}" ($${params.raisedAmount.toFixed(2)} raised)`,
+      `Campaign completed: "${params.campaignName}"`,
       {
-        previewText: `Campaign "${params.campaignName}" completed with $${params.raisedAmount.toFixed(2)} raised.`,
-        headerSubTitle: 'Admin Notification • Campaign Completed',
-        badgeText: '🏁 COMPLETED',
+        previewText: `Campaign "${params.campaignName}" has completed.`,
+        headerSubTitle: 'Campaign Completed',
+        badgeText: 'Completed',
         badgeTone: 'teal',
-        heading: 'A campaign has completed its run',
-        introText: `Campaign "${params.campaignName}" (${params.campaignCode}) is now marked as COMPLETED.`,
+        heading: 'Campaign Completed',
+        greeting: 'Hi Team,',
+        introText: `Campaign "${params.campaignName}" (${params.campaignCode}) has completed its fundraising run.`,
         details: [
           { label: 'Campaign', value: `${params.campaignName} (${params.campaignCode})` },
-          { label: 'Organizer', value: `${params.organizerName} <${params.organizerEmail}>` },
+          { label: 'Organizer', value: `${params.organizerName} (${params.organizerEmail})` },
           { label: 'Total Raised', value: `$${params.raisedAmount.toFixed(2)}`, highlight: true },
-          { label: 'Expected Payout Date', value: payoutDateStr },
+          { label: 'Scheduled Transfer Date', value: payoutDateStr },
         ],
-        ctaText: 'Open Admin Dashboard',
+        ctaText: 'Open Dashboard',
         ctaUrl: `${clientUrl}/admin`,
       },
       true
@@ -298,24 +295,23 @@ export const notifyCampaignRejected = async (params: {
 
   await sendTransactionalTemplate(
     params.organizerEmail,
-    `⚠️ Important Update Regarding Your Campaign "${params.campaignName}"`,
+    `Update regarding your campaign "${params.campaignName}"`,
     {
-      previewText: `Your campaign "${params.campaignName}" has been flagged/paused by moderation.`,
-      headerSubTitle: 'Campaign Moderation Notice',
-      badgeText: '⚠️ CAMPAIGN REJECTED / PAUSED',
+      previewText: `Update regarding your campaign "${params.campaignName}".`,
+      headerSubTitle: 'Campaign Update',
+      badgeText: 'Update',
       badgeTone: 'red',
       heading: `Update on "${params.campaignName}"`,
       greeting: `Hi ${params.organizerName || 'Organizer'},`,
-      introText: `After a review by our trust and safety team, your campaign "${params.campaignName}" has been restricted and cannot continue accepting contributions at this time.`,
+      introText: `Our team has reviewed your campaign "${params.campaignName}" and paused it while we follow up on the details below.`,
       details: [
         { label: 'Campaign', value: `${params.campaignName} (${params.campaignCode})` },
-        { label: 'Status', value: 'Rejected' },
-        { label: 'Moderation Reason', value: params.rejectionReason || 'Policy violation' },
+        { label: 'Status', value: 'Paused' },
+        { label: 'Review Note', value: params.rejectionReason || 'Additional verification needed' },
       ],
-      outroText: 'If you believe this decision was made in error or would like to provide additional documentation, please contact our support team.',
+      outroText: 'If you have any questions or would like to share additional details, please reply to this email or contact our support team.',
       ctaText: 'Contact Support',
       ctaUrl: `${clientUrl}/contact`,
-      footerReason: `You received this moderation notice as the organizer of "${params.campaignName}".`,
     }
   )
 }
@@ -332,23 +328,22 @@ export const notifyCampaignCancelled = async (params: {
   if (params.organizerEmail) {
     await sendTransactionalTemplate(
       params.organizerEmail,
-      `Campaign Cancelled: "${params.campaignName}"`,
+      `Update on your campaign "${params.campaignName}"`,
       {
-        previewText: `Confirmation that your campaign "${params.campaignName}" has been cancelled.`,
-        headerSubTitle: 'Campaign Cancellation',
-        badgeText: '🛑 CAMPAIGN CANCELLED',
+        previewText: `Confirmation that your campaign "${params.campaignName}" has been closed.`,
+        headerSubTitle: 'Campaign Update',
+        badgeText: 'Closed',
         badgeTone: 'orange',
-        heading: `"${params.campaignName}" has been cancelled`,
+        heading: `"${params.campaignName}" Has Been Closed`,
         greeting: `Hi ${params.organizerName || 'Organizer'},`,
-        introText: `As requested, your campaign "${params.campaignName}" has been cancelled and is no longer accepting donations or orders.`,
+        introText: `As requested, your campaign "${params.campaignName}" has been closed and is no longer accepting new contributions.`,
         details: [
           { label: 'Campaign', value: `${params.campaignName} (${params.campaignCode})` },
-          { label: 'Reason Provided', value: params.cancelledReason || 'Cancelled by organizer' },
-          { label: 'Cancelled At', value: new Date().toLocaleString() },
+          { label: 'Note', value: params.cancelledReason || 'Closed by organizer' },
+          { label: 'Date', value: new Date().toLocaleString() },
         ],
         ctaText: 'Go to Dashboard',
         ctaUrl: `${clientUrl}/dashboard`,
-        footerReason: `You received this confirmation because your campaign "${params.campaignName}" was cancelled.`,
       }
     )
   }
@@ -357,20 +352,21 @@ export const notifyCampaignCancelled = async (params: {
   if (adminEmails.length > 0) {
     await sendTransactionalTemplate(
       adminEmails,
-      `🛑 [Admin Alert] Campaign Cancelled by Organizer: "${params.campaignName}"`,
+      `Campaign closed by organizer: "${params.campaignName}"`,
       {
-        previewText: `Organizer ${params.organizerName} cancelled campaign "${params.campaignName}".`,
-        headerSubTitle: 'Admin Notification • Campaign Cancelled',
-        badgeText: '🛑 CANCELLED',
+        previewText: `Organizer ${params.organizerName} closed campaign "${params.campaignName}".`,
+        headerSubTitle: 'Campaign Closed',
+        badgeText: 'Closed',
         badgeTone: 'orange',
-        heading: 'An organizer cancelled their active campaign',
-        introText: `Campaign "${params.campaignName}" (${params.campaignCode}) was cancelled by its organizer.`,
+        heading: 'Campaign Closed by Organizer',
+        greeting: 'Hi Team,',
+        introText: `Campaign "${params.campaignName}" (${params.campaignCode}) was closed by its organizer.`,
         details: [
           { label: 'Campaign', value: `${params.campaignName} (${params.campaignCode})` },
-          { label: 'Organizer', value: `${params.organizerName} <${params.organizerEmail}>` },
-          { label: 'Reason', value: params.cancelledReason || 'Not specified' },
+          { label: 'Organizer', value: `${params.organizerName} (${params.organizerEmail})` },
+          { label: 'Note', value: params.cancelledReason || 'Not specified' },
         ],
-        ctaText: 'Open Admin Dashboard',
+        ctaText: 'Open Dashboard',
         ctaUrl: `${clientUrl}/admin`,
       },
       true
@@ -388,7 +384,7 @@ export const notifyOrderShipped = async (params: {
 }) => {
   if (!params.customerEmail) return
   const clientUrl = configs.site.clientUrl || 'https://funraisingit.com'
-  const shortOrderId = `#${params.orderId.slice(-8).toUpperCase()}`
+  const shortOrderId = params.orderId.slice(-8).toUpperCase()
   const deliveryLabel =
     params.shippingType === 'local_pickup'
       ? 'Ready for Local Pickup'
@@ -398,26 +394,25 @@ export const notifyOrderShipped = async (params: {
 
   await sendTransactionalTemplate(
     params.customerEmail,
-    `📦 Your Order (${shortOrderId}) for "${params.campaignName}" has ${deliveryLabel}!`,
+    `Your order for "${params.campaignName}" has been fulfilled`,
     {
-      previewText: `Good news! Your order ${shortOrderId} from "${params.campaignName}" has been fulfilled.`,
+      previewText: `Good news! Your order from "${params.campaignName}" is ${deliveryLabel.toLowerCase()}.`,
       headerSubTitle: 'Order Fulfillment Update',
-      badgeText: `📦 ${deliveryLabel.toUpperCase()}`,
+      badgeText: deliveryLabel,
       badgeTone: 'teal',
-      heading: `Your order is on the way!`,
+      heading: 'Your Order is on the Way!',
       greeting: `Hi ${params.customerName || 'Valued Supporter'},`,
-      introText: `Great news! The organizer of "${params.campaignName}" has fulfilled your order (${shortOrderId}).`,
+      introText: `Good news! The organizer of "${params.campaignName}" has updated your order (${shortOrderId}) as ${deliveryLabel.toLowerCase()}.`,
       details: [
-        { label: 'Order Number', value: shortOrderId, highlight: true },
+        { label: 'Order Reference', value: shortOrderId, highlight: true },
         { label: 'Campaign Supported', value: params.campaignName },
-        { label: 'Fulfillment Status', value: deliveryLabel },
+        { label: 'Delivery Status', value: deliveryLabel },
       ],
       items: params.items,
       itemsTitle: 'Fulfilled Items',
       outroText: 'Thank you again for supporting this campaign!',
       ctaText: 'Visit FunRaisingIt',
       ctaUrl: clientUrl,
-      footerReason: `You received this fulfillment update for your order ${shortOrderId} on ${configs.site.name || 'FunRaisingIt'}.`,
     }
   )
 }
@@ -432,32 +427,29 @@ export const notifyOrderCancelled = async (params: {
   isPartialItem?: boolean | undefined
 }) => {
   if (!params.customerEmail) return
-  const shortOrderId = `#${params.orderId.slice(-8).toUpperCase()}`
+  const shortOrderId = params.orderId.slice(-8).toUpperCase()
 
   await sendTransactionalTemplate(
     params.customerEmail,
-    `Order Update: ${params.isPartialItem ? 'Item Cancelled in' : 'Cancellation for'} Order ${shortOrderId}`,
+    `Update regarding your order for "${params.campaignName}"`,
     {
-      previewText: `Update regarding your order ${shortOrderId} for "${params.campaignName}".`,
-      headerSubTitle: 'Order Cancellation Notice',
-      badgeText: '🛑 ORDER CANCELLED',
+      previewText: `Update regarding your order (${shortOrderId}) for "${params.campaignName}".`,
+      headerSubTitle: 'Order Status Update',
+      badgeText: 'Order Update',
       badgeTone: 'orange',
-      heading: params.isPartialItem
-        ? `An item in your order ${shortOrderId} was cancelled`
-        : `Your order ${shortOrderId} has been cancelled`,
+      heading: 'Update on Your Order',
       greeting: `Hi ${params.customerName || 'Valued Supporter'},`,
       introText: params.isPartialItem
-        ? `The following item from your order (${shortOrderId}) supporting "${params.campaignName}" has been cancelled.`
-        : `Your order (${shortOrderId}) supporting "${params.campaignName}" has been cancelled.`,
+        ? `An item from your order (${shortOrderId}) supporting "${params.campaignName}" has been updated.`
+        : `Your order (${shortOrderId}) supporting "${params.campaignName}" has been updated as cancelled.`,
       details: [
-        { label: 'Order Number', value: shortOrderId },
+        { label: 'Order Reference', value: shortOrderId },
         { label: 'Campaign', value: params.campaignName },
-        ...(params.reason ? [{ label: 'Cancellation Note', value: params.reason }] : []),
+        ...(params.reason ? [{ label: 'Note', value: params.reason }] : []),
       ],
       items: params.items,
-      itemsTitle: 'Cancelled Item(s)',
-      outroText: 'If you have any questions regarding this cancellation or refunds, please reply to this email or contact our support team.',
-      footerReason: `You received this notice regarding your order ${shortOrderId} on ${configs.site.name || 'FunRaisingIt'}.`,
+      itemsTitle: 'Updated Items',
+      outroText: 'If you have any questions regarding your order, please reply to this email or contact our support team.',
     }
   )
 }
@@ -474,22 +466,21 @@ export const notifySupportTicketCreated = async (params: {
   if (params.userEmail) {
     await sendTransactionalTemplate(
       params.userEmail,
-      `🎫 Support Request Received (#${params.ticketNo}): ${params.subject}`,
+      `We received your support inquiry: "${params.subject}"`,
       {
-        previewText: `We received your support request #${params.ticketNo} and will respond shortly.`,
-        headerSubTitle: 'Support Center • Ticket Confirmation',
-        badgeText: `🎫 TICKET #${params.ticketNo}`,
+        previewText: `We received your support request (${params.ticketNo}) and will respond shortly.`,
+        headerSubTitle: 'Support Confirmation',
+        badgeText: 'Received',
         badgeTone: 'teal',
-        heading: 'We have received your message!',
+        heading: 'We Received Your Message',
         greeting: 'Hello,',
-        introText: `Thank you for reaching out to ${configs.site.name || 'FunRaisingIt'} Support. A member of our team will review your inquiry and get back to you as soon as possible.`,
+        introText: `Thank you for reaching out to ${configs.site.name || 'FunRaisingIt'}. A member of our team is reviewing your inquiry and will get back to you shortly.`,
         details: [
-          { label: 'Ticket Number', value: `#${params.ticketNo}`, highlight: true },
+          { label: 'Reference', value: params.ticketNo, highlight: true },
           { label: 'Subject', value: params.subject },
           ...(params.campaignName ? [{ label: 'Related Campaign', value: params.campaignName }] : []),
-          { label: 'Your Message', value: params.message },
+          { label: 'Message', value: params.message },
         ],
-        footerReason: `You received this confirmation because a support ticket was submitted with your email address.`,
       }
     )
   }
@@ -498,26 +489,26 @@ export const notifySupportTicketCreated = async (params: {
   if (adminEmails.length > 0) {
     await sendTransactionalTemplate(
       adminEmails,
-      `🎫 [Admin Alert] New Support Ticket (#${params.ticketNo}): ${params.subject}`,
+      `New support inquiry received: "${params.subject}"`,
       {
-        previewText: `New support ticket #${params.ticketNo} from ${params.userEmail}.`,
-        headerSubTitle: 'Admin Alert • Support Center',
-        badgeText: `🎫 NEW TICKET #${params.ticketNo}`,
+        previewText: `New support inquiry (${params.ticketNo}) from ${params.userEmail}.`,
+        headerSubTitle: 'Support Inquiry',
+        badgeText: 'New Inquiry',
         badgeTone: 'orange',
-        heading: 'A new support ticket was submitted',
-        introText: `A user has submitted a new support inquiry requiring review.`,
+        heading: 'New Support Inquiry',
+        greeting: 'Hi Team,',
+        introText: `A user has submitted a new support inquiry on ${configs.site.name || 'FunRaisingIt'}.`,
         details: [
-          { label: 'Ticket Number', value: `#${params.ticketNo}`, highlight: true },
-          { label: 'From Email', value: params.userEmail },
+          { label: 'Reference', value: params.ticketNo, highlight: true },
+          { label: 'From', value: params.userEmail },
           { label: 'Subject', value: params.subject },
           ...(params.campaignName ? [{ label: 'Campaign', value: params.campaignName }] : []),
           { label: 'Message', value: params.message },
         ],
-        ctaText: 'Reply in Admin Dashboard',
+        ctaText: 'View in Dashboard',
         ctaUrl: `${clientUrl}/admin`,
       },
       true
     )
   }
 }
-

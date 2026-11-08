@@ -27,12 +27,11 @@ export const CampaignLiveEmail = ({
     borderRadius: '8px',
     textAlign: 'center' as const,
     textDecoration: 'none',
-    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
   }
 
   return (
-    <EmailLayout previewText={`🎉 ${campaignName} is officially LIVE! Ready to share.`}>
-      {/* --- HEADER --- */}
+    <EmailLayout previewText={`Your campaign "${campaignName}" is now live on FunRaisingIt!`}>
+      {/* Header */}
       <Section className="email-header px-5 sm:px-8 pt-8 sm:pt-10 pb-6 text-center">
         <div className="bg-white inline-block p-3 rounded-xl shadow-md border border-slate-100 mb-5">
           <Img
@@ -45,95 +44,74 @@ export const CampaignLiveEmail = ({
           />
         </div>
 
-        <Heading className="text-2xl font-bold text-[#03AFA8] m-0 tracking-tight uppercase">
-          🎉 YOUR CAMPAIGN IS LIVE!
+        <Heading className="text-2xl font-bold text-[#03AFA8] m-0 tracking-tight">
+          Your Campaign is Live!
         </Heading>
       </Section>
 
-      {/* --- MAIN CONTENT --- */}
+      {/* Main Content */}
       <Section className="email-content px-5 sm:px-8 pb-8">
         <Text className="text-slate-800 text-base font-semibold mb-4 m-0">Hi {organizerName},</Text>
 
         <Text className="text-slate-600 text-base leading-relaxed m-0 mb-6">
-          Your FunRaisingIt campaign <strong>"{campaignName}"</strong> has been created and is
-          officially ready to share!
+          Great news! Your FunRaisingIt campaign <strong>"{campaignName}"</strong> has been published
+          and is officially ready to share with your community.
         </Text>
 
-        {/* --- CAMPAIGN LINK CTA --- */}
-        <Section className="email-card bg-[#f6f9fc] rounded-xl border-2 border-[#03AFA8]/30 my-6 p-4 sm:p-6 text-center">
+        {/* Campaign Link Box */}
+        <Section className="email-card bg-[#f6f9fc] rounded-xl border border-slate-200 my-6 p-4 sm:p-6 text-center">
           <Text className="text-xs uppercase tracking-widest text-[#03AFA8] font-bold mb-3 m-0">
-            🔗 Your Campaign Link
+            Your Campaign Link
           </Text>
           <Link
             href={campaignLink}
-            className="text-base sm:text-lg font-semibold text-slate-800 break-all underline decoration-[#03AFA8] decoration-2 underline-offset-4 m-0 block mb-5"
+            className="text-base sm:text-lg font-semibold text-slate-800 break-all underline decoration-[#03AFA8] m-0 block mb-5"
             style={{ wordBreak: 'break-all' }}
           >
             {campaignLink}
           </Link>
 
-          <Section style={{ textAlign: 'center', margin: '24px 0 8px 0' }}>
+          <Section style={{ textAlign: 'center', margin: '20px 0 6px 0' }}>
             <Button href={campaignLink} style={button} className="email-btn">
               View Your Campaign
             </Button>
           </Section>
         </Section>
 
-        <Text className="text-slate-600 text-base leading-relaxed m-0 mb-6 sm:mb-8 text-center">
-          The more people who see your campaign, the more opportunities you have to reach your goal.
+        <Text className="text-slate-600 text-base leading-relaxed m-0 mb-6">
+          Sharing your campaign link directly with family, friends, coworkers, and community members
+          is the best way to build early momentum toward your goal.
         </Text>
 
-        {/* --- START STRONG HIGHLIGHT BOX --- */}
-        <Section className="email-card bg-[#FE7B01]/10 border border-[#FE7B01]/30 rounded-lg p-4 sm:p-5 mb-6 sm:mb-8">
-          <Text className="text-[#FE7B01] font-bold text-base m-0 mb-2">🚀 START STRONG:</Text>
-          <Text className="text-slate-700 text-sm m-0 leading-relaxed">
-            Share your campaign with at least{' '}
-            <strong>20 family members, friends, coworkers, and supporters TODAY</strong> and ask
-            each person to support AND share your link with others.
-          </Text>
-        </Section>
-
-        {/* --- CHECKLIST SECTION --- */}
-        <Section className="email-card mb-6 sm:mb-8 bg-slate-50 p-4 sm:p-6 rounded-lg border border-slate-100">
-          <Text className="text-slate-800 text-base font-semibold m-0 mb-4">
-            📱 Don't forget to post your link on:
+        {/* Sharing Tips Box */}
+        <Section className="email-card mb-6 bg-slate-50 p-4 sm:p-6 rounded-lg border border-slate-100">
+          <Text className="text-slate-800 text-base font-semibold m-0 mb-3">
+            Recommended places to share your link:
           </Text>
           <Text className="text-slate-600 text-sm leading-relaxed m-0 ml-2">
-            <span className="text-[#03AFA8] mr-2">•</span>Facebook
+            • Direct messages to friends and family
             <br />
-            <span className="text-[#03AFA8] mr-2">•</span>Instagram
+            • Facebook, Instagram, and TikTok
             <br />
-            <span className="text-[#03AFA8] mr-2">•</span>TikTok
+            • Team or community group chats
             <br />
-            <span className="text-[#03AFA8] mr-2">•</span>Group chats
-            <br />
-            <span className="text-[#03AFA8] mr-2">•</span>Text messages
-            <br />
-            <span className="text-[#03AFA8] mr-2">•</span>Community & organization pages
+            • Organization newsletters and pages
           </Text>
         </Section>
 
-        {/* --- TIP SECTION --- */}
-        <Text className="text-slate-600 text-sm leading-relaxed m-0 mb-6 sm:mb-8 p-4 bg-slate-50 border-l-4 border-[#03AFA8] italic">
-          <strong className="text-slate-800 not-italic block mb-1">
-            Remember: Don't just post it — SEND IT!
-          </strong>
-          Personal messages usually get more attention than simply posting your link.
+        <Text className="text-slate-600 text-sm leading-relaxed m-0">
+          Best regards,
+          <br />
+          <span className="font-semibold text-slate-800">The FunRaisingIt Team</span>
         </Text>
-
-        {/* --- SIGN OFF --- */}
-        <Text className="text-slate-800 text-base font-semibold m-0 mb-2">
-          💰 Now let's have FUN-RAISING money for you.
-        </Text>
-        <Text className="text-slate-600 text-sm m-0">— The FunRaisingIt Team</Text>
       </Section>
 
       <Hr className="border-slate-100 m-0" />
 
-      {/* --- FOOTER --- */}
+      {/* Footer */}
       <Section className="email-content px-5 sm:px-8 py-6 bg-slate-50 text-center">
-        <Text className="text-slate-500 text-sm m-0 mb-4">
-          Need help?{' '}
+        <Text className="text-slate-500 text-sm m-0 mb-3">
+          Questions?{' '}
           <Link
             href="mailto:funraisingit@gmail.com"
             className="text-[#03AFA8] font-semibold underline"

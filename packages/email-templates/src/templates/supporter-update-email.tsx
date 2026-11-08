@@ -1,8 +1,10 @@
 import {
   Heading,
+  Hr,
   Section,
   Text,
   Img,
+  Link,
 } from '@react-email/components'
 import * as React from 'react'
 import { EmailLayout } from '../layouts/email-layout'
@@ -23,56 +25,64 @@ export const SupporterUpdateEmail = ({
   campaignTitle = 'Campaign Update',
   message = '<p>Thank you for your support!</p>',
   logoUrl = 'https://funraising-it.s3.us-east-1.amazonaws.com/non_delatable_files/funraisingit-logo.png',
+  companyName = 'FunRaisingIt',
+  supportEmail = 'support@funraisingit.com',
 }: SupporterUpdateEmailProps): React.ReactElement => {
   return (
-    <EmailLayout previewText={`An update regarding ${campaignTitle}`}>
-      {/* --- BRANDED HERO BANNER --- */}
-      <Section className="email-header bg-gradient-to-tr from-[#03AFA8] to-[#029690] p-6 sm:p-10 text-center border-b-[5px] border-[#FE7B01]">
-        <div className="bg-white inline-block p-3 rounded-xl shadow-lg mb-5 border border-white/20">
+    <EmailLayout previewText={`Campaign update: ${campaignTitle}`}>
+      {/* Header */}
+      <Section className="email-header px-5 sm:px-8 pt-8 sm:pt-10 pb-6 text-center">
+        <div className="bg-white inline-block p-3 rounded-xl shadow-md border border-slate-100 mb-5">
           <Img
             src={logoUrl}
             width="180"
             height="60"
-            alt="Campaign Logo"
+            alt={companyName}
             className="mx-auto object-contain rounded-md"
             style={{ maxWidth: '100%', height: 'auto' }}
           />
         </div>
 
-        <Text className="text-black text-base sm:text-lg font-semibold m-0 tracking-wide">
-          Making a Difference <span className="text-[#FE7B01]">Together</span> 🌟
-        </Text>
-      </Section>
-
-      {/* --- MAIN CONTENT --- */}
-      <Section className="email-content px-5 sm:px-10 pt-6 sm:pt-8 pb-6">
-        <Heading className="text-2xl font-bold text-[#03AFA8] m-0 mb-5 sm:mb-6 tracking-tight">
+        <Heading className="text-2xl font-bold text-[#03AFA8] m-0 tracking-tight">
           {campaignTitle}
         </Heading>
+      </Section>
 
-        <Section>
-          <Text className="text-base text-slate-800 mb-4 sm:mb-5 font-semibold m-0">
-            Hi {supporterName} 👋,
-          </Text>
+      {/* Main Content */}
+      <Section className="email-content px-5 sm:px-8 pb-8">
+        <Text className="text-base text-slate-800 mb-4 font-semibold m-0">
+          Hi {supporterName},
+        </Text>
 
+        <Section className="email-card bg-[#f8fafc] rounded-xl border border-slate-200 p-4 sm:p-5 my-4">
           <div
-            className="text-slate-600 leading-relaxed text-base mt-4"
+            className="text-slate-700 leading-relaxed text-base"
             style={{ wordBreak: 'break-word' }}
             dangerouslySetInnerHTML={{
               __html: message,
             }}
           />
         </Section>
+
+        <Text className="text-slate-600 text-sm leading-relaxed m-0 mt-6">
+          Thank you again for your generous support!
+          <br />
+          <span className="font-semibold text-slate-800">The {companyName} Team</span>
+        </Text>
       </Section>
 
-      {/* --- MODERN FOOTER --- */}
-      <Section className="email-content bg-slate-50 px-5 sm:px-10 py-6 sm:py-8 border-t border-slate-100 text-center">
-        <Text className="text-sm text-slate-600 font-medium m-0 mb-2">
-          Thank you for being the heart of our campaign. ❤️
-        </Text>
+      <Hr className="border-slate-100 m-0" />
 
-        <Text className="text-xs text-slate-400 leading-5 m-0 max-w-sm mx-auto mt-3">
-          You are receiving this email because you previously made a contribution or placed an order with us.
+      {/* Footer */}
+      <Section className="email-content bg-slate-50 px-5 sm:px-8 py-6 text-center">
+        <Text className="text-slate-500 text-sm m-0 mb-3">
+          Questions?{' '}
+          <Link href={`mailto:${supportEmail}`} className="text-[#03AFA8] font-semibold underline">
+            Contact Support
+          </Link>
+        </Text>
+        <Text className="text-slate-400 text-xs m-0">
+          © {new Date().getFullYear()} {companyName}. All rights reserved.
         </Text>
       </Section>
     </EmailLayout>

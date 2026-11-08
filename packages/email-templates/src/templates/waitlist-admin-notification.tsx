@@ -35,16 +35,14 @@ export const WaitlistAdminNotificationEmail = ({
   adminDashboardUrl = 'https://funraisingit.com',
 }: WaitlistAdminNotificationEmailProps): React.ReactElement => {
   const isUpgrade = actionType === 'VIP_UPGRADE' || isVip
-  const previewText = isUpgrade
-    ? `🌟 VIP Priority Upgrade: ${userEmail} (Member ${memberNumber})`
-    : `📢 New Waitlist Signup: ${userEmail} (Member ${memberNumber})`
+  const previewText = `Waitlist registration update on ${companyName}: Member ${memberNumber}`
 
   return (
     <EmailLayout previewText={previewText}>
       {/* Header */}
-      <Section className="email-header bg-gradient-to-tr from-[#03AFA8] to-[#029690] p-6 sm:p-8 text-center border-b-[5px] border-[#FE7B01]">
+      <Section className="email-header px-5 sm:px-8 pt-8 sm:pt-10 pb-6 text-center">
         {companyLogo && (
-          <div className="bg-white inline-block p-3 rounded-xl shadow-lg mb-4 border border-white/20">
+          <div className="bg-white inline-block p-3 rounded-xl shadow-md border border-slate-100 mb-5">
             <Img
               src={companyLogo}
               width="180"
@@ -56,29 +54,23 @@ export const WaitlistAdminNotificationEmail = ({
           </div>
         )}
 
-        <Text className="text-black text-base font-semibold m-0 tracking-wide">
-          Admin Notification • Waitlist Activity
-        </Text>
+        <Heading className="text-2xl font-bold text-[#03AFA8] m-0 tracking-tight">
+          {isUpgrade ? 'Waitlist Priority Registration' : 'New Waitlist Registration'}
+        </Heading>
       </Section>
 
       {/* Main Content */}
-      <Section className="email-content px-5 sm:px-8 pt-6 sm:pt-8 pb-6">
-        <div className="inline-block px-3 py-1 bg-[#FE7B01]/10 text-[#FE7B01] text-xs font-mono font-bold rounded-full mb-3">
-          {isUpgrade ? '⭐ VIP PRIORITY UPGRADE' : '📢 NEW WAITING LIST ENTRY'}
-        </div>
+      <Section className="email-content px-5 sm:px-8 pb-8">
+        <Text className="text-slate-800 text-base font-semibold m-0 mb-3">
+          Hi Team,
+        </Text>
 
-        <Heading className="text-xl font-bold text-slate-800 m-0 mb-2 tracking-tight">
-          {isUpgrade
-            ? 'A user claimed VIP Early Access!'
-            : 'A new user joined the waiting list!'}
-        </Heading>
-
-        <Text className="text-slate-600 text-sm leading-relaxed m-0 mb-6">
-          Here are the details of the submission:
+        <Text className="text-slate-600 text-base leading-relaxed m-0 mb-6">
+          A user has registered on the {companyName} early access waitlist. Here are the registration details:
         </Text>
 
         {/* Details Card */}
-        <Section className="email-card bg-[#f6f9fc] rounded-xl border border-slate-200/80 p-4 sm:p-5 my-4">
+        <Section className="email-card bg-[#f8fafc] rounded-xl border border-slate-200 p-4 sm:p-5 my-4">
           <div className="mb-3">
             <Text className="text-xs uppercase text-slate-400 font-bold m-0">Email Address</Text>
             <Text className="text-base text-slate-900 font-semibold m-0" style={{ wordBreak: 'break-all' }}>
@@ -92,9 +84,9 @@ export const WaitlistAdminNotificationEmail = ({
           </div>
 
           <div className="mb-3">
-            <Text className="text-xs uppercase text-slate-400 font-bold m-0">VIP Status</Text>
+            <Text className="text-xs uppercase text-slate-400 font-bold m-0">Access Tier</Text>
             <Text className="text-sm font-semibold m-0 text-slate-800">
-              {isVip ? '✅ VIP Member (Priority Early Access)' : 'Standard Waitlist'}
+              {isVip ? 'Priority Early Access' : 'Standard Early Access'}
             </Text>
           </div>
 
@@ -106,17 +98,16 @@ export const WaitlistAdminNotificationEmail = ({
           )}
 
           <div className="mb-3">
-            <Text className="text-xs uppercase text-slate-400 font-bold m-0">System Status</Text>
+            <Text className="text-xs uppercase text-slate-400 font-bold m-0">Status</Text>
             <Text className="text-xs font-mono text-slate-600 m-0">{status}</Text>
           </div>
 
           <div>
-            <Text className="text-xs uppercase text-slate-400 font-bold m-0">Timestamp</Text>
+            <Text className="text-xs uppercase text-slate-400 font-bold m-0">Registered At</Text>
             <Text className="text-xs text-slate-500 m-0">{registeredAt}</Text>
           </div>
         </Section>
 
-        {/* Admin Link Button */}
         {adminDashboardUrl && (
           <Button
             href={adminDashboardUrl}
@@ -137,17 +128,22 @@ export const WaitlistAdminNotificationEmail = ({
               marginBottom: '20px',
             }}
           >
-            Open Admin Dashboard
+            Open Dashboard
           </Button>
         )}
+
+        <Text className="text-slate-600 text-sm leading-relaxed m-0">
+          Best regards,
+          <br />
+          <span className="font-semibold text-slate-800">The {companyName} Team</span>
+        </Text>
       </Section>
 
       <Hr className="border-slate-100 m-0" />
 
-      {/* Footer */}
       <Section className="email-content px-5 sm:px-8 py-5 bg-slate-50 text-center">
         <Text className="text-slate-400 text-xs m-0">
-          This is an automated administrative notification from {companyName}.
+          © {new Date().getFullYear()} {companyName}. All rights reserved.
         </Text>
       </Section>
     </EmailLayout>

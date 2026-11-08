@@ -36,10 +36,10 @@ export const SupportReplyEmail = ({
   companyAddress,
 }: SupportReplyEmailProps): React.ReactElement => {
   return (
-    <EmailLayout previewText={`Support Ticket #${ticketNo}: ${subject}`}>
-      {/* Header with Logo */}
-      <Section className="email-header bg-gradient-to-tr from-[#03AFA8] to-[#029690] p-6 sm:p-8 text-center border-b-[5px] border-[#FE7B01]">
-        <div className="bg-white inline-block p-3 rounded-xl shadow-lg mb-4 border border-white/20">
+    <EmailLayout previewText={`Update on your support request (${ticketNo}): ${subject}`}>
+      {/* Header */}
+      <Section className="email-header px-5 sm:px-8 pt-8 sm:pt-10 pb-6 text-center">
+        <div className="bg-white inline-block p-3 rounded-xl shadow-md border border-slate-100 mb-5">
           <Img
             src={logoUrl}
             width="180"
@@ -50,33 +50,25 @@ export const SupportReplyEmail = ({
           />
         </div>
 
-        <Text className="text-white text-base font-semibold m-0 tracking-wide">
-          Customer Support Team
-        </Text>
+        <Heading className="text-2xl font-bold text-[#03AFA8] m-0 tracking-tight">
+          Support Request Update
+        </Heading>
       </Section>
 
-      {/* Ticket Details & Main Body */}
-      <Section className="email-content px-5 sm:px-8 pt-6 sm:pt-8 pb-6">
-        <div className="inline-block px-3 py-1 bg-[#03AFA8]/10 text-[#03AFA8] text-xs font-mono font-bold rounded-full mb-3">
-          Ticket #{ticketNo}
-        </div>
-
-        <Heading className="text-xl font-bold text-slate-800 m-0 mb-4 tracking-tight">
-          {subject}
-        </Heading>
-
+      {/* Main Content */}
+      <Section className="email-content px-5 sm:px-8 pb-8">
         <Text className="text-base text-slate-800 font-semibold m-0 mb-4">
           Hi {userName},
         </Text>
 
         <Text className="text-slate-600 text-base leading-relaxed m-0 mb-6">
-          Our support team has reviewed your request and provided an update below:
+          Our support team has reviewed your inquiry regarding <strong>"{subject}"</strong> (Reference: {ticketNo}) and shared the following response:
         </Text>
 
         {/* Support Team Reply Box */}
         <Section className="email-card bg-[#f6f9fc] rounded-xl border-l-4 border-[#03AFA8] p-4 sm:p-5 my-4">
           <Text className="text-xs uppercase tracking-wider text-[#03AFA8] font-bold m-0 mb-2">
-            Support Team Response:
+            Response from {companyName} Support:
           </Text>
           <div
             className="text-slate-700 text-base leading-relaxed"
@@ -99,9 +91,8 @@ export const SupportReplyEmail = ({
           </Section>
         )}
 
-        {/* Optional Action Button */}
         {actionUrl && (
-          <Section className="mt-6 sm:mt-8 text-center">
+          <Section className="mt-6 text-center">
             <Button
               href={actionUrl}
               style={{
@@ -117,18 +108,24 @@ export const SupportReplyEmail = ({
                 borderRadius: '8px',
                 boxSizing: 'border-box',
               }}
-              className="email-btn bg-[#03AFA8] w-full text-white text-base font-semibold py-3 rounded-lg text-center shadow-sm block"
+              className="email-btn"
             >
-              View Ticket Status
+              Visit {companyName}
             </Button>
           </Section>
         )}
 
-        <Text className="text-slate-500 text-sm mt-6 sm:mt-8 m-0">
-          If you have further questions or if this issue is not resolved, simply reply to this email or contact us at{' '}
+        <Text className="text-slate-600 text-sm leading-relaxed mt-6 m-0">
+          If you have any additional questions, simply reply to this email or contact us at{' '}
           <Link href={`mailto:${supportEmail}`} className="text-[#03AFA8] font-semibold underline">
             {supportEmail}
           </Link>.
+        </Text>
+
+        <Text className="text-slate-600 text-sm leading-relaxed m-0 mt-4">
+          Best regards,
+          <br />
+          <span className="font-semibold text-slate-800">The {companyName} Team</span>
         </Text>
       </Section>
 
